@@ -1,124 +1,107 @@
-import openai
+from models.chatgpt import ChatGPTModel
+from torch import nn
+
 import torch
 
+# Selecting the generation model.
+def set_model(model_name):
+    if model_name == "ChatGPT":
+        model = ChatGPTModel()
+
+    return model
 
 # The whole NPC class.
 class NPC():
-  def __init__(self, **init_params):
-    # Model info.
-    self.model_name = init_params['model_name']
+    def __init__(self, **init_params):
+        # Basic specs.
+        self.model = set_model(init_params['model_name'])
+        self.hp = init_params['hp']
 
-    # Data processing info.,
-    self.num_turns = init_params['num_turns']
-    self.additional_contexts = init_params['additional_contexts']
-    self.simple_concat = init_params['simple_concat']
-    self.encoder_name = init_params['encoder_name']
-    if not self.simple_concat:
-      assert self.encoder_name is not None, "There should be the encoder name if it is a selective concatenation mode."
+        # Additional context.
+        self.name = init_params['name']
+        self.setting = init_params['setting']
+        self.persona = init_params['persona']
+        self.goal = init_params['goal']
 
-    # Actual game envrionment info.
-    self.npc_name = init_params['npc_name']
-    self.setting = init_params['setting']
-    self.npc_persona = init_params['npc_persona']
-    self.npc_goal = init_params['npc_goal']
+        # Data processing info.
+        self.num_turns = init_params['num_turns']
+        self.simple_concat = init_params['simple_concat']
 
-    # History is stored as long as the instance is alive.
-    self.history = []
+        # History is stored as long as the instance is alive.
+        self.history = []
 
-    # HP for battle.
-    self.npc_hp = init_params['npc_hp']
+    # Refreshing history. (Just in case.)
+    def refresh_history(self):
+        self.history = []
 
-  # Refreshing history. (Just in case.)
-  def refresh_history(self):
-    self.history = []
+    # Updating history after generation.
+    def update_history(self, query, response, player_name, embedding_model):
+        if self.simple_concat:
+            self.history.append((player_name, query, torch.Tensor(0.0)))
+            self.history.append((self.name, response, torch.Tensor(0.0)))
+        else:
+            query_emb = embedding_model.get_sentence_embedding(query)  # (d_h)
+            self.history.append((player_name, query, query_emb))
 
-  # Updating history after generation.
-  def update_history(self, query, response, player_name, tokenizer=None, encoder=None):
-    if self.simple_concat:
-      self.history.append((player_name, query))
-      self.history.append((self.npc_name, response))
-    else:
-      token_ids = torch.LongTensor(tokenizer(query)['input_ids']).unsqueeze(0).to(encoder.device)
-      query_embs = torch.mean(encoder(token_ids).last_hidden_state, dim=1).detach()  # (1, d_h)
-      self.history.append((player_name, query, query_embs[0]))
+            response_emb = embedding_model.get_sentence_embedding(response)  # (d_h)
+            self.history.append((self.npc_name, response, response_emb))
 
-      token_ids = torch.LongTensor(tokenizer(response)['input_ids']).unsqueeze(0).to(encoder.device)
-      response_embs = torch.mean(encoder(token_ids).last_hidden_state, dim=1).detach()  # (1, d_h)
-      self.history.append((self.npc_name, response, response_embs[0]))
+    # Inference function for simple concatenation.
+    def infer_simple_concat(self, query, player_name, player_persona, player_goal, **decoding_params):
+        prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
 
-  # Default completion method.
-  def generate_response(self, messages, **decoding_params):
-    completion = openai.ChatCompletion.create(
-      model=self.model_name,
-      messages=messages,
-      temperature=decoding_params['temp'] if 'temp' in decoding_params else 0.7,
-      max_tokens=decoding_params['max_tokens'] if 'max_tokens' in decoding_params else 128,
-      top_p=decoding_params['top_p'] if 'top_p' in decoding_params else 0.8,
-      frequency_penalty=decoding_params['frequency_penalty'] if 'frequency_penalty' in decoding_params else 2,
-      presence_penalty=decoding_params['presence_penalty'] if 'presence_penalty' in decoding_params else 0,
-    )
+        new_hist = (player_name, query, torch.Tensor(0.0))
+        updated_history = self.history + [new_hist]
+        if self.num_turns == 'all':
+            start = 0
+        else:
+            start = max(0, len(self.history)-self.num_turns)
 
-    return completion['choices'][0]['message']['content']
+        messages = [{'role': 'system', 'content': prompt}]
+        history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history[start:]]
+        messages += history_messages
 
-  # Inference function for simple concatenation.
-  # history: a list of tuple (character, utterance).
-  def infer_simple_concat(self, query, player_name, player_persona, player_goal, **decoding_params):
-    prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
+        response = self.model.generate_response(messages, **decoding_params)
+        return response
 
-    new_hist = (player_name, query)
-    updated_history = self.history + [new_hist]
-    if self.num_turns == 'all':
-      start = 0
-    else:
-      start = max(0, len(self.history)-self.num_turns)
+    # Inference function for selective concatenation.
+    def infer_selective_concat(self, query, player_name, player_persona, player_goal, embedding_model, **decoding_params):
+        prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
 
-    messages = [{'role': 'system', 'content': prompt}]
-    history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history[start:]]
-    messages += history_messages
+        query_emb = embedding_model.get_sentence_embedding(query)  # (d_h)
+        new_history = (player_name, query, query_emb)
 
-    response = self.generate_response(messages, **decoding_params)
-    return response
+        if self.num_turns == 'all' or len(self.history) <= self.num_turns-1:
+            updated_history = self.history + [new_history]
+        else:
+            cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+            cands = [hist[2] for hist in self.history]
+            cands_embs = torch.stack(cands, dim=0)  # (B, d_h)
+            sims = cos(query_emb.unsqueeze(0).repeat(cands_embs.shape[0], 1), cands_embs)  # (B)
+            selected_idxs = sorted(torch.topk(sims, self.num_turns-1).indices.tolist())  # (T-1)
+            
+            updated_history = [self.history[idx] for idx in selected_idxs] + [new_history]
 
-  # Inference function for selective concatenation.
-  # history: a list of tuple (character, utterance, embedding).
-  def infer_selective_concat(self, query, player_name, player_persona, player_goal, tokenizer, encoder, **decoding_params):
-    prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
+        messages = [{'role': 'system', 'content': prompt}]
+        history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history]
+        messages += history_messages
 
-    token_ids = torch.LongTensor(tokenizer(query)['input_ids']).unsqueeze(0).to(encoder.device)
-    query_embs = torch.mean(encoder(token_ids).last_hidden_state, dim=1).detach()  # (1, d_h)
-    new_history = (player_name, query, query_embs[0])
+        response = self.model.generate_response(messages, **decoding_params)
+        return response
 
-    if self.num_turns == 'all' or len(self.history) <= self.num_turns-1:
-      updated_history = self.history + [new_history]
-    else:
-      cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-      cands = [hist[2] for hist in self.history]
-      cands_embs = torch.stack(cands, dim=0)  # (B, d_h)
-      sims = cos(query_embs.repeat(cands_embs.shape[0], 1), cands_embs)  # (B)
-      selected_idxs = sorted(torch.topk(sims, self.num_turns-1).indices.tolist())  # (T-1)
-      
-      updated_history = [self.history[idx] for idx in selected_idxs] + [new_history]
+    # Making a system prompt to be fed into the generation model.
+    def make_prompt(self, player_name, player_persona, player_goal, **decoding_params):
+        prompt = "You are an NPC for a fantasy text adventure game. " + \
+            f"Your name is '{self.name}' and the user's is '{player_name}'. " + \
+            f"Generate a response in 1-2 sentences for the given dialogue history and additional information.{decoding_params['part_sep']}"
 
-    messages = [{'role': 'system', 'content': prompt}]
-    history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history]
-    messages += history_messages
+        setting_prompt = f"Setting: {' '.join(self.setting)}{decoding_params['part_sep']}"
+        prompt += setting_prompt
 
-    response = self.generate_response(messages, **decoding_params)
-    return response
+        persona_prompt = f"Persona: {self.name} - {' '.join(self.persona)} {player_name} - {' '.join(player_persona)}{decoding_params['part_sep']}"
+        prompt += persona_prompt
 
-  # Making a system prompt to be fed into the ChatGPT.
-  def make_prompt(self, player_name, player_persona, player_goal, **decoding_params):
-    prompt = "You are an NPC for a fantasy text adventure game. " + \
-      f"Your name is '{self.npc_name}' and the user's is '{player_name}'. " + \
-      f"Generate a response in 1-2 sentences for the given dialogue history and additional information.{decoding_params['part_sep']}"
-    if 'setting' in self.additional_contexts:
-      setting_prompt = f"Setting: {' '.join(self.setting)}{decoding_params['part_sep']}"
-      prompt += setting_prompt
-    if 'persona' in self.additional_contexts:
-      persona_prompt = f"Persona: {self.npc_name} - {' '.join(self.npc_persona)} {player_name} - {' '.join(player_persona)}{decoding_params['part_sep']}"
-      prompt += persona_prompt
-    if 'goal' in self.additional_contexts:
-      goal_prompt = f"Goal: {self.npc_name} - {self.npc_goal} {player_name} - {player_goal}{decoding_params['part_sep']}"
-      prompt += goal_prompt
-    
-    return prompt[:-1]
+        goal_prompt = f"Goal: {self.name} - {self.goal} {player_name} - {player_goal}{decoding_params['part_sep']}"
+        prompt += goal_prompt
+        
+        return prompt[:-1]
