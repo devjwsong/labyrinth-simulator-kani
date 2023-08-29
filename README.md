@@ -1,2 +1,2 @@
-# chatgpt-text-adventure-game-python
-ChatGPT as  Non-Player Characters (NPCs) and game managers for a fantasy text adventure game.
+# generative-language-models-role-playing-game
+Building & Testing the large language models as the NPCs and game manager for a text adventure role playing game.
