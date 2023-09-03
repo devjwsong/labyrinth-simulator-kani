@@ -1,107 +1,150 @@
-from models.chatgpt import ChatGPTModel
+from kani import Kani
+from kani.models import ChatRole, ChatMessage, FunctionCall
+from kani.exceptions import FunctionCallException, NoSuchFunction, WrappedCallException
 from torch import nn
+from typing import AsyncIterable, Union
+from src.models.embedding import EmbeddingModel
 
 import torch
+import logging
 
-# Selecting the generation model.
-def set_model(model_name):
-    if model_name == "ChatGPT":
-        model = ChatGPTModel()
-
-    return model
+log = logging.getLogger('kani')
 
 # The whole NPC class.
-class NPC():
-    def __init__(self, **init_params):
-        # Basic specs.
-        self.model = set_model(init_params['model_name'])
-        self.hp = init_params['hp']
+class NPC(Kani):
+    def __init__(self, name: str, hp: int, num_turns: Union[str, int], concat_type:str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        # Additional context.
-        self.name = init_params['name']
-        self.setting = init_params['setting']
-        self.persona = init_params['persona']
-        self.goal = init_params['goal']
+        # Properties which are not part of kani system.
+        self.name = name
+        self.hp = hp
+        self.num_turns = num_turns
+        self.concat_type = concat_type
+        if self.num_turns is None:
+            self.num_turns = 'all'
+        if self.concat_type is None:
+            self.concat_type = 'simple'
 
-        # Data processing info.
-        self.num_turns = init_params['num_turns']
-        self.simple_concat = init_params['simple_concat']
-
-        # History is stored as long as the instance is alive.
-        self.history = []
-
-    # Refreshing history. (Just in case.)
-    def refresh_history(self):
-        self.history = []
-
-    # Updating history after generation.
-    def update_history(self, query, response, player_name, embedding_model):
-        if self.simple_concat:
-            self.history.append((player_name, query, torch.Tensor(0.0)))
-            self.history.append((self.name, response, torch.Tensor(0.0)))
-        else:
-            query_emb = embedding_model.get_sentence_embedding(query)  # (d_h)
-            self.history.append((player_name, query, query_emb))
-
-            response_emb = embedding_model.get_sentence_embedding(response)  # (d_h)
-            self.history.append((self.npc_name, response, response_emb))
-
-    # Inference function for simple concatenation.
-    def infer_simple_concat(self, query, player_name, player_persona, player_goal, **decoding_params):
-        prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
-
-        new_hist = (player_name, query, torch.Tensor(0.0))
-        updated_history = self.history + [new_hist]
-        if self.num_turns == 'all':
-            start = 0
-        else:
-            start = max(0, len(self.history)-self.num_turns)
-
-        messages = [{'role': 'system', 'content': prompt}]
-        history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history[start:]]
-        messages += history_messages
-
-        response = self.model.generate_response(messages, **decoding_params)
-        return response
-
-    # Inference function for selective concatenation.
-    def infer_selective_concat(self, query, player_name, player_persona, player_goal, embedding_model, **decoding_params):
-        prompt = self.make_prompt(player_name, player_persona, player_goal, **decoding_params)
-
-        query_emb = embedding_model.get_sentence_embedding(query)  # (d_h)
-        new_history = (player_name, query, query_emb)
-
-        if self.num_turns == 'all' or len(self.history) <= self.num_turns-1:
-            updated_history = self.history + [new_history]
-        else:
-            cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-            cands = [hist[2] for hist in self.history]
-            cands_embs = torch.stack(cands, dim=0)  # (B, d_h)
-            sims = cos(query_emb.unsqueeze(0).repeat(cands_embs.shape[0], 1), cands_embs)  # (B)
-            selected_idxs = sorted(torch.topk(sims, self.num_turns-1).indices.tolist())  # (T-1)
-            
-            updated_history = [self.history[idx] for idx in selected_idxs] + [new_history]
-
-        messages = [{'role': 'system', 'content': prompt}]
-        history_messages = [{'role': 'user', 'content': hist[1]} if hist[0] == player_name else {'role': 'assistant', 'content': hist[1]} for hist in updated_history]
-        messages += history_messages
-
-        response = self.model.generate_response(messages, **decoding_params)
-        return response
-
-    # Making a system prompt to be fed into the generation model.
-    def make_prompt(self, player_name, player_persona, player_goal, **decoding_params):
-        prompt = "You are an NPC for a fantasy text adventure game. " + \
-            f"Your name is '{self.name}' and the user's is '{player_name}'. " + \
-            f"Generate a response in 1-2 sentences for the given dialogue history and additional information.{decoding_params['part_sep']}"
-
-        setting_prompt = f"Setting: {' '.join(self.setting)}{decoding_params['part_sep']}"
-        prompt += setting_prompt
-
-        persona_prompt = f"Persona: {self.name} - {' '.join(self.persona)} {player_name} - {' '.join(player_persona)}{decoding_params['part_sep']}"
-        prompt += persona_prompt
-
-        goal_prompt = f"Goal: {self.name} - {self.goal} {player_name} - {player_goal}{decoding_params['part_sep']}"
-        prompt += goal_prompt
+        # Validating values.
+        assert self.hp > 0, "The HP of the NPC should be larger than 0."
+        assert self.num_turns == 'all' or (isinstance(self.num_turns, int) and self.num_turns > 0), "The number of turns should be 'all' or a positive integer."
+        assert self.concat_type in ['simple', 'retrieval', 'summarization'], "The concatenation type should be 'simple', 'retrieval' or 'summarization'."
         
-        return prompt[:-1]
+        if self.concat_type == 'retrieval':
+            self.sent_embs = torch.empty(0, kwargs['hidden_size'])
+
+    # Generating the chat prompt based on the concatenation type.
+    async def get_prompt(self):
+        if self.concat_type == 'simple':
+            return self.get_simple_prompt(self.chat_history)
+        elif self.concat_type == 'retrieval':
+            return self.get_retrieval_prompt()
+        elif self.concat_type == 'summarization':
+            return
+
+    # Making a prompt by the simple concatenation rule.
+    def get_simple_prompt(self, history: list[ChatMessage]):
+        num_tokens_left = self.max_context_size - self.always_len
+        if self.num_turns == 'all':
+            num_turns = len(self.chat_history)
+        else:
+            num_turns = self.num_turns
+
+        messages = []
+        for message in reversed(history[-num_turns:]):
+            num_tokens = self.message_token_len(message)
+            num_tokens_left -= num_tokens
+            if num_tokens_left > 0:
+                messages.insert(0, message)
+            else:
+                break
+        
+        return self.always_included_messages + messages
+
+    # Making a prompt by the retrieval concatenation rule.
+    def get_retrieval_prompt(self):
+        if self.num_turns == 'all' or self.num_turns >= len(self.chat_history):
+            return self.get_simple_prompt(self.chat_history)
+
+        query_emb = self.sent_embs[-1]  # (d_h)
+        cands_embs = self.sent_embs[:-1]  # (N-1, d_h)
+        
+        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        sims = cos(query_emb.unsqueeze(0).repeat(cands_embs.shape[0], 1), cands_embs)  # (N-1)
+        selected_idxs = sorted(torch.topk(sims, self.num_turns-1).indices.tolist())  # (T-1)
+        history = [self.chat_history[idx] for idx in selected_idxs] + [self.chat_history[-1]]
+        return self.get_simple_prompt(history)
+
+    # Making a prompt by the summarization rule.
+    def get_summarization_prompt(self):
+        pass
+
+    # Updating history before/after generation.
+    def update_history(self, message: ChatMessage, embedding_model: EmbeddingModel=None):
+        if self.concat_type == 'retrieval':
+            assert embedding_model is not None, "The embedding model has not been provided for calculating the sentence embedding."
+            new_emb = embedding_model.get_sentence_embedding(message.content)  # (d_h)
+            self.sent_embs = torch.cat((self.sent_embs, new_emb), 0)  # (N, d_h)
+        else:
+            self.chat_history.append(message)
+
+    # Overriding full_round for updating the chat history according to the concatenation policy.
+    async def full_round(self, query: str, player_name: str, embedding_model: EmbeddingModel=None, **kwargs) -> AsyncIterable[ChatMessage]:
+        retry = 0
+        is_model_turn = True
+        async with self.lock:
+            self.update_history(ChatMessage.user(query, name=player_name), embedding_model=embedding_model)
+
+            while is_model_turn:
+                # do the model prediction
+                completion = await self.get_model_completion(**kwargs)
+                message = completion.message
+                self.update_history(message, embedding_model=embedding_model)
+                yield message
+
+                # if function call, do it and attempt retry if it's wrong
+                if not message.function_call:
+                    return
+
+                try:
+                    is_model_turn = await self.do_function_call(message.function_call, embedding_model=embedding_model)
+                except FunctionCallException as e:
+                    should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
+                    # retry if we have retry attempts left
+                    retry += 1
+                    if not should_retry:
+                        # disable function calling on the next go
+                        kwargs = {**kwargs, "include_functions": False}
+                    continue
+                else:
+                    retry = 0
+
+    # Overriding do_function_call for updating the chat history according to the concatenation policy.
+    async def do_function_call(self, call: FunctionCall, embedding_model: EmbeddingModel=None) -> bool:
+        log.debug(f"Model requested call to {call.name} with data: {call.arguments!r}")
+        # get func
+        f = self.functions.get(call.name)
+        if not f:
+            raise NoSuchFunction(call.name)
+        # call it
+        try:
+            result = await f(**call.kwargs)
+            result_str = str(result)
+            log.debug(f"{f.name} responded with data: {result_str!r}")
+        except Exception as e:
+            raise WrappedCallException(f.auto_retry, e) from e
+        msg = ChatMessage.function(f.name, result_str)
+        # if we are auto truncating, check and see if we need to
+        if f.auto_truncate is not None:
+            message_len = self.message_token_len(msg)
+            if message_len > f.auto_truncate:
+                log.warning(
+                    f"The content returned by {f.name} is too long ({message_len} > {f.auto_truncate} tokens), auto"
+                    " truncating..."
+                )
+                msg = self._auto_truncate_message(msg, max_len=f.auto_truncate)
+                log.debug(f"Auto truncate returned {self.message_token_len(msg)} tokens.")
+        # save the result to the chat history
+        self.update_history(msg, embedding_model=embedding_model)
+        # yield whose turn it is
+        return f.after == ChatRole.ASSISTANT
