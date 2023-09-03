@@ -4,6 +4,7 @@ from kani.exceptions import FunctionCallException, NoSuchFunction, WrappedCallEx
 from torch import nn
 from typing import AsyncIterable, Union
 from src.models.embedding import EmbeddingModel
+from src.models.kani_models import generate_engine
 
 import torch
 import logging
@@ -12,7 +13,7 @@ log = logging.getLogger('kani')
 
 # The whole NPC class.
 class NPC(Kani):
-    def __init__(self, name: str, hp: int, num_turns: Union[str, int], concat_type:str, *args, **kwargs):
+    def __init__(self, name: str, hp: int, num_turns: Union[str, int], concat_type:str, sent_emb_size: int=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Properties which are not part of kani system.
@@ -31,7 +32,12 @@ class NPC(Kani):
         assert self.concat_type in ['simple', 'retrieval', 'summarization'], "The concatenation type should be 'simple', 'retrieval' or 'summarization'."
         
         if self.concat_type == 'retrieval':
-            self.sent_embs = torch.empty(0, kwargs['hidden_size'])
+            assert sent_emb_size is not None, "The size of hidden state vector for sentence embedding should be provided if the concatenation type is retrieval."
+            self.sent_embs = torch.empty(0, sent_emb_size)
+        elif self.concat_type == 'summarization':
+            # This is an additional engine for summarization.
+            # TODO: Supporting another engines & models.
+            self.summ_engine = generate_engine(engine_name='openai', model_index="gpt-3.5-turbo")
 
     # Generating the chat prompt based on the concatenation type.
     async def get_prompt(self):
@@ -40,7 +46,7 @@ class NPC(Kani):
         elif self.concat_type == 'retrieval':
             return self.get_retrieval_prompt()
         elif self.concat_type == 'summarization':
-            return
+            return await self.get_summarization_prompt()
 
     # Making a prompt by the simple concatenation rule.
     def get_simple_prompt(self, history: list[ChatMessage]):
@@ -76,8 +82,14 @@ class NPC(Kani):
         return self.get_simple_prompt(history)
 
     # Making a prompt by the summarization rule.
-    def get_summarization_prompt(self):
-        pass
+    async def get_summarization_prompt(self):
+        messages = self.get_simple_prompt(self.chat_history)
+        messages = messages[len(self.always_included_messages):-1]  # Excluding always_included_messages for summarization.
+        system_prompt = "You are an assistant to summarize given dialogue history within 10 sentences. " + \
+            "Note that this is a conversation between the player and the NPC in a fantasy text role-playing game."
+        summ_kani = Kani(self.summ_engine, chat_history=messages, system_prompt=system_prompt)
+        summ = await summ_kani.chat_round_str("Please summarize the conversation so far.")
+        return self.always_included_messages + [ChatMessage.assistant(summ, name="Summarizer"), self.chat_history[-1]]
 
     # Updating history before/after generation.
     def update_history(self, message: ChatMessage, embedding_model: EmbeddingModel=None):
