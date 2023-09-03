@@ -13,7 +13,7 @@ log = logging.getLogger('kani')
 
 # The whole NPC class.
 class NPC(Kani):
-    def __init__(self, name: str, hp: int, num_turns: Union[str, int], concat_type:str, sent_emb_size: int=None, *args, **kwargs):
+    def __init__(self, name: str, hp: int, num_turns: Union[str, int], concat_type:str, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Properties which are not part of kani system.
@@ -32,8 +32,7 @@ class NPC(Kani):
         assert self.concat_type in ['simple', 'retrieval', 'summarization'], "The concatenation type should be 'simple', 'retrieval' or 'summarization'."
         
         if self.concat_type == 'retrieval':
-            assert sent_emb_size is not None, "The size of hidden state vector for sentence embedding should be provided if the concatenation type is retrieval."
-            self.sent_embs = torch.empty(0, sent_emb_size)
+            self.sent_embs = []
         elif self.concat_type == 'summarization':
             # This is an additional engine for summarization.
             # TODO: Supporting another engines & models.
@@ -73,7 +72,7 @@ class NPC(Kani):
             return self.get_simple_prompt(self.chat_history)
 
         query_emb = self.sent_embs[-1]  # (d_h)
-        cands_embs = self.sent_embs[:-1]  # (N-1, d_h)
+        cands_embs = torch.stack(self.sent_embs[:-1])  # (N-1, d_h)
         
         cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         sims = cos(query_emb.unsqueeze(0).repeat(cands_embs.shape[0], 1), cands_embs)  # (N-1)
@@ -96,7 +95,7 @@ class NPC(Kani):
         if self.concat_type == 'retrieval':
             assert embedding_model is not None, "The embedding model has not been provided for calculating the sentence embedding."
             new_emb = embedding_model.get_sentence_embedding(message.content)  # (d_h)
-            self.sent_embs = torch.cat((self.sent_embs, new_emb), 0)  # (N, d_h)
+            self.sent_embs.append(new_emb)
         else:
             self.chat_history.append(message)
 
