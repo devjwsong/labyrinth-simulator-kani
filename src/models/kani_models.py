@@ -1,4 +1,6 @@
 from kani.engines.openai import OpenAIEngine
+from kani.engines.huggingface.llama2 import LlamaEngine
+from kani.models import ChatMessage
 
 import enum
 
@@ -9,6 +11,8 @@ def generate_engine(engine_name:str, model_index: str):
     if engine_name == 'openai':
         api_key = input("Enter the API key for OpenAI API: ")
         engine = OpenAIEngine(api_key, model=model_index)
+    elif engine_name == 'llama':
+        engine = LlamaEngine(model_id=model_index, use_auth_token=True)
         
     return engine
 
