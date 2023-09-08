@@ -29,7 +29,7 @@ class GameManager(Kani):
         system_prompt = "You are the game manager in a fantasy text adventure game. " + \
             "You should determine whether the last response from the NPC follows the defined rule. " + \
             "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer 'yes' or 'no'. "
+            "You must answer only either 'yes' or 'no'. "
         system_prompt += "Rules: "
         for r, rule in enumerate(self.rules):
             system_prompt += f"{r+1} - {rule} "
@@ -46,7 +46,7 @@ class GameManager(Kani):
         system_prompt = "You are the game manager in a fantasy text adventure game. " + \
             "You should determine whether the current game state satisfies the success condition of the player(user). " + \
             "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer 'yes' or 'no'. "
+            "You must answer only either 'yes' or 'no'. "
         system_prompt += f"Success condition: {self.success_condition}"
 
         kani = Kani(self.engine, chat_history=chat_history, system_prompt=system_prompt)
@@ -60,7 +60,7 @@ class GameManager(Kani):
         system_prompt = "You are the game manager in a fantasy text adventure game. " + \
             "You should determine whether the current game state satisfies the failure condition of the player(user). " + \
             "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer 'yes' or 'no'. "
+            "You must answer only either 'yes' or 'no'. "
         system_prompt += f"Failure condition: {self.failure_condition}"
 
         kani = Kani(self.engine, chat_history=chat_history, system_prompt=system_prompt)

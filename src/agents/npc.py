@@ -1,7 +1,8 @@
 from kani import Kani
 from kani.models import ChatMessage
+from kani.exceptions import FunctionCallException
 from torch import nn
-from typing import Union
+from typing import Union, AsyncIterable
 from src.models.embedding import EmbeddingModel
 from src.models.kani_models import generate_engine
 
@@ -95,3 +96,35 @@ class NPC(Kani):
             assert self.embedding_model is not None, "The embedding model has not been provided for calculating the sentence embedding."
             new_emb = self.embedding_model.get_sentence_embedding(message.content)  # (d_h)
             self.sent_embs.append(new_emb)
+
+    # Overdding full_round for updating the chat history with the embedding and agent name.
+    async def full_round(self, query: str, player_name: str, **kwargs) -> AsyncIterable[ChatMessage]:
+        retry = 0
+        is_model_turn = True
+        async with self.lock:
+            await self.add_to_history(ChatMessage.user(query.strip(), name=player_name))
+
+            while is_model_turn:
+                # do the model prediction
+                completion = await self.get_model_completion(**kwargs)
+                message = completion.message
+                message = ChatMessage.assistant(message.content, name=self.name)
+                await self.add_to_history(message)
+                yield message
+
+                # if function call, do it and attempt retry if it's wrong
+                if not message.function_call:
+                    return
+
+                try:
+                    is_model_turn = await self.do_function_call(message.function_call)
+                except FunctionCallException as e:
+                    should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
+                    # retry if we have retry attempts left
+                    retry += 1
+                    if not should_retry:
+                        # disable function calling on the next go
+                        kwargs = {**kwargs, "include_functions": False}
+                    continue
+                else:
+                    retry = 0
