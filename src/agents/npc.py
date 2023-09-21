@@ -70,6 +70,7 @@ class NPC(Kani):
         if self.num_turns == 'all' or self.num_turns >= len(self.chat_history):
             return self.get_simple_prompt(self.chat_history)
 
+        assert len(self.sent_embs) == len(self.chat_history), "The number of pre-calculated embeddings must be identical to the length of chat history."
         query_emb = self.sent_embs[-1]  # (d_h)
         cands_embs = torch.stack(self.sent_embs[:-1])  # (N-1, d_h)
         
