@@ -152,3 +152,8 @@ def create_character():
 
         print("The player character has been created successfully.")
         return player
+
+
+# For debugging.
+if __name__=='__main__':
+    create_character()

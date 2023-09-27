@@ -1,6 +1,6 @@
-from kani import Kani, AIParam
+from kani import Kani
 from kani.models import ChatMessage
-from typing import Annotated, Any, List, Dict
+from typing import Any, List, Dict
 
 import json
 import logging
@@ -15,45 +15,53 @@ class GameManager(Kani):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
-        self.setting = []
+        self.scene_summary = []
         self.npcs = {}
         self.generation_rules = []
         self.success_condition = ""
         self.failure_condition = ""
+        self.game_flow_rules = []
+        self.environment = []
         self.random_tables = {}
+        self.consequence = ""
 
     # Initialization of the scene.
-    async def init_scene(self, init_query: str, scene: Dict[str, Any]):
+    async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
         query = f"{init_query}\n{scene}"
-        res = await self.chat_round_str(query)
+        res = await self.chat_round_str(query, **kwargs)
 
         # Finding each key and mapping into the corresponding attribute.
         try:
             res = json.loads(res)
 
-            self.setting = res['setting']
+            self.scene_summary = res['scene_summary']
             self.npcs = res['npcs']
             self.generation_rules = res['generation_rules']
             self.success_condition = res['success_condition']
             self.failure_condition = res['failure_condition']
-            self.random_tables = res['random_tables']
+            self.game_flow_rules = res['game_flow_rules']
+            self.environment = res['environment']
+            self.random_tables = scene['random_tables']
+            self.consequences = scene['consequences']
 
             self.check_types()
 
         except json.decoder.JSONDecodeError as e:
             log.debug(res)
             log.error(f"{e}: The output format cannot be converted into dict.")
+            # TODO: Fixing from the model if there is a JSON parsing error.
         except KeyError as e:
             log.debug(res)
             log.error(f"{e}: Missing key.")
 
     # Checking the types of attributes for initialization.
     def check_types(self):
-        # The scene description.
-        assert isinstance(self.setting, list), "The scene description is not the list type."
+        # The scene summary.
+        assert isinstance(self.scene_summary, list), "The scene summary is not the list type."
+        assert len(self.scene_summary) > 0, "The scene summary must not be empty."
 
         # The NPCs.
-        assert isinstance(self.npcs, dict), "The npc dictionary is not the dict type."
+        assert isinstance(self.npcs, dict), "The npcs attribute is not the dict type."
         if len(self.npcs) > 0:
             for name, info in self.npcs.items():
                 assert isinstance(name, str), "The name of an NPC is not the string type."
@@ -66,16 +74,16 @@ class GameManager(Kani):
 
         # The success condition.
         assert isinstance(self.success_condition, str), "The success condition is not the string type."
+        assert len(self.success_condition) > 0, "The success condition must not be empty."
 
         # The failure condition.
         assert isinstance(self.failure_condition, str), "The failure condition is not the string type."
 
-        # The random tables.
-        assert isinstance(self.random_tables, dict), "The random table dictionary is not the dict type."
-        if len(self.random_tables) > 0:
-            for name, table in self.random_tables.items():
-                assert isinstance(name, str), "The name of a table is not the string type."
-                assert isinstance(table, list), "The table is not the list type."
+        # The game flow rules.
+        assert isinstance(self.game_flow_rules, list), "The list of game flow rules is not the list type."
+
+        # The environment.
+        assert isinstance(self.environment, list), "The list of environment specifications is not the list type."
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):
