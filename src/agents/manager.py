@@ -23,7 +23,7 @@ class GameManager(Kani):
         self.game_flow_rules = []
         self.environment = []
         self.random_tables = {}
-        self.consequence = ""
+        self.consequences = ""
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -33,6 +33,7 @@ class GameManager(Kani):
         # Finding each key and mapping into the corresponding attribute.
         try:
             res = json.loads(res)
+            print(res)
 
             self.scene_summary = res['scene_summary']
             self.npcs = res['npcs']
@@ -66,8 +67,11 @@ class GameManager(Kani):
             for name, info in self.npcs.items():
                 assert isinstance(name, str), "The name of an NPC is not the string type."
                 assert isinstance(info, dict), "The NPC information is not the dict type."
+                assert isinstance(info['kin'], str), "The kin of an NPC is not the string type."
                 assert isinstance(info['persona'], list), "The persona of an NPC is not the list type."
                 assert isinstance(info['goal'], str), "The goal of an NPC is not the string type."
+                assert isinstance(info['traits'], list), "The traits of an NPC is not the list type."
+                assert isinstance(info['flaws'], list), "The flaws of an NPC is not the list type."
 
         # The generation rules.
         assert isinstance(self.generation_rules, list), "The list of generation rules is not the list type."
