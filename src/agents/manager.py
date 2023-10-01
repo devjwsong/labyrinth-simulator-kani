@@ -33,7 +33,6 @@ class GameManager(Kani):
         # Finding each key and mapping into the corresponding attribute.
         try:
             res = json.loads(res)
-            print(res)
 
             self.scene_summary = res['scene_summary']
             self.npcs = res['npcs']
@@ -54,6 +53,9 @@ class GameManager(Kani):
         except KeyError as e:
             log.debug(res)
             log.error(f"{e}: Missing key.")
+        
+        # Initialization record should be removed.
+        self.chat_history = []
 
     # Checking the types of attributes for initialization.
     def check_types(self):
@@ -70,8 +72,8 @@ class GameManager(Kani):
                 assert isinstance(info['kin'], str), "The kin of an NPC is not the string type."
                 assert isinstance(info['persona'], list), "The persona of an NPC is not the list type."
                 assert isinstance(info['goal'], str), "The goal of an NPC is not the string type."
-                assert isinstance(info['traits'], list), "The traits of an NPC is not the list type."
-                assert isinstance(info['flaws'], list), "The flaws of an NPC is not the list type."
+                assert isinstance(info['trait'], str), "The traits of an NPC is not the string type."
+                assert isinstance(info['flaw'], str), "The flaws of an NPC is not the string type."
 
         # The generation rules.
         assert isinstance(self.generation_rules, list), "The list of generation rules is not the list type."
@@ -88,6 +90,35 @@ class GameManager(Kani):
 
         # The environment.
         assert isinstance(self.environment, list), "The list of environment specifications is not the list type."
+
+    # Showing the scene information which the manager has initialized.
+    def show_scene(self):
+        print("<SCENE SUMMARY>")
+        print(self.scene_summary)
+
+        print("<NPCS>")
+        print(self.npcs)
+
+        print("<GENERATION RULES>")
+        print(self.generation_rules)
+
+        print("<SUCCESS CONDITION>")
+        print(self.success_condition)
+
+        print("<FAILURE CONDITION>")
+        print(self.failure_condition)
+
+        print("<GAME FLOW RULES>")
+        print(self.game_flow_rules)
+
+        print("<ENVIRONMENT>")
+        print(self.environment)
+
+        print("<RANDOM TABLES>")
+        print(self.random_tables)
+
+        print("<CONSEQUENCES>")
+        print(self.consequences)
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):
