@@ -39,7 +39,7 @@ class GameManager(Kani):
             self.generation_rules = res['generation_rules']
             self.success_condition = res['success_condition']
             self.failure_condition = res['failure_condition']
-            self.game_flow_rules = res['game_flow_rules']
+            self.game_flow = res['game_flow']
             self.environment = res['environment']
             self.random_tables = scene['random_tables']
             self.consequences = scene['consequences']
@@ -108,8 +108,8 @@ class GameManager(Kani):
         print("<FAILURE CONDITION>")
         print(self.failure_condition)
 
-        print("<GAME FLOW RULES>")
-        print(self.game_flow_rules)
+        print("<GAME FLOW>")
+        print(self.game_flow)
 
         print("<ENVIRONMENT>")
         print(self.environment)

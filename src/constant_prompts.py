@@ -113,10 +113,9 @@ INIT_QUERY = [
         "Note that when you generate NPCs, you should also refer to 'locations' in the input, since they might have important information for the NPCs."
     ],
     [
-        "3. generation_rules: The generation rules are used for additional validation of generated responses from the NPCs during the game.",
+        "3. generation_rules: The generation rules define the things to keep in mind with during the scene especially for the response from the game manager.",
         "This is a list of strings.",
-        "Each rule is a sentence which each NPC should keep when generating an output.",
-        "Note that the rules should be written in the NPC's point of view."
+        "Each sentence is one rule that specifies the content which might make the game too easy or unfair, might offend the players, or might severly violate the game rules."
     ],
     [
         "4. success_condition: This is a string which specifies when the players win the current game.",
@@ -128,9 +127,11 @@ INIT_QUERY = [
         "The losing is a situation where the players got killed, have been trapped in somewhere which cannot be escaped from, or got a huge disadvantage which makes the party unable to proceed anymore."
     ],
     [
-        "6. game_flow_rules: The game flow rules are for specifying how the current game scene should actually go.",
+        "6. game_flow: The game flow is for specifying how the curreng game should actually go.",
         "This is a list of strings.",
-        "Each string is a sentence for one rule.",
+        "Each string is a sentence for one step or flow.",
+        "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
+        "The Goblin King might improvise something if it is necessary to make the game more entertaining unless it highly violates the game rules or generation rules.",
         "The essential information for this can be fetched from 'locations' and 'notes'.",
         "Read carefully and extract the rules from them if you think the rules should be kept for maintaining the game flow intended."
     ],
