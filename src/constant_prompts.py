@@ -21,7 +21,7 @@ RULE_SUMMARY = [
         "If the player has a trait which can improve the test, make the player roll the dice twice and take the larger value.",
         "If the player has a flaw which can hinder the test, make the player roll the dice twice and take the smaller value.",
         "If other players declare to help the test of a player, they should specify how they can help with the traits they have.",
-        "Each player that is helping reduces the difficuly by 1 to a minimum of 2."
+        "Each player that is helping reduces the difficulty by 1 to a minimum of 2."
     ],
     [
         "3. Equipment: The players might find items or equipments throughout the Labyrinth.",
@@ -30,7 +30,7 @@ RULE_SUMMARY = [
         "If a player wants to pick up an additional item but the inventory is full, an item should be dropped or given to another player."
     ],
     [
-        "4. Action Scenes: An action scene is a situation where the players should do something under a strict time limit.",
+        "4. Action scenes: An action scene is a situation where the players should do something under a strict time limit.",
         "If they do nothing, the situation would change drastically.",
         "An action scene is declared by the Goblin King.",
         "After the action scene is activated, each player should describe one action to do per player.",
@@ -64,9 +64,9 @@ RULE_SUMMARY = [
         "If the Goblin King himself appears in the scene, all NPCs will flee without any tests."
     ],
     [
-        "8. Additional Instructions: During the interactions with the players, you should keep your role as a game manager.",
+        "8. Additional instructions: During the interactions with the players, you should keep your role as a game manager.",
         "You should keep track of the game flow and try to lead the game which should not be too far from the game flow rules.",
-        "And you should keep thinking whehter the current circumstance is matched with the success/failure condition so that you can wrap-up the scene.",
+        "And you should keep thinking whether the current circumstance is matched with the success/failure condition so that you can wrap-up the scene.",
         "Also, you should also validate every output from the NPCs if if violates some of the generation rules."
     ]
 ]
