@@ -15,6 +15,8 @@ class GameManager(Kani):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
+        self.chapter = ""
+        self.scene = ""
         self.scene_summary = []
         self.npcs = {}
         self.generation_rules = []
@@ -34,6 +36,8 @@ class GameManager(Kani):
         try:
             res = json.loads(res)
 
+            self.chapter = scene['chapter']
+            self.scene = scene['scene']
             self.scene_summary = res['scene_summary']
             self.npcs = res['npcs']
             self.generation_rules = res['generation_rules']
@@ -59,6 +63,12 @@ class GameManager(Kani):
 
     # Showing the scene information which the manager has initialized.
     def show_scene(self):
+        print("<CHAPTER>")
+        print(self.chapter)
+
+        print("<SCENE>")
+        print(self.scene)
+
         print("<SCENE SUMMARY>")
         print(self.scene_summary)
 

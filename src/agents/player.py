@@ -13,7 +13,6 @@ class Player():
 
     # Printing the character sheet so far.
     def show_info(self):
-        print("#" * 50)
         print(f"NAME: {self.name}")
         print(f"KIN: {self.kin}")
         

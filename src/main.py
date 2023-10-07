@@ -1,14 +1,22 @@
-from utils import select_options
+from utils import select_options, check_init_types
+from models.kani_models import generate_engine
 from agents.player import Player
+from agents.manager import GameManager
+from constant_prompts import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
+from typing import Dict
+from argparse import Namespace
 
+import argparse
 import json
+import logging
+import asyncio
+
+log = logging.getLogger("kani")
+message_log = logging.getLogger("kani.messages")
 
 
-def create_character():
-    with open("data/characters.json", 'r') as f:
-        data = json.load(f)
-
-    print("<CREATING CHARACTERS>")
+def create_character(data: Dict, idx: int=0):
+    print(f"<CREATING CHARACTER {idx+1}>")
     print("Before we get started, create your character to play the game.")
 
     print("In the Labyrinth, there are multiple kins to choose.")
@@ -138,6 +146,85 @@ def create_character():
         return player
 
 
+def main(manager: GameManager, scene: Dict, args: Namespace):
+    print("#" * 100)
+    print("--WELCOME TO THE LABYRINTH--")
+
+    # Making player characters.
+    print()
+    print("CREATE THE PLAYER CHARACTERS.")
+    with open("data/characters.json", 'r') as f:
+        character_data = json.load(f)
+    players = []
+    for p in range(args.num_players):
+        player = create_character(character_data, p)
+        players.append(player)
+
+    loop = asyncio.get_event_loop()
+
+    # Initializaing the scene.
+    print()
+    print("INITIALIZING THE SCENE...")
+    init_query = '\n'.join([' '. join(query) for query in INIT_QUERY])
+    async def scene_init():
+        try:
+            await manager.init_scene(
+                init_query,
+                scene,
+            )
+            check_init_types(manager)
+        except:
+            log.error("Scene initialization failed. Try again.")
+    loop.run_until_complete(scene_init())
+    
+    # Explaining the current scene.
+    print()
+    print(f"CHAPTER: {manager.chapter}")
+    print(f"SCENE: {manager.scene}")
+    print(f"{' '.join(manager.scene_summary)}")
+    async def main_logic():
+        while True:
+            query = input("INPUT: ")
+            async for response in manager.full_round_str(query):
+                print(f"GOBLIN KING: {response}")
+    loop.run_until_complete(main_logic())
+
+    loop.close()
+
 # For debugging.
 if __name__=='__main__':
-    create_character()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--engine_name', type=str, required=True, help="The engine corresponding the model tested.")
+    parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
+    parser.add_argument('--rule_injection', type=str, required=False, help="The rule injection type.")
+    parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
+    parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
+
+    args = parser.parse_args()
+
+    assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
+
+    # Creating the engine.
+    engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
+
+    # Setting the system prompt.
+    system_prompt = ' '.join(INSTRUCTION)
+    if args.rule_injection == 'full':
+        rule_summary = '\n'.join([' '. join(rule) for rule in RULE_SUMMARY])
+        system_prompt = f"{system_prompt}Here are the rules of the Labyrinth you should follow.\n{rule_summary}"
+    elif args.rule_injection == 'retrieval':
+        # TODO: Adding after the RAG method is completed.
+        pass
+
+    # Initializing the game manager.
+    manager = GameManager(engine=engine, system_prompt=system_prompt)
+
+    # Loading the scene file.
+    with open("data/scenes.json", 'r') as f:
+        scenes = json.load(f)
+
+    assert args.scene_idx is not None, "The scene index should be provided."
+    assert 0 <= args.scene_idx < len(scenes), "The scene index is not valid."
+
+    main(manager, scenes[args.scene_idx], args)
+
