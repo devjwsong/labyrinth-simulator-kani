@@ -14,15 +14,28 @@ def evaluate_init(manager: GameManager, scene: Dict):
     init_query = '\n'.join([' '. join(query) for query in INIT_QUERY])
 
     async def test():
-        await manager.init_scene(
-            init_query,
-            scene,
-        )
+        try:
+            await manager.init_scene(
+                init_query,
+                scene,
+            )
+        except json.decoder.JSONDecodeError:
+            return 0.0
+        except KeyError:
+            return 0.2
+        except AssertionError:
+            return 0.5
+        else:
+            # TODO: How to export the export results?
+            print()
+            manager.show_scene()
+            options = [
+                {'score': 1.0, 'description': "Perfect contents."},
+                {'score': 0.8, 'description': "Suboptimal contents."}
+            ]
+            selected = select_options(options)
+            return selected['score']
     asyncio.run(test())
-
-    # TODO: How to export the export results?
-    print("#" * 100)
-    manager.show_scene()
 
 
 def evaluate_rules(manager: GameManager):
@@ -82,8 +95,7 @@ def evaluate_rules(manager: GameManager):
     asyncio.run(test())
 
     # TODO: How to export the export results?
-    print("#" * 100)
-    print(scores)
+    return scores
 
 
 if __name__=='__main__':
