@@ -1,6 +1,8 @@
 from kani import Kani
-from kani.models import ChatMessage
-from typing import Any, List, Dict
+from kani.models import ChatMessage, ChatRole
+from kani.exceptions import FunctionCallException, MessageTooLong
+from agents.player import Player
+from typing import Any, List, Dict, AsyncIterable
 
 import json
 import logging
@@ -26,6 +28,9 @@ class GameManager(Kani):
         self.environment = []
         self.random_tables = {}
         self.consequences = ""
+
+        # Additional Kani attrbutes.
+        self.player_prompts = []
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -95,6 +100,105 @@ class GameManager(Kani):
 
         print("<CONSEQUENCES>")
         print(self.consequences)
+
+    # Overriding get_prompt.
+    async def get_prompt(self) -> list[ChatMessage]:
+        """
+        Called each time before asking the LM engine for a completion to generate the chat prompt.
+        Returns a list of messages such that the total token count in the messages is less than
+        ``(self.max_context_size - self.desired_response_tokens)``.
+
+        Always includes the system prompt plus any always_included_messages at the start of the prompt.
+
+        You may override this to get more fine-grained control over what is exposed in the model's memory at any given
+        call.
+        """
+        always_len = self.always_len
+        for message in self.player_prompts:  # Additional length for player information.
+            always_len += self.message_token_len(message)
+
+        remaining = max_size = self.max_context_size - always_len
+        total_tokens = 0
+        to_keep = 0  # messages to keep from the end of chat history
+        for message in reversed(self.chat_history):
+            # get and check the message's length
+            message_len = self.message_token_len(message)
+            if message_len > max_size:
+                func_help = (
+                    ""
+                    if message.role != ChatRole.FUNCTION
+                    else "You may set `auto_truncate` in the @ai_function to automatically truncate long responses.\n"
+                )
+                raise MessageTooLong(
+                    "The chat message's size is longer than the allowed context window (after including system"
+                    " messages, always included messages, and desired response tokens).\n"
+                    f"{func_help}Content: {message.content[:100]}..."
+                )
+            # see if we can include it
+            remaining -= message_len
+            if remaining >= 0:
+                total_tokens += message_len
+                to_keep += 1
+            else:
+                break
+        log.debug(
+            f"get_prompt() returned {always_len + total_tokens} tokens ({always_len} always) in"
+            f" {len(self.always_included_messages) + to_keep} messages"
+            f" ({len(self.always_included_messages)} always)"
+        )
+        if not to_keep:
+            return self.always_included_messages
+        return self.always_included_messages + self.chat_history[-to_keep:]
+
+    # Overriding full_round.
+    async def full_round(self, query: str, player: Player, **kwargs) -> AsyncIterable[ChatMessage]:
+        """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
+
+        Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
+
+        Use this in an async for loop, like so::
+
+            async for msg in kani.full_round("How's the weather?"):
+                print(msg.content)
+
+        :param query: The content of the user's chat message.
+        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
+        """
+        # Converting the player information into natural language prompt.
+        self.player_prompts.clear()
+        player_prompt = f"[Player 1] [Name] {player.name} [Kin] {player.kin} [Persona] {' '.join(player.get_persona())} [Goal] {player.goal} " + \
+            f"[Traits] {' '.join(player.get_traits())} [Flaws] {' '.join(player.get_flaws())} [Items] {' '.join(player.get_items())}"
+        self.player_prompts.append(ChatMessage.system(player_prompt))
+
+        retry = 0
+        is_model_turn = True
+        async with self.lock:
+            # Adding the player name for multi-players setting.
+            await self.add_to_history(ChatMessage.user(query.strip(), name=player.name))
+
+            while is_model_turn:
+                # do the model prediction
+                completion = await self.get_model_completion(**kwargs)
+                message = completion.message
+                await self.add_to_history(message)
+                yield message
+
+                # if function call, do it and attempt retry if it's wrong
+                if not message.function_call:
+                    return
+
+                try:
+                    is_model_turn = await self.do_function_call(message.function_call)
+                except FunctionCallException as e:
+                    should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
+                    # retry if we have retry attempts left
+                    retry += 1
+                    if not should_retry:
+                        # disable function calling on the next go
+                        kwargs = {**kwargs, "include_functions": False}
+                    continue
+                else:
+                    retry = 0
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):

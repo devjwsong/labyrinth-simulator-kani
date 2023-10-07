@@ -10,6 +10,22 @@ class Player():
         self.traits = kwargs['traits']
         self.flaws = kwargs['flaws']
         self.items = kwargs['items']
+    
+    # Getter for persona with the natural format.
+    def get_persona(self):
+        return [f"({s+1}) {sent}" for s, sent in enumerate(self.persona)]
+
+    # Getter for traits with the natural format.
+    def get_traits(self):
+        return [f"({s+1}) {sent}" for s, sent in enumerate(self.traits)]
+
+    # Getter for flaws with the natural format.
+    def get_flaws(self):
+        return [f"({s+1}) {sent}" for s, sent in enumerate(self.flaws)]
+
+    # Getter for items with the natural format.
+    def get_items(self):
+        return [f"({i+1}) {item['name']}: {item['description']}" for i, item in enumerate(self.items)]
 
     # Printing the character sheet so far.
     def show_info(self):
@@ -17,22 +33,18 @@ class Player():
         print(f"KIN: {self.kin}")
         
         print("PERSONA")
-        for s, sent in enumerate(self.persona):
-            print(f"{s+1}. {sent}")
+        print('\n'.join(self.get_persona()))
 
         print(f"GOAL: {self.goal}")
 
         print("TRAITS")
-        for s, sent in enumerate(self.traits):
-            print(f"{s+1}. {sent}")
+        print('\n'.join(self.get_traits()))
 
         print("FLAWS")
-        for s, sent in enumerate(self.flaws):
-            print(f"{s+1}. {sent}")
+        print('\n'.join(self.get_flaws()))
 
         print("ITEMS")
-        for i, item in enumerate(self.items):
-            print(f"{i+1}. {item['name']}: {item['description']}")
+        print('\n'.join(self.get_items()))
             
     # Adding trait.
     def add_trait(self, trait):
