@@ -1,4 +1,3 @@
-from ast import Assert
 from kani import Kani
 from kani.models import ChatMessage
 from typing import Any, List, Dict
@@ -45,8 +44,6 @@ class GameManager(Kani):
             self.random_tables = scene['random_tables']
             self.consequences = scene['consequences']
 
-            self.check_types()
-
         except json.decoder.JSONDecodeError as e:
             log.debug(res)
             log.error(f"{e}: The output format cannot be converted into dict.")
@@ -59,44 +56,6 @@ class GameManager(Kani):
         
         # Initialization record should be removed.
         self.chat_history = []
-
-    # Checking the types of attributes for initialization.
-    def check_types(self):
-        # The scene summary.
-        try:
-            assert isinstance(self.scene_summary, list), "The scene summary is not the list type."
-            assert len(self.scene_summary) > 0, "The scene summary must not be empty."
-
-            # The NPCs.
-            assert isinstance(self.npcs, dict), "The npcs attribute is not the dict type."
-            if len(self.npcs) > 0:
-                for name, info in self.npcs.items():
-                    assert isinstance(name, str), "The name of an NPC is not the string type."
-                    assert isinstance(info, dict), "The NPC information is not the dict type."
-                    assert isinstance(info['kin'], str), "The kin of an NPC is not the string type."
-                    assert isinstance(info['persona'], list), "The persona of an NPC is not the list type."
-                    assert isinstance(info['goal'], str), "The goal of an NPC is not the string type."
-                    assert isinstance(info['trait'], str), "The traits of an NPC is not the string type."
-                    assert isinstance(info['flaw'], str), "The flaws of an NPC is not the string type."
-
-            # The generation rules.
-            assert isinstance(self.generation_rules, list), "The list of generation rules is not the list type."
-
-            # The success condition.
-            assert isinstance(self.success_condition, str), "The success condition is not the string type."
-            assert len(self.success_condition) > 0, "The success condition must not be empty."
-
-            # The failure condition.
-            assert isinstance(self.failure_condition, str), "The failure condition is not the string type."
-
-            # The game flow rules.
-            assert isinstance(self.game_flow_rules, list), "The list of game flow rules is not the list type."
-
-            # The environment.
-            assert isinstance(self.environment, list), "The list of environment specifications is not the list type."
-        except AssertionError as e:
-            log.error(f"{e}: Assertion error.")
-            raise Exception()
 
     # Showing the scene information which the manager has initialized.
     def show_scene(self):
