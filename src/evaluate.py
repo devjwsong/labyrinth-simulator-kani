@@ -123,7 +123,7 @@ if __name__=='__main__':
     system_prompt = ' '.join(INSTRUCTION)
     if args.rule_injection == 'full':
         rule_summary = '\n'.join([' '. join(rule) for rule in RULE_SUMMARY])
-        system_prompt = f"{system_prompt}Here are the rules of the Labyrinth you should follow.\n{rule_summary}"
+        system_prompt = f"{system_prompt}\nHere are the rules of the Labyrinth you should follow.\n{rule_summary}"
     elif args.rule_injection == 'retrieval':
         # TODO: Adding after the RAG method is completed.
         pass

@@ -66,6 +66,32 @@ class GameManager(Kani):
         # Initialization record should be removed.
         self.chat_history = []
 
+        # Including the initialized information into the fixed prompt.
+        scene_prompt = f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
+            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
+            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
+            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
+            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
+        self.always_included_messages.append(ChatMessage.system(scene_prompt))
+
+    # Getter for NPCs with the natural format.
+    def get_npcs(self):
+        res = []
+        for n, (name, info) in enumerate(self.npcs.items()):
+            res.append(f"({n+1}) Name: {name} Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']}")
+        return res
+
+    # Getter for generation rules with the natural format.
+    def get_generation_rules(self):
+        return [f"({r+1}) {rule}" for r, rule in enumerate(self.generation_rules)]
+
+    # Getter for random tables with the natural format.
+    def get_random_tables(self):
+        res = []
+        for table, entries in self.random_tables.items():
+            res.append(f"{table}: ({', '.join(entries)[:-1]})")
+        return res
+
     # Showing the scene information which the manager has initialized.
     def show_scene(self):
         print("<CHAPTER>")
