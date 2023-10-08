@@ -148,7 +148,7 @@ class GameManager(Kani):
         )
         if not to_keep:
             return self.always_included_messages
-        return self.always_included_messages + self.chat_history[-to_keep:]
+        return self.always_included_messages + self.player_prompts + self.chat_history[-to_keep:]
 
     # Overriding full_round.
     async def full_round(self, query: str, player: Player, **kwargs) -> AsyncIterable[ChatMessage]:

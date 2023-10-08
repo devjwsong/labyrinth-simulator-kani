@@ -92,6 +92,8 @@ INIT_QUERY = [
         "1. scene_summary: Referring to 'chapter_description' and 'description' in the scene, make creative summarizations for the current scene.",
         "This is a list of strings."
         "4-5 sentences will be enough.",
+        "Note that the scene summary must not have any hints or clues.",
+        "This should be only a pure description of the current scene in the perspective of the players.",
         "This is required."
     ],
     [

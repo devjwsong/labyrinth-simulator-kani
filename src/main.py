@@ -175,8 +175,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             check_init_types(manager)
         except:
             log.error("Scene initialization failed. Try again.")
+            loop.close()
     loop.run_until_complete(scene_init())
-    
+
     # Explaining the current scene.
     print()
     print(f"CHAPTER: {manager.chapter}")
@@ -199,14 +200,13 @@ if __name__=='__main__':
     parser.add_argument('--rule_injection', type=str, required=False, help="The rule injection type.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
-    parser.add_argument('--max_tokens', type=int, default=128, help="The maximum number of tokens of a response.")
 
     args = parser.parse_args()
 
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
 
     # Creating the engine.
-    engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx, max_tokens=args.max_tokens)
+    engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
 
     # Setting the system prompt.
     system_prompt = ' '.join(INSTRUCTION)
