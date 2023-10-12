@@ -186,7 +186,15 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     async def main_logic():
         while True:
             query = input(f"{players[0].name}: ")
-            async for response in manager.full_round(query, players[0]):
+            async for response in manager.full_round(
+                query, 
+                players[0],
+                max_tokens=args.max_tokens,
+                frequency_penalty=args.frequency_penalty,
+                presence_penalty=args.presence_penalty,
+                temperature=args.temperature,
+                top_p=args.top_p
+            ):
                 print(f"GOBLIN KING: {response.content}")
     loop.run_until_complete(main_logic())
 
@@ -195,11 +203,20 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
 # For debugging.
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
+
+    # Arguments for the game play.
     parser.add_argument('--engine_name', type=str, required=True, help="The engine corresponding the model tested.")
     parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
-    parser.add_argument('--rule_injection', type=str, required=False, help="The rule injection type.")
+    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection type.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
+
+    # Parameters for the response generation.
+    parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
+    parser.add_argument('--frequency_penalty', type=float, default=0.0, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
+    parser.add_argument('--presence_penalty', type=float, default=0.0, help="A positive value penalizes the new tokens based on whehter they appear in the text so far. (-2.0 - 2.0)")
+    parser.add_argument('--temperature', type=float, default=1.0, help="A higher value makes the output more random. (0.0 - 2.0)")
+    parser.add_argument('--top_p', type=float, default=1.0, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
 
     args = parser.parse_args()
 

@@ -58,6 +58,7 @@ RULE_SUMMARY = [
         "However, the NPCs are usually afraid of the Goblin King, they would not stay long.",
         "If a player tries to chat with an NPC, you should generate the NPC by finding the corresponding NPC's name in 'npcs' and checking its persona and goal.",
         "If there is no name which is matched with the one the player wants to talk to, you can make the kin, persona, goal, traits, and flaws for the requested NPC on the spot to generate the NPC.",
+        "However, if you think the NPC requested doesn't fit the given scene or context so far, you should reject it and tell the user the reason.",
         "Referring to the generated NPC's information, you should act out the NPC's part.",
         "You might have to mimic its tone, charactertics, or behavior genuinely.",
         "Tag the NPC's line with additional \".",
