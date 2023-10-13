@@ -90,7 +90,7 @@ INIT_QUERY = [
         "The attributes you should consider are as follows."
     ],
     [
-        "1. scene_summary: Referring to 'chapter_description' and 'description' in the scene, make creative summarizations for the current scene.",
+        "1. scene_summary: Referring to 'chapter_description', 'description' and 'locations' in the scene, make creative summarizations for the current scene.",
         "This is a list of strings."
         "4-5 sentences will be enough.",
         "Note that the scene summary must not have any hints or clues.",
@@ -146,4 +146,18 @@ INIT_QUERY = [
         "This is a list of strings.",
         "Include the objects in 'locations' if they have not been included in any previous attributes."
     ]
+]
+
+VALIDATE_SUCCESS_PROMPT = [
+    "You are given a dialogue history in a fantasy text adventure game.",
+    "You should determine whether the current game state satisfies the success condition of the player.",
+    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "You must answer only either 'yes' or 'no'."
+]
+
+VALIDATE_FAILURE_PROMPT = [
+    "You are given a dialogue history in a fantasy text adventure game.",
+    "You should determine whether the current game state satisfies the failure condition of the player.",
+    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "You must answer only either 'yes' or 'no'. "
 ]

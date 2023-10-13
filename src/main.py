@@ -185,7 +185,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     print(f"{' '.join(manager.scene_summary)}")
     async def main_logic():
         while True:
+            print()
             query = input(f"{players[0].name}: ")
+            print()
             async for response in manager.full_round(
                 query, 
                 players[0],
@@ -196,6 +198,21 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 top_p=args.top_p
             ):
                 print(f"GOBLIN KING: {response.content}")
+
+            # Validating the success/failure conditions to terminate the game.
+            succ, fail = False, False
+            succ = await manager.validate_success_condition()
+            fail = await manager.validate_failure_condition()
+
+            if succ and fail:
+                print("CONTRADICTORY VALIDATION BETWEEN SUCCESS AND FAILURE. KEEPING THE GAME SCENE MORE.")
+            elif succ:
+                print("PLAYER WON! ENDING THE CURRENT SCENE.")
+                break
+            elif fail:
+                print("PLAYER LOST! ENDING THE CURRENT SCENE.")
+                break
+
     loop.run_until_complete(main_logic())
 
     loop.close()

@@ -2,6 +2,7 @@ from kani import Kani
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
+from constant_prompts import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
 from typing import Any, List, Dict, AsyncIterable
 
 import json
@@ -253,29 +254,29 @@ class GameManager(Kani):
         return self.translate_into_binary(response)
 
     # Validating if the current interaction falls into the success condition.
-    async def validate_success_condition(self, chat_history: List[ChatMessage]):
-        # The default system prompt consists of the instruction and the success condition.
-        system_prompt = "You are the game manager in a fantasy text adventure game. " + \
-            "You should determine whether the current game state satisfies the success condition of the player(user). " + \
-            "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer only either 'yes' or 'no'. "
-        system_prompt += f"Success condition: {self.success_condition}"
+    async def validate_success_condition(self):
+        if len(self.success_condition) == 0:
+            return False
 
-        kani = Kani(self.engine, chat_history=chat_history, system_prompt=system_prompt)
+        # The default system prompt consists of the instruction and the success condition.
+        system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
+        system_prompt += f"\nSuccess condition: {self.success_condition}"
+
+        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
         response = await kani.chat_round_str("Have the player accomplished the success condition?")
 
         return self.translate_into_binary(response)
     
     # Validating if the current interaction falls into the failure condition.
-    async def validate_failure_condition(self, chat_history: List[ChatMessage]):
+    async def validate_failure_condition(self):
+        if len(self.failure_condition) == 0:
+            return False
+
         # The default system prompt consists of the instruction and the failure condition.
-        system_prompt = "You are the game manager in a fantasy text adventure game. " + \
-            "You should determine whether the current game state satisfies the failure condition of the player(user). " + \
-            "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer only either 'yes' or 'no'. "
-        system_prompt += f"Failure condition: {self.failure_condition}"
+        system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
+        system_prompt += f"\nFailure condition: {self.failure_condition}"
 
-        kani = Kani(self.engine, chat_history=chat_history, system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
         response = await kani.chat_round_str("Have the player fallen into the failure condition?")
-
+        
         return self.translate_into_binary(response)
