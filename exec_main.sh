@@ -1,8 +1,9 @@
 python src/main.py \
+    --seed=555 \
     --engine_name=openai \
     --model_idx=gpt-4 \
     --rule_injection=full \
-    --scene_idx=0 \
+    --scene_idx=1 \
     --num_players=1 \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \

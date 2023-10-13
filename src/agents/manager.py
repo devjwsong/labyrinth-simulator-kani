@@ -1,12 +1,13 @@
-from kani import Kani
+from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
 from constant_prompts import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
-from typing import Any, List, Dict, AsyncIterable
+from typing import Any, List, Dict, AsyncIterable, Annotated
 
 import json
 import logging
+import random
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -226,6 +227,24 @@ class GameManager(Kani):
                     continue
                 else:
                     retry = 0
+
+    # Kani's function call for dice roll test.
+    @ai_function
+    async def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
+        """Activate the test if there is a test to be performed and let the player roll a dice."""
+        _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
+        res = random.randint(2, 7)
+
+        if res < difficulty:
+            msg = f"TEST FAILED. THE DICE ROLL RESULT IS: {res}."
+            print(msg)
+        else:
+            msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT IS: {res}."
+            print(msg)
+        
+        # Updating the new chat message.
+        msg = ChatMessage.system(content=msg)
+        await self.add_to_history(msg)
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):

@@ -10,6 +10,7 @@ import argparse
 import json
 import logging
 import asyncio
+import random
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -222,6 +223,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
 
     # Arguments for the game play.
+    parser.add_argument('--seed', type=int, required=True, help="The random seed for every randomized operation.")
     parser.add_argument('--engine_name', type=str, required=True, help="The engine corresponding the model tested.")
     parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection type.")
@@ -240,6 +242,7 @@ if __name__=='__main__':
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
 
     # Creating the engine.
+    random.seed(args.seed)
     engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
 
     # Setting the system prompt.
