@@ -1,3 +1,5 @@
+from socket import timeout
+from tracemalloc import start
 from utils import select_options, check_init_types
 from models.kani_models import generate_engine
 from agents.player import Player
@@ -5,15 +7,20 @@ from agents.manager import GameManager
 from constant_prompts import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
 from typing import Dict
 from argparse import Namespace
+from inputimeout import inputimeout, TimeoutOccurred
 
 import argparse
 import json
 import logging
 import asyncio
 import random
+import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
+
+PER_PLAYER_TIME = None  # Set to 5 seconds only for action scene.
+ONE_HOUR = 60 * 60
 
 
 def create_character(data: Dict, idx: int=0):
@@ -156,10 +163,11 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     print("CREATE THE PLAYER CHARACTERS.")
     with open("data/characters.json", 'r') as f:
         character_data = json.load(f)
-    players = []
+    players = {}
     for p in range(args.num_players):
+        print('-' * 100)
         player = create_character(character_data, p)
-        players.append(player)
+        players[p+1] = player
 
     loop = asyncio.get_event_loop()
 
@@ -185,20 +193,31 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     print(f"SCENE: {manager.scene}")
     print(f"{' '.join(manager.scene_summary)}")
     async def main_logic():
+        start_time = time.time()
+        manager.start_time = start_time
+
         while True:
-            print()
-            query = input(f"{players[0].name}: ")
+            user_queries = []
+            for p, player in players.items():
+                try:
+                    print()
+                    query = inputimeout(f"[PLAYER {p} / {player.name.upper()}]: ", timeout=PER_PLAYER_TIME)
+                    if len(query) > 0:  # Empty input is ignored.
+                        user_queries.append((p, query))
+                except TimeoutOccurred:
+                    break
+
             print()
             async for response in manager.full_round(
-                query, 
-                players[0],
+                user_queries,
+                players,
                 max_tokens=args.max_tokens,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                print(f"GOBLIN KING: {response.content}")
+                print(f"[GOBLIN KING]: {response.content}")
 
             # Validating the success/failure conditions to terminate the game.
             succ, fail = False, False

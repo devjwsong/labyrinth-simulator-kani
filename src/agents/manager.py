@@ -3,11 +3,12 @@ from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
 from constant_prompts import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
-from typing import Any, List, Dict, AsyncIterable, Annotated
+from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
 
 import json
 import logging
 import random
+import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -33,6 +34,9 @@ class GameManager(Kani):
 
         # Additional Kani attrbutes.
         self.player_prompts = []
+
+        # Additional attributes for game play.
+        self.start_time = None
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -179,7 +183,7 @@ class GameManager(Kani):
         return self.always_included_messages + self.player_prompts + self.chat_history[-to_keep:]
 
     # Overriding full_round.
-    async def full_round(self, query: str, player: Player, **kwargs) -> AsyncIterable[ChatMessage]:
+    async def full_round(self, user_queries: List[Tuple[int, str]], players: Dict[int, Player], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
 
         Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
@@ -193,16 +197,25 @@ class GameManager(Kani):
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
         # Converting the player information into natural language prompt.
+        user_messages = []
         self.player_prompts.clear()
-        player_prompt = f"[Player 1] [Name] {player.name} [Kin] {player.kin} [Persona] {' '.join(player.get_persona())} [Goal] {player.goal} " + \
-            f"[Traits] {' '.join(player.get_traits())} [Flaws] {' '.join(player.get_flaws())} [Items] {' '.join(player.get_items())}"
-        self.player_prompts.append(ChatMessage.system(player_prompt))
+        for pair in user_queries:
+            p, query = pair
+            prompt = f"[Player {p}] [Name] {players[p].name} [Kin] {players[p].kin} [Persona] {' '.join(players[p].get_persona())} [Goal] {players[p].goal} " + \
+                f"[Traits] {' '.join(players[p].get_traits())} [Flaws] {' '.join(players[p].get_flaws())} [Items] {' '.join(players[p].get_items())}"
+            self.player_prompts.append(ChatMessage.system(prompt))
+            user_messages.append(ChatMessage.user(content=query.strip(), name=players[p].name))
+        
+        # Current elapsed time is included in the player prompt.
+        elapsed_time = int(time.time() - self.start_time)
+        hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
+        self.player_prompts.append(ChatMessage.system(f"{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game."))
 
         retry = 0
         is_model_turn = True
         async with self.lock:
             # Adding the player name for multi-players setting.
-            await self.add_to_history(ChatMessage.user(query.strip(), name=player.name))
+            self.chat_history += user_messages
 
             while is_model_turn:
                 # do the model prediction
