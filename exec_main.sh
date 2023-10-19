@@ -3,7 +3,7 @@ python src/main.py \
     --engine_name=openai \
     --model_idx=gpt-4 \
     --rule_injection=full \
-    --scene_idx=1 \
+    --scene_idx=36 \
     --num_players=1 \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \

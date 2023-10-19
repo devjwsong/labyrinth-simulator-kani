@@ -235,7 +235,7 @@ class GameManager(Kani):
                 else:
                     retry = 0
 
-    # Kani's function call for dice roll test.
+    # Kani's function call for a dice roll test.
     @ai_function
     async def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
         """Activate the test if there is a test to be performed and let the player roll a dice."""
@@ -252,6 +252,18 @@ class GameManager(Kani):
         # Updating the new chat message.
         msg = ChatMessage.system(content=msg)
         await self.add_to_history(msg)
+
+    # Kani's function call for starting an action scene.
+    @ai_function
+    def activate_action_scene(self):
+        """Activate an action scene if there is a circumstance that players should take actions in a tight time limit."""
+        self.is_action_scene = True
+
+    # Kani's function call for ending an action scene.
+    @ai_function
+    def terminate_action_scene(self):
+        """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
+        self.is_action_scene = False
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):
