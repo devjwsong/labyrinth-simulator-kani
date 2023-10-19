@@ -1,3 +1,7 @@
+ONE_HOUR = 60 * 60
+PER_PLAYER_TIME = 5
+TOTAL_TIME = 13 * ONE_HOUR
+
 INSTRUCTION = [
     "You are the Goblin King, which works as the game manager, in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are going to interact with the players and manage the game flow for the game scene you are given.",
@@ -51,7 +55,7 @@ RULE_SUMMARY = [
     [
         "6. Hours: Other than the time limit during an action scene, the Labyrinth has the total time limit per each scene.",
         "The Goblin King should count the time and tell the players everytime they lose an hour.",
-        "If 13 hours has passed, the players lose the game regardless of the satisfiaction of the failure condition."
+        "If 13 hours has passed, the players lose the game regardless of the current game state."
     ],
     [
         "7. NPCs: Sometimes, the players can make friends with NPCs by convincing them during the game.",

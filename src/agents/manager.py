@@ -2,13 +2,12 @@ from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
-from constant_prompts import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
+from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
 
 import json
 import logging
 import random
-import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -36,7 +35,7 @@ class GameManager(Kani):
         self.player_prompts = []
 
         # Additional attributes for game play.
-        self.start_time = None
+        self.is_action_scene = False
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -205,11 +204,6 @@ class GameManager(Kani):
                 f"[Traits] {' '.join(players[p].get_traits())} [Flaws] {' '.join(players[p].get_flaws())} [Items] {' '.join(players[p].get_items())}"
             self.player_prompts.append(ChatMessage.system(prompt))
             user_messages.append(ChatMessage.user(content=query.strip(), name=players[p].name))
-        
-        # Current elapsed time is included in the player prompt.
-        elapsed_time = int(time.time() - self.start_time)
-        hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
-        self.player_prompts.append(ChatMessage.system(f"{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game."))
 
         retry = 0
         is_model_turn = True

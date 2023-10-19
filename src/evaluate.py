@@ -1,7 +1,7 @@
 from agents.manager import GameManager
 from models.kani_models import generate_engine
 from utils import select_options, check_init_types
-from constant_prompts import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
+from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
 from typing import Dict
 
 import asyncio

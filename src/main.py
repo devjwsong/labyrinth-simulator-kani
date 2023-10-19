@@ -1,10 +1,9 @@
-from socket import timeout
 from tracemalloc import start
 from utils import select_options, check_init_types
 from models.kani_models import generate_engine
 from agents.player import Player
 from agents.manager import GameManager
-from constant_prompts import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
+from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
 from inputimeout import inputimeout, TimeoutOccurred
@@ -18,9 +17,6 @@ import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
-
-PER_PLAYER_TIME = None  # Set to 5 seconds only for action scene.
-ONE_HOUR = 60 * 60
 
 
 def create_character(data: Dict, idx: int=0):
@@ -194,14 +190,24 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     print(f"{' '.join(manager.scene_summary)}")
     async def main_logic():
         start_time = time.time()
-        manager.start_time = start_time
+        notified = 0
 
         while True:
+            # Checking if this is an action scene now.
+            per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
+
+            # Calculating the elapsed time.
+            elapsed_time = int(time.time() - start_time)
+            if elapsed_time >= (notified * ONE_HOUR):
+                hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
+                print(f"----------> [{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game.]")
+                notified += 1
+
             user_queries = []
             for p, player in players.items():
                 try:
                     print()
-                    query = inputimeout(f"[PLAYER {p} / {player.name.upper()}]: ", timeout=PER_PLAYER_TIME)
+                    query = inputimeout(f"[PLAYER {p} / {player.name.upper()}]: ", timeout=per_player_time)
                     if len(query) > 0:  # Empty input is ignored.
                         user_queries.append((p, query))
                 except TimeoutOccurred:
@@ -223,14 +229,20 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             succ, fail = False, False
             succ = await manager.validate_success_condition()
             fail = await manager.validate_failure_condition()
+            if elapsed_time >= TOTAL_TIME:
+                print("PLAYER LOST! ENDING THE CURRENT SCENE.")
+                print("[TIME LIMIT REACHED.]")
+                break
 
             if succ and fail:
                 print("CONTRADICTORY VALIDATION BETWEEN SUCCESS AND FAILURE. KEEPING THE GAME SCENE MORE.")
             elif succ:
                 print("PLAYER WON! ENDING THE CURRENT SCENE.")
+                print(f"[SUCCESS CONDITION] {manager.success_condition}")
                 break
             elif fail:
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
+                print(f"[FAILURE CONDITION] {manager.failure_condition}")
                 break
 
     loop.run_until_complete(main_logic())
