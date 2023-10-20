@@ -240,7 +240,7 @@ class GameManager(Kani):
     async def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
         """Activate the test if there is a test to be performed and let the player roll a dice."""
         _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
-        res = random.randint(2, 7)
+        res = random.randint(2, 6)
 
         if res < difficulty:
             msg = f"TEST FAILED. THE DICE ROLL RESULT IS: {res}."

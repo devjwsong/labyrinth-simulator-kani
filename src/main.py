@@ -1,12 +1,11 @@
-from tracemalloc import start
-from utils import select_options, check_init_types
+from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_manager_log, get_player_input, logic_break
 from models.kani_models import generate_engine
 from agents.player import Player
 from agents.manager import GameManager
 from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
-from inputimeout import inputimeout, TimeoutOccurred
+from inputimeout import TimeoutOccurred
 
 import argparse
 import json
@@ -19,35 +18,32 @@ log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
-def create_character(data: Dict, idx: int=0):
-    print(f"<CREATING CHARACTER {idx+1}>")
-    print("Before we get started, create your character to play the game.")
+def create_character(data: Dict):
+    print_system_log("BEFORE WE GET STARTED, CREATE YOUR CHARACTER TO PLAY THE GAME.")
 
-    print("In the Labyrinth, there are multiple kins to choose.")
-    print("Each kin has unique persona and every character has traits and flaws which might affect your gameplay.")
-    print("Each character can select one trait and one flaw, but the number of traits/flaws might vary depending on your kin.")
+    print_system_log("IN THE LABYRINTH, THERE ARE MULTIPLE KINS TO CHOOSE.")
+    print_system_log("EACH KIN HAS UNIQUE PERSONA AND EVERY CHARACTER HAS TRAITS AND FLAWS WHICH MIGHT AFFECT YOUR GAMEPLAY.")
+    print_system_log("EACH CHARACTER CAN SELECT ONE TRAIT AND ONE FLAW, BUT THE NUMBER OF TRAITS/FLAWS MIGHT VARY DEPENDING ON YOUR KIN.", after_break=True)
     while True:
         # Showing the list of kins.
-        print()
-        print("Select the kin to see more detail.")
+        print_system_log("SELECT THE KIN TO SEE MORE DETAIL.")
         kin = select_options(list(data['kins'].keys()))
         info = data['kins'][kin]
         persona = info['persona']
 
         # Showing the details of the selected kin.
-        print()
+        print_system_log("INFORMATION ON THE SELECTED KIN IS...")
         print(f"Kin: {kin}")
         for s, sent in enumerate(persona):
-            print(f"{s+1}. {sent}")
-        print("-" * 50)
+            print(f"({s+1}) {sent}")
         print(f"{info['guide']}")
 
         # Confirming the kin.
-        print()
-        print(f"Are you going to go with {kin}?")
-        confirmed = select_options(['yes', 'no'])
-        if confirmed == 'no':
-            print("Going back to the list...")
+        print_question_start()
+        print_system_log(f"ARE YOU GOING TO GO WITH {kin}?")
+        confirmed = select_options(['Yes', 'No'])
+        if confirmed == 'No':
+            print_system_log("GOING BACK TO THE LIST...")
             continue
 
         traits = []
@@ -55,63 +51,63 @@ def create_character(data: Dict, idx: int=0):
         items = []
 
         # Setting the name.
-        print()
-        print("What is your name?")
-        name = input("Input: ")
+        print_question_start()
+        print_system_log("WHAT IS YOUR NAME?")
+        name = get_player_input()
 
         # Setting the goal.
-        print()
-        print("What is your goal? Why did you come to the Labyrinth to challenge the Goblin King?")
-        goal = input("Input: ")
+        print_question_start()
+        print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
+        goal = get_player_input()
 
         # Setting the character-specific additional features.
         if kin == 'Dwarf':
-            print()
-            print("You've selected Dwarf. Select your job.")
+            print_question_start()
+            print_system_log("YOU'VE SELECTED DWARF. SELECT YOUR JOB.")
             jobs_and_tools = info['tables']['jobs_and_tools']
             selected = select_options(jobs_and_tools)
             traits.append(f"My job is {selected['job']}.")
 
-            print()
-            print(f"Give more details on your tool: {selected['tool']}")
-            item_description = input("Input: ")
+            print_question_start()
+            print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {selected['tool']}")
+            item_description = get_player_input()
             items.append({'name': selected['tool'], 'description': item_description})
 
         elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
             traits += info['default_traits']
 
         elif kin == 'Goblin':
-            print()
-            print(f"You've selected Goblin. Specify why you are against the Goblin King. If you leave an empty string, the default value '{info['default_traits'][0]}' will be added.")
+            print_question_start()
+            print_system_log(f"YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING. IF YOU LEAVE AN EMPTY STRING, THE DEFAULT VALUE '{info['default_traits'][0]}' WILL BE ADDED.")
             default_traits = info['default_traits']
-            reason = input("Input: ")
+            reason = get_player_input()
             if len(reason) > 0:
                 default_traits[0] = reason
             traits += default_traits
 
         elif kin == 'Horned Beast':
-            print()
-            print(f"You've selected Horned Beast. Select one object type you can control.")
+            print_question_start()
+            print_system_log("YOU'VE SELECTED HORNED BEAST. SELECT ONE OBJECT TYPE YOU CAN CONTROL.")
             object_type = select_options(info['tables']['objects'])
             traits.append(f"I can control an object of type {object_type}.")
 
             flaws += info['default_flaws']
 
         # Picking up a trait.
-        print()
-        print("Now, select one trait from the given list.")
+        print_question_start()
+        print_system_log("NOW, SELECT ONE TRAIT FROM THE GIVEN LIST.")
         selected = select_options(data['traits'])
         traits.append(f"{selected['trait']}: {selected['description']}")
         if kin == 'Human':
             extra_traits = [entry for entry in data['traits'] if entry['trait'] != selected['trait']]
-            print()
-            print(f"You've selected Human. You can pick one more extra trait.")
+            print_question_start()
+            print_system_log("YOU'VE SELECTED HUMAN. YOU CAN PICK ONE MORE EXTRA TRAIT.")
             selected = select_options(extra_traits)
             traits.append(f"{selected['trait']}: {selected['description']}")
 
         # Picking up a flaw.
-        print()
-        print("Next, select one flaw from the given list.")
+        print_question_start()
+        print_system_log("NEXT, SELECT ONE FLAW FROM THE GIVEN LIST.")
         filtered_flaws = []
         for entry in data['flaws']:
             included = True
@@ -135,41 +131,36 @@ def create_character(data: Dict, idx: int=0):
             flaws=flaws,
             items=items
         )
-        print()
-        print("Finally, confirm if these specifications are matched with your choices.")
+        print_question_start()
+        print_system_log("FINALLY, CONFIRM IF THESE SPECIFICATIONS ARE MATCHED WITH YOUR CHOICES.")
         player.show_info()
 
-        print()
-        print("Are they correct?")
+        print_question_start()
+        print_system_log("ARE THEY CORRECT?")
         confirmed = select_options(['yes', 'no'])
         if confirmed == 'no':
-            print("Going back to the list...")
+            print_system_log("GOING BACK TO THE LIST...", after_break=True)
             continue
 
-        print("The player character has been created successfully.")
+        print_system_log("THE PLAYER CHARACTER HAS BEEN CREATED SUCCESSFULLY.")
         return player
 
 
 def main(manager: GameManager, scene: Dict, args: Namespace):
-    print("#" * 100)
-    print("--WELCOME TO THE LABYRINTH--")
-
     # Making player characters.
-    print()
-    print("CREATE THE PLAYER CHARACTERS.")
     with open("data/characters.json", 'r') as f:
         character_data = json.load(f)
     players = {}
     for p in range(args.num_players):
-        print('-' * 100)
-        player = create_character(character_data, p)
+        print_logic_start(f"CHARACTER {p+1} CREATION")
+        player = create_character(character_data)
         players[p+1] = player
+        logic_break()
 
     loop = asyncio.get_event_loop()
 
     # Initializaing the scene.
-    print()
-    print("INITIALIZING THE SCENE...")
+    print_system_log("INITIALIZING THE SCENE...")
     init_query = '\n'.join([' '. join(query) for query in INIT_QUERY])
     async def scene_init():
         try:
@@ -184,10 +175,10 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     loop.run_until_complete(scene_init())
 
     # Explaining the current scene.
-    print()
-    print(f"CHAPTER: {manager.chapter}")
-    print(f"SCENE: {manager.scene}")
-    print(f"{' '.join(manager.scene_summary)}")
+    print_logic_start("GAME START.")
+    print_system_log(f"CHAPTER: {manager.chapter}")
+    print_system_log(f"SCENE: {manager.scene}")
+    print_system_log(f"{' '.join(manager.scene_summary)}", after_break=True)
     async def main_logic():
         start_time = time.time()
         notified = 0
@@ -200,20 +191,18 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             elapsed_time = int(time.time() - start_time)
             if elapsed_time >= (notified * ONE_HOUR):
                 hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
-                print(f"----------> [{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game.]")
+                print_system_log(f"{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game.", after_break=True)
                 notified += 1
 
             user_queries = []
             for p, player in players.items():
                 try:
-                    print()
-                    query = inputimeout(f"[PLAYER {p} / {player.name.upper()}]: ", timeout=per_player_time)
+                    query = get_player_input(name=player.name, per_player_time=per_player_time)
                     if len(query) > 0:  # Empty input is ignored.
                         user_queries.append((p, query))
                 except TimeoutOccurred:
                     break
 
-            print()
             async for response in manager.full_round(
                 user_queries,
                 players,
@@ -223,7 +212,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                print(f"[GOBLIN KING]: {response.content}")
+                print_manager_log(response.content)
 
             # Validating the success/failure conditions to terminate the game.
             succ, fail = False, False
@@ -244,9 +233,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print(f"[FAILURE CONDITION] {manager.failure_condition}")
                 break
+        logic_break()
 
     loop.run_until_complete(main_logic())
-
     loop.close()
 
 # For debugging.

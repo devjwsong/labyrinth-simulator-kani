@@ -1,4 +1,3 @@
-from ctypes import get_last_error
 from agents.manager import GameManager
 from inputimeout import inputimeout
 from typing import Any, List
@@ -10,20 +9,34 @@ message_log = logging.getLogger("kani.messages")
 
 
 # Trivial definitions for CLI printing.
-def print_system_log(msg: str):
-    print(f"[SYSTEM] {msg.upper()}")
+def print_logic_start(title: str):
+    print('#' * 100)
+    print(f"{title.upper()}")
 
 
-def print_manager_log(msg: str):
+def print_question_start():
+    print('-' * 100)
+
+
+def print_system_log(msg: str, after_break: bool=False):
+    print(f"[SYSTEM] {msg}")
+    if after_break:
+        log_break()
+
+
+def print_manager_log(msg: str, after_break: bool=False):
     print(f"[GOBLIN KING] {msg}")
+    if after_break:
+        logic_break()
 
 
-def get_player_input(name: str=None, per_player_time: int=None):
+def get_player_input(name: str=None, per_player_time: int=None, after_break: bool=False):
     if name is None:
-        res = input("INPUT: ")
-        return res
-
-    query = inputimeout(f"[PLAYER / {name.upper()}]: ", timeout=per_player_time)
+        query = input("INPUT: ")
+    else:
+        query = inputimeout(f"[PLAYER / {name.upper()}]: ", timeout=per_player_time)
+    if after_break:
+        logic_break()
     return query
 
 
@@ -38,17 +51,17 @@ def log_break():
 def select_options(options: List[Any]):
     while True:
         for o, option in enumerate(options):
-            print(f"{o+1}. {option}")
+            print(f"({o+1}) {option}")
         res = get_player_input()
 
         try:
             res = int(res)
             if res < 1 or res > len(options):
-                print_system_log(f"THE ALLOWED VALUE IS FROM {1} TO {len(options)}.")
+                print_system_log(f"THE ALLOWED VALUE IS FROM {1} TO {len(options)}.", after_break=True)
             else:
                 return options[res-1]
         except ValueError:
-            print_system_log("THE INPUT SHOULD BE AN INTEGER.")
+            print_system_log("THE INPUT SHOULD BE AN INTEGER.", after_break=True)
             
 
 # Checking the types of attributes for initialization.
