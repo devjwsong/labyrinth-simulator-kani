@@ -27,7 +27,7 @@ def print_system_log(msg: str, after_break: bool=False):
 def print_manager_log(msg: str, after_break: bool=False):
     print(f"[GOBLIN KING] {msg}")
     if after_break:
-        logic_break()
+        log_break()
 
 
 def get_player_input(name: str=None, per_player_time: int=None, after_break: bool=False):
@@ -36,7 +36,7 @@ def get_player_input(name: str=None, per_player_time: int=None, after_break: boo
     else:
         query = inputimeout(f"[PLAYER / {name.upper()}]: ", timeout=per_player_time)
     if after_break:
-        logic_break()
+        log_break()
     return query
 
 
@@ -52,7 +52,7 @@ def select_options(options: List[Any]):
     while True:
         for o, option in enumerate(options):
             print(f"({o+1}) {option}")
-        res = get_player_input()
+        res = get_player_input(after_break=True)
 
         try:
             res = int(res)
@@ -62,7 +62,7 @@ def select_options(options: List[Any]):
                 return options[res-1]
         except ValueError:
             print_system_log("THE INPUT SHOULD BE AN INTEGER.", after_break=True)
-            
+
 
 # Checking the types of attributes for initialization.
 def check_init_types(manager: GameManager):

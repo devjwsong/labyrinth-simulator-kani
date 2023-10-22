@@ -103,7 +103,7 @@ INIT_QUERY = [
     ],
     [
         "2. npcs: Generate the properties of the NPCs which are needed in the current scene.",
-        "This is a dictionary."
+        "This is a dictionary.",
         "Each key is an NPC's name and value is another dictionary, which has the NPC's following properties.",
         "a) kin: This is one word that describes the kin of the NPC.",
         "b) persona: The persona is a list of strings that contains the basic characteristics of the NPC.",
@@ -151,6 +151,12 @@ INIT_QUERY = [
         "Include the objects in 'locations' if they have not been included in any previous attributes."
     ]
 ]
+
+CREATE_NPC_PROMPT = [
+    "You are given a dialogue history in a fantasy text adventure game.",
+    "You should generate an NPC information in a dictionary form.",
+    "Each key and corresponding value is as follows:"
+] + INIT_QUERY[2][3:-1]
 
 VALIDATE_SUCCESS_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game.",

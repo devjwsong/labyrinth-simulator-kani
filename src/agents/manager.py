@@ -2,7 +2,7 @@ from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
-from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT
+from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
 
 import json
@@ -264,6 +264,38 @@ class GameManager(Kani):
     def terminate_action_scene(self):
         """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
         self.is_action_scene = False
+
+    # Kani's function call for creating an NPC immediately.
+    @ai_function
+    async def create_npc(self, name: Annotated[str, AIParam(desc="The name of the NPC which should be created.")]):
+        """Create an NPC a player requested to talk with if it has not been initialized in the scene.""" 
+
+        # The default system prompt consists of the instruction and the requirement for an NPC.
+        system_prompt = ' '.join(CREATE_NPC_PROMPT)
+        
+        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{name}'.")
+
+        # Converting & Fetching information.
+        try:
+            res = json.loads(res)
+            assert isinstance(res['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
+            assert isinstance(res['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
+            assert isinstance(res['goal'], str), "THE GOAL OF AN NPC IS NOT THE STRING TYPE."
+            assert isinstance(res['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
+            assert isinstance(res['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
+
+            self.npcs[name] = res
+
+        except json.decoder.JSONDecodeError as e:
+            log.debug(res)
+            log.error(f"{e}: The output format cannot be converted into dict.")
+            raise Exception()
+        except KeyError as e:
+            log.debug(res)
+            log.error(f"{e}: Missing key.")
+            raise Exception()
+
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):

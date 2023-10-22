@@ -53,12 +53,12 @@ def create_character(data: Dict):
         # Setting the name.
         print_question_start()
         print_system_log("WHAT IS YOUR NAME?")
-        name = get_player_input()
+        name = get_player_input(after_break=True)
 
         # Setting the goal.
         print_question_start()
         print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
-        goal = get_player_input()
+        goal = get_player_input(after_break=True)
 
         # Setting the character-specific additional features.
         if kin == 'Dwarf':
@@ -70,7 +70,7 @@ def create_character(data: Dict):
 
             print_question_start()
             print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {selected['tool']}")
-            item_description = get_player_input()
+            item_description = get_player_input(after_break=True)
             items.append({'name': selected['tool'], 'description': item_description})
 
         elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
@@ -80,7 +80,7 @@ def create_character(data: Dict):
             print_question_start()
             print_system_log(f"YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING. IF YOU LEAVE AN EMPTY STRING, THE DEFAULT VALUE '{info['default_traits'][0]}' WILL BE ADDED.")
             default_traits = info['default_traits']
-            reason = get_player_input()
+            reason = get_player_input(after_break=True)
             if len(reason) > 0:
                 default_traits[0] = reason
             traits += default_traits
@@ -197,7 +197,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             user_queries = []
             for p, player in players.items():
                 try:
-                    query = get_player_input(name=player.name, per_player_time=per_player_time)
+                    query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
                     if len(query) > 0:  # Empty input is ignored.
                         user_queries.append((p, query))
                 except TimeoutOccurred:
@@ -212,7 +212,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                print_manager_log(response.content)
+                print_manager_log(response.content, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
             succ, fail = False, False
