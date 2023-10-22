@@ -4,6 +4,7 @@ from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
 from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
+from copy import deepcopy
 
 import json
 import logging
@@ -15,7 +16,7 @@ message_log = logging.getLogger("kani.messages")
 
 # The whole game manager class.
 class GameManager(Kani):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, main_args, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
@@ -31,8 +32,13 @@ class GameManager(Kani):
         self.random_tables = {}
         self.consequences = ""
 
-        # Additional Kani attrbutes.
+        # Additional prompt attrbutes.
         self.player_prompts = []
+        self.concat_policy = main_args.concat_policy
+        self.max_turns = main_args.max_turns
+        self.summarization = True if main_args.summarization else False
+        self.summ_period = main_args.summ_period
+        self.clear_raw_logs = True if main_args.clear_raw_logs else False
 
         # Additional attributes for game play.
         self.is_action_scene = False
@@ -132,26 +138,17 @@ class GameManager(Kani):
         print("<CONSEQUENCES>")
         print(self.consequences)
 
-    # Overriding get_prompt.
-    async def get_prompt(self) -> list[ChatMessage]:
-        """
-        Called each time before asking the LM engine for a completion to generate the chat prompt.
-        Returns a list of messages such that the total token count in the messages is less than
-        ``(self.max_context_size - self.desired_response_tokens)``.
-
-        Always includes the system prompt plus any always_included_messages at the start of the prompt.
-
-        You may override this to get more fine-grained control over what is exposed in the model's memory at any given
-        call.
-        """
-        always_len = self.always_len
-        for message in self.player_prompts:  # Additional length for player information.
-            always_len += self.message_token_len(message)
+    # Making a prompt using the simple concatenation.
+    def get_simple_prompt(self, always_len: int) -> list[ChatMessage]:
+        if self.max_turns is None:
+            valid_chat_history = deepcopy(self.chat_history)
+        else:
+            valid_chat_history = self.chat_history[len(self.chat_history)-self.max_turns]
 
         remaining = max_size = self.max_context_size - always_len
         total_tokens = 0
         to_keep = 0  # messages to keep from the end of chat history
-        for message in reversed(self.chat_history):
+        for message in reversed(valid_chat_history):
             # get and check the message's length
             message_len = self.message_token_len(message)
             if message_len > max_size:
@@ -179,7 +176,19 @@ class GameManager(Kani):
         )
         if not to_keep:
             return self.always_included_messages
-        return self.always_included_messages + self.player_prompts + self.chat_history[-to_keep:]
+        return self.always_included_messages + self.player_prompts + valid_chat_history[-to_keep:]
+
+    # Overriding get_prompt.
+    async def get_prompt(self) -> list[ChatMessage]:
+        always_len = self.always_len
+        for message in self.player_prompts:  # Additional length for player information.
+            always_len += self.message_token_len(message)
+
+        if self.summarization and self.summ_period is None:
+            pass  # TODO: Summarizing all previous chat logs and return the prompt.
+
+        if self.concat_policy == 'simple':
+            return self.get_simple_prompt(always_len)
 
     # Overriding full_round.
     async def full_round(self, user_queries: List[Tuple[int, str]], players: Dict[int, Player], **kwargs) -> AsyncIterable[ChatMessage]:
@@ -267,14 +276,18 @@ class GameManager(Kani):
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
-    async def create_npc(self, name: Annotated[str, AIParam(desc="The name of the NPC which should be created.")]):
-        """Create an NPC a player requested to talk with if it has not been initialized in the scene.""" 
+    async def create_npc(self, name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
+        """Create an NPC a player requested to talk with if it has not been initialized yet.""" 
 
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
+        system_prompt += f"\nCurrently initialized NPCs: {self.npcs}"
         
-        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{name}'.")
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Check if the requested NPC '{name}' has already been initialized. Generate the specifications of it if it does not exist now.")
+
+        if not self.translate_into_binary(res):
+            return
 
         # Converting & Fetching information.
         try:
@@ -306,23 +319,6 @@ class GameManager(Kani):
         else:
             return None
 
-    # Validating the generated response from the NPC.
-    async def validate_generation_rule(self, chat_history: List[ChatMessage]):
-        # The default system prompt consists of the instruction and the predefined generation rules.
-        system_prompt = "You are the game manager in a fantasy text adventure game. " + \
-            "You should determine whether the last response from the NPC follows the defined rule. " + \
-            "You are given the dialogue history so far between the player(user) and the NPC(assistant) for reference. " + \
-            "You must answer only either 'yes' or 'no'. "
-        system_prompt += "Rules: "
-        for r, rule in enumerate(self.generation_rules):
-            system_prompt += f"{r+1} - {rule} "
-        system_prompt = system_prompt[:-1]
-
-        kani = Kani(self.engine, chat_history=chat_history, system_prompt=system_prompt)
-        response = await kani.chat_round_str("Does the last response follow the rules?")
-
-        return self.translate_into_binary(response)
-
     # Validating if the current interaction falls into the success condition.
     async def validate_success_condition(self):
         if len(self.success_condition) == 0:
@@ -332,7 +328,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
         system_prompt += f"\nSuccess condition: {self.success_condition}"
 
-        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         response = await kani.chat_round_str("Have the player accomplished the success condition?")
 
         return self.translate_into_binary(response)
@@ -346,7 +342,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
         system_prompt += f"\nFailure condition: {self.failure_condition}"
 
-        kani = Kani(self.engine, chat_history=self.chat_history, system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         response = await kani.chat_round_str("Have the player fallen into the failure condition?")
         
         return self.translate_into_binary(response)

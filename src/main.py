@@ -250,6 +250,13 @@ if __name__=='__main__':
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
 
+    # Parameters for the prompt construction.
+    parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
+    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included. If it is None, the model includes as many turns as possible.")
+    parser.add_argument('--summarization', action='store_true', help="Specifying either including the summarization or not.")
+    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period. If it is None, all logs are summarized regardless of the concatenation policy.")
+    parser.add_argument('--clear_raw_logs', action='store_true', help="Specifying if the raw chat logs are cleared after the summarization.")
+
     # Parameters for the response generation.
     parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
     parser.add_argument('--frequency_penalty', type=float, default=0.0, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
@@ -259,7 +266,8 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
+    assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
+    assert args.concat_policy in ['simple', 'retrieval'], "The concatenation polich should be either 'simple' or 'retrieval'."
 
     # Creating the engine.
     random.seed(args.seed)
@@ -275,7 +283,11 @@ if __name__=='__main__':
         pass
 
     # Initializing the game manager.
-    manager = GameManager(engine=engine, system_prompt=system_prompt)
+    manager = GameManager(
+        main_args=args,
+        engine=engine, 
+        system_prompt=system_prompt, 
+    )
 
     # Loading the scene file.
     with open("data/scenes.json", 'r') as f:
