@@ -2,13 +2,17 @@ from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from agents.player import Player
+from sentence_transformers import SentenceTransformer, util
 from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
+from argparse import Namespace
 from copy import deepcopy
 
 import json
 import logging
 import random
+import numpy as np
+import torch
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -16,7 +20,7 @@ message_log = logging.getLogger("kani.messages")
 
 # The whole game manager class.
 class GameManager(Kani):
-    def __init__(self, main_args, *args, **kwargs):
+    def __init__(self, main_args: Namespace, encoder: SentenceTransformer,*args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
@@ -34,6 +38,8 @@ class GameManager(Kani):
 
         # Additional prompt attrbutes.
         self.player_prompts = []
+        self.encoder = encoder
+        self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.encoder is not None else None
         self.concat_policy = main_args.concat_policy
         self.max_turns = main_args.max_turns
         self.summarization = True if main_args.summarization else False
@@ -76,6 +82,8 @@ class GameManager(Kani):
         
         # Initialization record should be removed.
         self.chat_history = []
+        if self.sent_embs is not None:
+            self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
 
         # Including the initialized information into the fixed prompt.
         scene_prompt = f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
@@ -85,11 +93,15 @@ class GameManager(Kani):
             f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
         self.always_included_messages.append(ChatMessage.system(scene_prompt))
 
+    # Getter for NPC with the natural format.
+    def get_npc(self, info):
+        return f"Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']}"
+
     # Getter for NPCs with the natural format.
     def get_npcs(self):
         res = []
         for n, (name, info) in enumerate(self.npcs.items()):
-            res.append(f"({n+1}) Name: {name} Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']}")
+            res.append(f"({n+1}) Name: {name} {self.get_npc(info)}")
         return res
 
     # Getter for generation rules with the natural format.
@@ -138,12 +150,62 @@ class GameManager(Kani):
         print("<CONSEQUENCES>")
         print(self.consequences)
 
+    # Overriding add_to_history.
+    async def add_to_history(self, message: ChatMessage):
+        self.chat_history.append(message)
+
+        # Sentence embedding for the retrieval.
+        if self.encoder is not None:
+            # Converting the content into an informative form.
+            content = f"[{message.role.value.upper()}]"
+            if message.name:
+                content += f" {message.name}:"
+            if message.content:
+                content += f" {message.content}"
+            print(content)
+            emb = self.encoder.encode(content)
+            self.sent_embs = np.concatenate((self.sent_embs, np.expand_dims(emb, axis=0)))
+            print(self.sent_embs.shape)
+
     # Making a prompt using the simple concatenation.
-    def get_simple_prompt(self, always_len: int) -> list[ChatMessage]:
+    def get_simple_history(self) -> list[ChatMessage]:
         if self.max_turns is None:
             valid_chat_history = deepcopy(self.chat_history)
         else:
-            valid_chat_history = self.chat_history[len(self.chat_history)-self.max_turns]
+            valid_chat_history = self.chat_history[max(len(self.chat_history)-self.max_turns, 0):]
+
+        return valid_chat_history
+
+    # Making a prompt using the retrieval concatenation.
+    def get_retrieval_history(self) -> list[ChatMessage]:
+        # If this is the case, retrieval has no meaning.
+        if len(self.chat_history) <= self.max_turns:
+            return self.get_simple_history()
+
+        top_n = self.max_turns - 1
+        query_emb, cand_embs = self.sent_embs[-1], self.sent_embs[:-1]  # (d_h), (N-1, d_h)
+        scores = util.cos_sim(query_emb, cand_embs)[0]  # (N-1)
+
+        idxs = torch.sort(scores, descending=True).indices[:top_n]
+        idxs = torch.sort(idxs).values
+        valid_chat_history = [self.chat_history[:-1][idx] for idx in idxs]
+        valid_chat_history.append(self.chat_history[-1])
+
+        return valid_chat_history
+
+    # Overriding get_prompt.
+    async def get_prompt(self) -> list[ChatMessage]:
+        always_len = self.always_len
+        for message in self.player_prompts:  # Additional length for player information.
+            always_len += self.message_token_len(message)
+
+        if self.summarization and self.summ_period is None:
+            pass  # TODO: Summarizing all previous chat logs and return the prompt.
+
+        if self.concat_policy == 'simple':
+            valid_chat_history = self.get_simple_history()
+        elif self.concat_policy == 'retrieval':
+            valid_chat_history = self.get_retrieval_history()
 
         remaining = max_size = self.max_context_size - always_len
         total_tokens = 0
@@ -178,18 +240,6 @@ class GameManager(Kani):
             return self.always_included_messages
         return self.always_included_messages + self.player_prompts + valid_chat_history[-to_keep:]
 
-    # Overriding get_prompt.
-    async def get_prompt(self) -> list[ChatMessage]:
-        always_len = self.always_len
-        for message in self.player_prompts:  # Additional length for player information.
-            always_len += self.message_token_len(message)
-
-        if self.summarization and self.summ_period is None:
-            pass  # TODO: Summarizing all previous chat logs and return the prompt.
-
-        if self.concat_policy == 'simple':
-            return self.get_simple_prompt(always_len)
-
     # Overriding full_round.
     async def full_round(self, user_queries: List[Tuple[int, str]], players: Dict[int, Player], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
@@ -205,21 +255,17 @@ class GameManager(Kani):
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
         # Converting the player information into natural language prompt.
-        user_messages = []
         self.player_prompts.clear()
         for pair in user_queries:
             p, query = pair
             prompt = f"[Player {p}] [Name] {players[p].name} [Kin] {players[p].kin} [Persona] {' '.join(players[p].get_persona())} [Goal] {players[p].goal} " + \
                 f"[Traits] {' '.join(players[p].get_traits())} [Flaws] {' '.join(players[p].get_flaws())} [Items] {' '.join(players[p].get_items())}"
             self.player_prompts.append(ChatMessage.system(prompt))
-            user_messages.append(ChatMessage.user(content=query.strip(), name=players[p].name))
+            await self.add_to_history(ChatMessage.user(content=query.strip(), name=players[p].name))
 
         retry = 0
         is_model_turn = True
         async with self.lock:
-            # Adding the player name for multi-players setting.
-            self.chat_history += user_messages
-
             while is_model_turn:
                 # do the model prediction
                 completion = await self.get_model_completion(**kwargs)
@@ -253,26 +299,27 @@ class GameManager(Kani):
 
         if res < difficulty:
             msg = f"TEST FAILED. THE DICE ROLL RESULT IS: {res}."
-            print(msg)
         else:
             msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT IS: {res}."
-            print(msg)
         
         # Updating the new chat message.
         msg = ChatMessage.system(content=msg)
         await self.add_to_history(msg)
+        return msg
 
     # Kani's function call for starting an action scene.
     @ai_function
     def activate_action_scene(self):
         """Activate an action scene if there is a circumstance that players should take actions in a tight time limit."""
         self.is_action_scene = True
+        return "ACTION SCENE ACTIVATED."
 
     # Kani's function call for ending an action scene.
     @ai_function
     def terminate_action_scene(self):
         """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
         self.is_action_scene = False
+        return "ACTION SCENE TERMINATED."
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
@@ -287,7 +334,7 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Check if the requested NPC '{name}' has already been initialized. Generate the specifications of it if it does not exist now.")
 
         if not self.translate_into_binary(res):
-            return
+            return "NPC ALREADY EXISTS. CONTINUE THE GAME."
 
         # Converting & Fetching information.
         try:
@@ -309,6 +356,7 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
+        return f"NPC CREATED: {self.get_npc(self.npcs[name])}"
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):

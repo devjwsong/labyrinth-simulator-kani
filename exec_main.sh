@@ -5,6 +5,7 @@ python src/main.py \
     --rule_injection=full \
     --scene_idx=0 \
     --num_players=1 \
+    --concat_policy=simple \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \
     --temperature=1.0 \

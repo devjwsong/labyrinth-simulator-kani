@@ -1,7 +1,8 @@
 from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_manager_log, get_player_input, logic_break
-from models.kani_models import generate_engine
+from agents.kani_models import generate_engine
 from agents.player import Player
 from agents.manager import GameManager
+from sentence_transformers import SentenceTransformer
 from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
@@ -13,6 +14,7 @@ import logging
 import asyncio
 import random
 import time
+import torch
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -268,6 +270,9 @@ if __name__=='__main__':
 
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
     assert args.concat_policy in ['simple', 'retrieval'], "The concatenation polich should be either 'simple' or 'retrieval'."
+    if args.max_turns is None:
+        print_system_log("THE RETRIEVAL CONCATENATION WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION...")
+        args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
 
     # Creating the engine.
     random.seed(args.seed)
@@ -282,9 +287,16 @@ if __name__=='__main__':
         # TODO: Adding after the RAG method is completed.
         pass
 
+    # Intializing the sentence encoder if the concatenation policy is retrieval.
+    encoder = None
+    if args.concat_policy == 'retrieval':
+        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
+
     # Initializing the game manager.
     manager = GameManager(
         main_args=args,
+        encoder=encoder,
         engine=engine, 
         system_prompt=system_prompt, 
     )
