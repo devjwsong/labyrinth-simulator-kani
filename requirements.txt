@@ -3,3 +3,4 @@ torch==2.1.0
 kani[openai]==0.3.0
 kani[llama]==0.3.0
 sentence-transformers==2.2.2
+inputimeout==1.0.4
