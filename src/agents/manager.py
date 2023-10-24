@@ -303,8 +303,7 @@ class GameManager(Kani):
             msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT IS: {res}."
         
         # Updating the new chat message.
-        msg = ChatMessage.system(content=msg)
-        await self.add_to_history(msg)
+        print(msg)
         return msg
 
     # Kani's function call for starting an action scene.
@@ -312,14 +311,18 @@ class GameManager(Kani):
     def activate_action_scene(self):
         """Activate an action scene if there is a circumstance that players should take actions in a tight time limit."""
         self.is_action_scene = True
-        return "ACTION SCENE ACTIVATED."
+        msg = "ACTION SCENE ACTIVATED."
+        print(msg)
+        return msg
 
     # Kani's function call for ending an action scene.
     @ai_function
     def terminate_action_scene(self):
         """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
         self.is_action_scene = False
-        return "ACTION SCENE TERMINATED."
+        msg = "ACTION SCENE TERMINATED."
+        print(msg)
+        return msg
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
@@ -333,12 +336,14 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Check if the requested NPC '{name}' has already been initialized. Generate the specifications of it if it does not exist now.")
 
-        if not self.translate_into_binary(res):
-            return "NPC ALREADY EXISTS. CONTINUE THE GAME."
-
         # Converting & Fetching information.
         try:
             res = json.loads(res)
+            if len(res) == 0:
+                msg = "NPC ALREADY EXISTS. CONTINUE THE GAME."
+                print(msg)
+                return msg
+
             assert isinstance(res['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(res['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
             assert isinstance(res['goal'], str), "THE GOAL OF AN NPC IS NOT THE STRING TYPE."
@@ -356,7 +361,9 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
-        return f"NPC CREATED: {self.get_npc(self.npcs[name])}"
+        msg = f"NPC CREATED: {self.get_npc(self.npcs[name])}"
+        print(msg)
+        return msg
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):

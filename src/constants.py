@@ -1,5 +1,5 @@
 ONE_HOUR = 60 * 60
-PER_PLAYER_TIME = 5
+PER_PLAYER_TIME = 10
 TOTAL_TIME = 13 * ONE_HOUR
 
 INSTRUCTION = [
@@ -155,7 +155,7 @@ INIT_QUERY = [
 CREATE_NPC_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game.",
     "You should generate an NPC information in a dictionary form.",
-    "Note that if the requested NPC already exists in the given NPC dictionary, you must answer only 'no'.",
+    "Note that if the requested NPC already exists in the given NPC dictionary, you must generate an empty dictionary with '\{\}'.",
     "Otherwise, you should generate a new NPC properties.",
     "Each key and corresponding value is as follows:"
 ] + INIT_QUERY[2][3:-1]

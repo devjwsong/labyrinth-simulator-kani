@@ -1,5 +1,5 @@
 from agents.manager import GameManager
-from models.kani_models import generate_engine
+from agents.kani_models import generate_engine
 from utils import select_options, check_init_types
 from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
 from typing import Dict
@@ -110,6 +110,11 @@ if __name__=='__main__':
     parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
     parser.add_argument('--rule_injection', type=str, required=False, help="The rule injection type.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
+    parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
+    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included. If it is None, the model includes as many turns as possible.")
+    parser.add_argument('--summarization', action='store_true', help="Specifying either including the summarization or not.")
+    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period. If it is None, all logs are summarized regardless of the concatenation policy.")
+    parser.add_argument('--clear_raw_logs', action='store_true', help="Specifying if the raw chat logs are cleared after the summarization.")
 
     args = parser.parse_args()
 
@@ -129,7 +134,12 @@ if __name__=='__main__':
         pass
 
     # Initializing the game manager.
-    manager = GameManager(engine=engine, system_prompt=system_prompt)
+    manager = GameManager(
+        main_args=args,
+        encoder=None,
+        engine=engine, 
+        system_prompt=system_prompt
+    )
 
     if args.eval_name == 'init':
         # Loading the scene file.

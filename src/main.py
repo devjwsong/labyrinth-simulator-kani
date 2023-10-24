@@ -271,7 +271,7 @@ if __name__=='__main__':
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
     assert args.concat_policy in ['simple', 'retrieval'], "The concatenation polich should be either 'simple' or 'retrieval'."
     if args.max_turns is None:
-        print_system_log("THE RETRIEVAL CONCATENATION WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION...")
+        print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
         args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
 
     # Creating the engine.
