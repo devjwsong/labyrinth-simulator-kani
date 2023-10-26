@@ -162,10 +162,10 @@ class GameManager(Kani):
                 content += f" {message.name}:"
             if message.content:
                 content += f" {message.content}"
-            print(content)
+
             emb = self.encoder.encode(content)
             self.sent_embs = np.concatenate((self.sent_embs, np.expand_dims(emb, axis=0)))
-            print(self.sent_embs.shape)
+
 
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
