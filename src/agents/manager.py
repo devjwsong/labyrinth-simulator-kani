@@ -166,6 +166,8 @@ class GameManager(Kani):
             emb = self.encoder.encode(content)
             self.sent_embs = np.concatenate((self.sent_embs, np.expand_dims(emb, axis=0)))
 
+            # The number of sentence embeddings and chat logs should always be identical.
+            assert len(self.chat_history) == self.sent_embs.shape[0], "The sentence embeddings and chat histories are not synced."
 
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
@@ -179,17 +181,23 @@ class GameManager(Kani):
     # Making a prompt using the retrieval concatenation.
     def get_retrieval_history(self) -> list[ChatMessage]:
         # If this is the case, retrieval has no meaning.
-        if len(self.chat_history) <= self.max_turns:
+        if len(self.chat_history) <= self.max_turns or self.max_turns <= len(self.player_prompts):
             return self.get_simple_history()
+        
+        # Calculating the max-pooled cosine similarities.
+        top_n = self.max_turns - len(self.player_prompts)
+        query_embs, cand_embs = self.sent_embs[-len(self.player_prompts):], self.sent_embs[:-len(self.player_prompts)]  # (P, d), (C, d)
+        cos_sims = util.cos_sim(query_embs, cand_embs)  # (P, C)
+        scores = torch.max(cos_sims, dim=0).values  # (C)
 
-        top_n = self.max_turns - 1
-        query_emb, cand_embs = self.sent_embs[-1], self.sent_embs[:-1]  # (d_h), (N-1, d_h)
-        scores = util.cos_sim(query_emb, cand_embs)[0]  # (N-1)
-
+        # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        valid_chat_history = [self.chat_history[:-1][idx] for idx in idxs]
-        valid_chat_history.append(self.chat_history[-1])
+        valid_chat_history = [self.chat_history[:-len(self.player_prompts)][idx] for idx in idxs]
+        valid_chat_history += self.chat_history[-len(self.player_prompts):]
+
+        # Checking the length of the valid chat logs.
+        assert len(valid_chat_history) == self.max_turns, "The number of sampled chat logs and the maximum number of turns are different."
 
         return valid_chat_history
 
