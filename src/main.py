@@ -158,6 +158,8 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
         player = create_character(character_data)
         players[p+1] = player
         logic_break()
+    manager.players = players
+    manager.name_to_idx = {player.name: idx for idx, player in players.items()}
 
     loop = asyncio.get_event_loop()
 
@@ -207,7 +209,6 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
 
             async for response in manager.full_round(
                 user_queries,
-                players,
                 max_tokens=args.max_tokens,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,

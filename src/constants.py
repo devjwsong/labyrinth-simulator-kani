@@ -155,10 +155,16 @@ INIT_QUERY = [
 CREATE_NPC_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game.",
     "You should generate an NPC information in a dictionary form.",
-    "Note that if the requested NPC already exists in the given NPC dictionary, you must generate an empty dictionary with '\{\}'.",
-    "Otherwise, you should generate a new NPC properties.",
+    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
     "Each key and corresponding value is as follows:"
 ] + INIT_QUERY[2][3:-1]
+
+OBTAINABLE_CHECK_PROMPT = [
+    "You are given a dialogue history in a fantasy text adventure game and an object which is located in the game scene.",
+    "You should determine whether a player character can have the object in the inventory.",
+    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "You must answer only either 'yes' or 'no'."
+]
 
 VALIDATE_SUCCESS_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game.",

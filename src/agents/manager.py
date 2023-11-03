@@ -1,9 +1,8 @@
 from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
-from agents.player import Player
 from sentence_transformers import SentenceTransformer, util
-from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT
+from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
 from argparse import Namespace
 from copy import deepcopy
@@ -37,6 +36,7 @@ class GameManager(Kani):
         self.consequences = ""
 
         # Additional prompt attrbutes.
+        self.scene_prompt = None
         self.player_prompts = []
         self.encoder = encoder
         self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.encoder is not None else None
@@ -47,6 +47,8 @@ class GameManager(Kani):
         self.clear_raw_logs = True if main_args.clear_raw_logs else False
 
         # Additional attributes for game play.
+        self.players = {}
+        self.name_to_idx = {}
         self.is_action_scene = False
 
     # Initialization of the scene.
@@ -84,14 +86,6 @@ class GameManager(Kani):
         self.chat_history = []
         if self.sent_embs is not None:
             self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
-
-        # Including the initialized information into the fixed prompt.
-        scene_prompt = f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
-            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
-            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
-            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
-            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
-        self.always_included_messages.append(ChatMessage.system(scene_prompt))
 
     # Getter for NPC with the natural format.
     def get_npc(self, info):
@@ -203,7 +197,10 @@ class GameManager(Kani):
 
     # Overriding get_prompt.
     async def get_prompt(self) -> list[ChatMessage]:
-        always_len = self.always_len
+        scene_prompt_len = 0
+        if self.scene_prompt is not None:
+            scene_prompt_len = self.message_token_len(self.scene_prompt)
+        always_len = self.always_len + scene_prompt_len  # Additional length for scene information.
         for message in self.player_prompts:  # Additional length for player information.
             always_len += self.message_token_len(message)
 
@@ -244,12 +241,14 @@ class GameManager(Kani):
             f" {len(self.always_included_messages) + to_keep} messages"
             f" ({len(self.always_included_messages)} always)"
         )
+
+        default_prompt = self.always_included_messages + [self.scene_prompt] + self.player_prompts if self.scene_prompt is not None else self.always_included_messages
         if not to_keep:
-            return self.always_included_messages
-        return self.always_included_messages + self.player_prompts + valid_chat_history[-to_keep:]
+            return default_prompt
+        return default_prompt + valid_chat_history[-to_keep:]
 
     # Overriding full_round.
-    async def full_round(self, user_queries: List[Tuple[int, str]], players: Dict[int, Player], **kwargs) -> AsyncIterable[ChatMessage]:
+    async def full_round(self, user_queries: List[Tuple[int, str]], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
 
         Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
@@ -262,14 +261,22 @@ class GameManager(Kani):
         :param query: The content of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
-        # Converting the player information into natural language prompt.
+        # Converting the scene information into the natural language prompt.
+        prompt= f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
+            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
+            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
+            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
+            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
+        self.scene_prompt = ChatMessage.system(prompt)
+
+        # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for pair in user_queries:
             p, query = pair
-            prompt = f"[Player {p}] [Name] {players[p].name} [Kin] {players[p].kin} [Persona] {' '.join(players[p].get_persona())} [Goal] {players[p].goal} " + \
-                f"[Traits] {' '.join(players[p].get_traits())} [Flaws] {' '.join(players[p].get_flaws())} [Items] {' '.join(players[p].get_items())}"
+            prompt = f"[Player {p}] [Name] {self.players[p].name} [Kin] {self.players[p].kin} [Persona] {' '.join(self.players[p].get_persona())} [Goal] {self.players[p].goal} " + \
+                f"[Traits] {' '.join(self.players[p].get_traits())} [Flaws] {' '.join(self.players[p].get_flaws())} [Items] {' '.join(self.players[p].get_items())}"
             self.player_prompts.append(ChatMessage.system(prompt))
-            await self.add_to_history(ChatMessage.user(content=query.strip(), name=players[p].name))
+            await self.add_to_history(ChatMessage.user(content=query.strip(), name=self.players[p].name))
 
         retry = 0
         is_model_turn = True
@@ -337,20 +344,22 @@ class GameManager(Kani):
     async def create_npc(self, name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
         """Create an NPC a player requested to talk with if it has not been initialized yet.""" 
 
+        # The NPC has been already initialized.
+        if name in self.npcs:
+            msg = "NPC ALREADY EXISTS. CONTINUING THE GAME..."
+            print(msg)
+            return msg
+
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
         system_prompt += f"\nCurrently initialized NPCs: {self.npcs}"
         
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Check if the requested NPC '{name}' has already been initialized. Generate the specifications of it if it does not exist now.")
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{name}'.")
 
         # Converting & Fetching information.
         try:
             res = json.loads(res)
-            if len(res) == 0:
-                msg = "NPC ALREADY EXISTS. CONTINUE THE GAME."
-                print(msg)
-                return msg
 
             assert isinstance(res['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(res['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
@@ -369,9 +378,40 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
-        msg = f"NPC CREATED: {self.get_npc(self.npcs[name])}"
+        msg = f"NPC {name} CREATED: {self.get_npc(self.npcs[name])}"
         print(msg)
         return msg
+
+    # Kani's function call for obtaining an object.
+    @ai_function
+    async def use_random_table(self, 
+        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to get an item if the random table is a list of obtainable items.")], 
+        table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
+    ):
+        """
+        Let the player use to a random table if the player tries to use something in any random table 
+        or if a certain table should be referred to anytime during the game.
+        """
+
+        entries = self.random_tables[table_name]
+        _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
+        idx = random.randint(0, len(entries)-1)
+        obj = entries[idx]
+
+        # The default system prompt consists of the instruction to check if the object is obtainable.
+        system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
+        system_prompt += f"\n{self.scene_prompt.content}"
+        system_prompt += f"\nThe object: {obj}"
+        
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        response = await kani.chat_round_str("Can the player get the given object?")
+
+        if self.translate_into_binary(response):  # Updating the player's inventory.
+            pass
+        else:
+            msg = f"THE PLAYER FOUND {obj}."
+            print(msg)
+            return msg
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):
