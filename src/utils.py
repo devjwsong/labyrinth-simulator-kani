@@ -1,4 +1,3 @@
-from agents.manager import GameManager
 from inputimeout import inputimeout
 from typing import Any, List
 
@@ -65,7 +64,7 @@ def select_options(options: List[Any]):
 
 
 # Checking the types of attributes for initialization.
-def check_init_types(manager: GameManager):
+def check_init_types(manager):
     # The scene summary.
     try:
         assert isinstance(manager.scene_summary, list), "THE SCENE SUMMARY IS NOT THE LIST TYPE."

@@ -3,6 +3,7 @@ from kani.models import ChatMessage, ChatRole
 from kani.exceptions import FunctionCallException, MessageTooLong
 from sentence_transformers import SentenceTransformer, util
 from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
+from utils import print_system_log, select_options
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
 from argparse import Namespace
 from copy import deepcopy
@@ -318,7 +319,7 @@ class GameManager(Kani):
             msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT IS: {res}."
         
         # Updating the new chat message.
-        print(msg)
+        print_system_log(msg, after_break=True)
         return msg
 
     # Kani's function call for starting an action scene.
@@ -327,7 +328,7 @@ class GameManager(Kani):
         """Activate an action scene if there is a circumstance that players should take actions in a tight time limit."""
         self.is_action_scene = True
         msg = "ACTION SCENE ACTIVATED."
-        print(msg)
+        print_system_log(msg, after_break=True)
         return msg
 
     # Kani's function call for ending an action scene.
@@ -336,7 +337,7 @@ class GameManager(Kani):
         """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
         self.is_action_scene = False
         msg = "ACTION SCENE TERMINATED."
-        print(msg)
+        print_system_log(msg, after_break=True)
         return msg
 
     # Kani's function call for creating an NPC immediately.
@@ -347,7 +348,7 @@ class GameManager(Kani):
         # The NPC has been already initialized.
         if name in self.npcs:
             msg = "NPC ALREADY EXISTS. CONTINUING THE GAME..."
-            print(msg)
+            print_system_log(msg, after_break=True)
             return msg
 
         # The default system prompt consists of the instruction and the requirement for an NPC.
@@ -379,7 +380,7 @@ class GameManager(Kani):
             raise Exception()
 
         msg = f"NPC {name} CREATED: {self.get_npc(self.npcs[name])}"
-        print(msg)
+        print_system_log(msg, after_break=True)
         return msg
 
     # Kani's function call for obtaining an object.
@@ -401,17 +402,41 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         system_prompt += f"\n{self.scene_prompt.content}"
-        system_prompt += f"\nThe object: {obj}"
         
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str("Can the player get the given object?")
+        response = await kani.chat_round_str(f"Can the player get the given object {obj}?")
 
-        if self.translate_into_binary(response):  # Updating the player's inventory.
-            pass
+        msg = None
+        if self.translate_into_binary(response):  # The item is obtainble.
+            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {obj}.")
+            print_system_log(f"{obj}: {item_desc}")
+            print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
+            confirmed = select_options(['yes', 'no'])
+
+            if confirmed == 'yes':
+                player_idx = self.name_to_idx[player_name]
+                player = self.players[player_idx]
+                if len(player.items) >= 6:  # The player inventory is already full.
+                    pass
+                else:
+                    # Updating the player inventory and removing the item from the random table.
+                    player.add_item(obj, item_desc)
+                    entries = entries[:idx] + entries[idx+1:]
+                    self.random_tables[table_name] = entries
+
+                    msg = f"THE PLAYER {player_name} OBTAINED THE ITEM {obj}."
+                    print_system_log("PLAYER INVENTORY UPDATED:")
+                    for item in player.get_items():
+                        print(item)
+                    print_system_log(msg, after_break=True)
+            else:
+                msg = f"THE PLAYER {player_name} DID NOT TAKE THE ITME {obj}."
+                print_system_log(msg, after_break=True)
         else:
-            msg = f"THE PLAYER FOUND {obj}."
-            print(msg)
-            return msg
+            msg = f"THE PLAYER {player_name} FOUND {obj}."
+            print_system_log(msg, after_break=True)
+
+        return msg
 
     # Converting the generation result into the binary answer.
     def translate_into_binary(self, response: str):
