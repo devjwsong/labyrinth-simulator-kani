@@ -1,10 +1,12 @@
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole
-from kani.exceptions import FunctionCallException, MessageTooLong
+from kani.models import ChatMessage, ChatRole, FunctionCall
+from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
+from kani.internal import FunctionCallResult
+from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
 from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
 from utils import print_system_log, select_options
-from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple
+from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
 
@@ -55,7 +57,7 @@ class GameManager(Kani):
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
         query = f"{init_query}\n{scene}"
-        res = await self.chat_round_str(query, **kwargs)
+        res = await self.chat_round_str(query, include_functions=False, **kwargs)
 
         # Finding each key and mapping into the corresponding attribute.
         try:
@@ -248,6 +250,24 @@ class GameManager(Kani):
             return default_prompt
         return default_prompt + valid_chat_history[-to_keep:]
 
+    # Making the scene prompt.
+    def make_scene_prompt(self):
+        prompt= f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
+            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
+            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
+            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
+            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
+        self.scene_prompt = ChatMessage.system(prompt)
+
+    # Making the player prompts.
+    def make_player_prompts(self, participants):
+        # Converting the player information into the natural language prompt.
+        self.player_prompts.clear()
+        for p in participants:
+            prompt = f"[Player {p}] [Name] {self.players[p].name} [Kin] {self.players[p].kin} [Persona] {' '.join(self.players[p].get_persona())} [Goal] {self.players[p].goal} " + \
+                f"[Traits] {' '.join(self.players[p].get_traits())} [Flaws] {' '.join(self.players[p].get_flaws())} [Items] {' '.join(self.players[p].get_items())}"
+            self.player_prompts.append(ChatMessage.system(prompt))
+
     # Overriding full_round.
     async def full_round(self, user_queries: List[Tuple[int, str]], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
@@ -262,21 +282,10 @@ class GameManager(Kani):
         :param query: The content of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
-        # Converting the scene information into the natural language prompt.
-        prompt= f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
-            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
-            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
-            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
-            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
-        self.scene_prompt = ChatMessage.system(prompt)
-
-        # Converting the player information into the natural language prompt.
-        self.player_prompts.clear()
+        participants = []
         for pair in user_queries:
             p, query = pair
-            prompt = f"[Player {p}] [Name] {self.players[p].name} [Kin] {self.players[p].kin} [Persona] {' '.join(self.players[p].get_persona())} [Goal] {self.players[p].goal} " + \
-                f"[Traits] {' '.join(self.players[p].get_traits())} [Flaws] {' '.join(self.players[p].get_flaws())} [Items] {' '.join(self.players[p].get_items())}"
-            self.player_prompts.append(ChatMessage.system(prompt))
+            participants.append(p)
             await self.add_to_history(ChatMessage.user(content=query.strip(), name=self.players[p].name))
 
         retry = 0
@@ -284,6 +293,9 @@ class GameManager(Kani):
         async with self.lock:
             while is_model_turn:
                 # do the model prediction
+                self.make_scene_prompt()
+                self.make_player_prompts(participants)
+                
                 completion = await self.get_model_completion(**kwargs)
                 message = completion.message
                 await self.add_to_history(message)
@@ -305,6 +317,67 @@ class GameManager(Kani):
                     continue
                 else:
                     retry = 0
+
+    # Overriding do_function_call.
+    async def do_function_call(self, call: FunctionCall) -> FunctionCallResult:
+        """Resolve a single function call.
+
+        By default, any exception raised from this method will be an instance of a :class:`.FunctionCallException`.
+
+        You may implement an override to add instrumentation around function calls (e.g. tracking success counts
+        for varying prompts). See :ref:`do_function_call`.
+
+        :returns: A :class:`.FunctionCallResult` including whose turn it is next and the message with the result of the
+            function call.
+        :raises NoSuchFunction: The requested function does not exist.
+        :raises WrappedCallException: The function raised an exception.
+        """
+        log.debug(f"Model requested call to {call.name} with data: {call.arguments!r}")
+        # get func
+        f = self.functions.get(call.name)
+        if not f:
+            raise NoSuchFunction(call.name)
+        # call it
+        try:
+            result = await f(**call.kwargs)
+            result_str = str(result)
+            log.debug(f"{f.name} responded with data: {result_str!r}")
+        except Exception as e:
+            raise WrappedCallException(f.auto_retry, e) from e
+        msg = ChatMessage.function(f.name, result_str)
+        # if we are auto truncating, check and see if we need to
+        if f.auto_truncate is not None:
+            message_len = self.message_token_len(msg)
+            if message_len > f.auto_truncate:
+                log.warning(
+                    f"The content returned by {f.name} is too long ({message_len} > {f.auto_truncate} tokens), auto"
+                    " truncating..."
+                )
+                msg = self._auto_truncate_message(msg, max_len=f.auto_truncate)
+                log.debug(f"Auto truncate returned {self.message_token_len(msg)} tokens.")
+
+        # Adding the function result in the chat history.
+        await self.add_to_history(msg)
+
+        return FunctionCallResult(is_model_turn=f.after == ChatRole.ASSISTANT, message=msg)
+
+    # Overriding full_round_str.
+    async def full_round_str(
+        self,
+        user_queries: List[Tuple[int, str]],
+        message_formatter: Callable[[ChatMessage], str | None] = assistant_message_contents,
+        **kwargs,
+    ) -> AsyncIterable[str]:
+        """Like :meth:`full_round`, but each yielded element is a str rather than a ChatMessage.
+
+        :param query: The content of the user's chat message.
+        :param message_formatter: A function that returns a string to yield for each message. By default, `
+            `full_round_str`` yields the content of each assistant message.
+        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
+        """
+        async for message in self.full_round(user_queries, **kwargs):
+            if text := message_formatter(message):
+                yield text
 
     # Kani's function call for a dice roll test.
     @ai_function
@@ -383,7 +456,7 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg
 
-    # Kani's function call for obtaining an object.
+    # Kani's function call for getting access to an item in a random table.
     @ai_function
     async def use_random_table(self, 
         player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to get an item if the random table is a list of obtainable items.")], 

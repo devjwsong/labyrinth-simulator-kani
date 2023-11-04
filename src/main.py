@@ -1,5 +1,6 @@
 from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_manager_log, get_player_input, logic_break
 from agents.kani_models import generate_engine
+from kani.utils.message_formatters import assistant_message_contents_thinking
 from agents.player import Player
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
@@ -207,15 +208,16 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 except TimeoutOccurred:
                     break
 
-            async for response in manager.full_round(
+            async for response in manager.full_round_str(
                 user_queries,
+                message_formatter=assistant_message_contents_thinking,
                 max_tokens=args.max_tokens,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                print_manager_log(response.content, after_break=True)
+                print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
             succ, fail = False, False
