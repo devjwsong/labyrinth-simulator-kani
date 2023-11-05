@@ -4,7 +4,7 @@ from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunctio
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
-from constants import VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
+from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
 from utils import print_system_log, select_options
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
@@ -91,30 +91,30 @@ class GameManager(Kani):
         if self.sent_embs is not None:
             self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
 
-    # Getter for NPC in the natural format.
+    # Getter for NPC in natural format.
     def get_npc(self, info):
-        return f"(Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']})"
+        return f"Kin: {info['kin']} {SEP} Persona: {' '.join(info['persona'])} {SEP} Goal: {info['goal']} {SEP} Trait: {info['trait']} {SEP} Flaw: {info['flaw']}"
 
-    # Getter for NPCs in the natural format.
+    # Getter for NPCs in natural format.
     def get_npcs(self):
         res = []
         for n, (name, info) in enumerate(self.npcs.items()):
-            res.append(f"({n+1}) Name: {name} {self.get_npc(info)}")
+            res.append(f"({n+1}) Name: {name} {SEP} {self.get_npc(info)}")
         return res
 
-    # Getter for generation rules in the natural format.
+    # Getter for generation rules in natural format.
     def get_generation_rules(self):
         return [f"({r+1}) {rule}" for r, rule in enumerate(self.generation_rules)]
 
-    # Getter for environment in the natrual format.
+    # Getter for environment in natrual format.
     def get_environment(self):
         return [f"({o+1}) {name}: {desc}" for o, (name, desc) in enumerate(self.environment.items())]
 
-    # Getter for random tables in the natural format.
+    # Getter for random tables in natural format.
     def get_random_tables(self):
         res = []
         for table, entries in self.random_tables.items():
-            res.append(f"{table}: ({', '.join(entries)[:-1]})")
+            res.append(f"{table}: {(' ' + SEP + ' ').join(entries)}")
         return res
 
     # Showing the scene information which the manager has initialized.
@@ -257,11 +257,11 @@ class GameManager(Kani):
 
     # Making the scene prompt.
     def make_scene_prompt(self):
-        prompt= f"[SCENE INFORMATION] [CHAPTER] {self.chapter} [SCENE] {self.scene} [SCENE_SUMMARY] {' '.join(self.scene_summary)} " + \
-            f"[NPCS] {' '.join(self.get_npcs())} [GENERATION_RULES] {' '.join(self.get_generation_rules())} " + \
-            f"[SUCCESS_CONDITION] {self.success_condition} [FAILURE_CONDITION] {self.failure_condition}" + \
-            f"[GAME_FLOW] {' '.join(self.game_flow)} [ENVIRONMENT] {' '.join(self.environment)} " + \
-            f"[RANDOM_TABLE] {' '.join(self.get_random_tables())} [CONSEQUENCES] {self.consequences}"
+        prompt= f"[SCENE INFORMATION] (CHAPTER) {self.chapter} (SCENE) {self.scene} (SCENE_SUMMARY) {' '.join(self.scene_summary)} " + \
+            f"(NPCS) {' '.join(self.get_npcs())} (GENERATION_RULES) {' '.join(self.get_generation_rules())} " + \
+            f"(SUCCESS_CONDITION) {self.success_condition} (FAILURE_CONDITION) {self.failure_condition}" + \
+            f"(GAME_FLOW) {' '.join(self.game_flow)} (ENVIRONMENT) {' '.join(self.environment)} " + \
+            f"(RANDOM_TABLE) {' '.join(self.get_random_tables())} (CONSEQUENCES) {self.consequences}"
         self.scene_prompt = ChatMessage.system(prompt)
 
     # Making the player prompts.
@@ -269,8 +269,8 @@ class GameManager(Kani):
         # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for p in participants:
-            prompt = f"[Player {p}] [Name] {self.players[p].name} [Kin] {self.players[p].kin} [Persona] {' '.join(self.players[p].get_persona())} [Goal] {self.players[p].goal} " + \
-                f"[Traits] {' '.join(self.players[p].get_traits())} [Flaws] {' '.join(self.players[p].get_flaws())} [Items] {' '.join(self.players[p].get_items())}"
+            prompt = f"[Player {p}] (Name) {self.players[p].name} (Kin) {self.players[p].kin} (Persona) {' '.join(self.players[p].get_persona())} (Goal) {self.players[p].goal} " + \
+                f"(Traits) {' '.join(self.players[p].get_traits())} (Flaws) {' '.join(self.players[p].get_flaws())} (Items) {' '.join(self.players[p].get_items())}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.

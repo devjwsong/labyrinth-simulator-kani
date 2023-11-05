@@ -2,6 +2,8 @@ ONE_HOUR = 60 * 60
 PER_PLAYER_TIME = 10
 TOTAL_TIME = 13 * ONE_HOUR
 
+SEP = '||'
+
 INSTRUCTION = [
     "You are the Goblin King, which works as the game manager, in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are going to interact with the players and manage the game flow for the game scene you are given.",
