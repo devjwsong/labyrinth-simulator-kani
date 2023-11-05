@@ -96,7 +96,11 @@ def check_init_types(manager):
         assert isinstance(manager.game_flow, list), "THE LIST OF GAME FLOW RULES IS NOT THE LIST TYPE."
 
         # The environment.
-        assert isinstance(manager.environment, list), "THE LIST OF ENVIRONMENT SPECIFICATIONS IS NOT THE LIST TYPE."
+        assert isinstance(manager.environment, dict), "THE LIST OF ENVIRONMENT SPECIFICATIONS IS NOT THE DICT TYPE."
+        if len(manager.environment) > 0:
+            for name, desc in manager.environment.items():
+                assert isinstance(name, str), "THE NAME OF AN OBJECT IS NOT THE STRING TYPE."
+                assert isinstance(desc, str), "THE OBJECT DESCRIPTION IS NOT THE STRING TYPE."
     except AssertionError as e:
         log.error(f"{e}: ASSERTION ERROR.")
         raise Exception()

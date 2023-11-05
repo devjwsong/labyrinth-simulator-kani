@@ -137,7 +137,7 @@ INIT_QUERY = [
         "The losing is a situation where the players got killed, have been trapped in somewhere which cannot be escaped from, or got a huge disadvantage which makes the party unable to proceed anymore."
     ],
     [
-        "6. game_flow: The game flow is for specifying how the curreng game should actually go.",
+        "6. game_flow: The game flow is for specifying how the curreng game should actually go.", 
         "This is a list of strings.",
         "Each string is a sentence for one step or flow.",
         "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
@@ -147,7 +147,10 @@ INIT_QUERY = [
     ],
     [
         "7. environment: This should contain the remaining necessary environmental objects after making NPCs and game flow rules from 'locations'.",
-        "This is a list of strings.",
+        "This is a dictionary.",
+        "Each key is the name of the object which is a word."
+        "Each value is a string of description of the corresponding key object.",
+        "The Goblin King might improvise the description if there is nothing specified in the scene input.",
         "Include the objects in 'locations' if they have not been included in any previous attributes."
     ]
 ]

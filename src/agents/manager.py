@@ -15,6 +15,7 @@ import logging
 import random
 import numpy as np
 import torch
+import string
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -84,28 +85,32 @@ class GameManager(Kani):
             log.debug(res)
             log.error(f"{e}: Missing key.")
             raise Exception()
-        
+
         # Initialization record should be removed.
         self.chat_history = []
         if self.sent_embs is not None:
             self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
 
-    # Getter for NPC with the natural format.
+    # Getter for NPC in the natural format.
     def get_npc(self, info):
-        return f"Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']}"
+        return f"(Kin: {info['kin']} Persona: {' '.join(info['persona'])} Goal: {info['goal']} Trait: {info['trait']} Flaw: {info['flaw']})"
 
-    # Getter for NPCs with the natural format.
+    # Getter for NPCs in the natural format.
     def get_npcs(self):
         res = []
         for n, (name, info) in enumerate(self.npcs.items()):
             res.append(f"({n+1}) Name: {name} {self.get_npc(info)}")
         return res
 
-    # Getter for generation rules with the natural format.
+    # Getter for generation rules in the natural format.
     def get_generation_rules(self):
         return [f"({r+1}) {rule}" for r, rule in enumerate(self.generation_rules)]
 
-    # Getter for random tables with the natural format.
+    # Getter for environment in the natrual format.
+    def get_environment(self):
+        return [f"({o+1}) {name}: {desc}" for o, (name, desc) in enumerate(self.environment.items())]
+
+    # Getter for random tables in the natural format.
     def get_random_tables(self):
         res = []
         for table, entries in self.random_tables.items():
@@ -121,13 +126,13 @@ class GameManager(Kani):
         print(self.scene)
 
         print("<SCENE SUMMARY>")
-        print(self.scene_summary)
+        print('\n'.join(self.scene_summary))
 
         print("<NPCS>")
-        print(self.npcs)
+        print('\n'.join(self.get_npcs()))
 
         print("<GENERATION RULES>")
-        print(self.generation_rules)
+        print('\n'.join(self.get_generation_rules()))
 
         print("<SUCCESS CONDITION>")
         print(self.success_condition)
@@ -136,13 +141,13 @@ class GameManager(Kani):
         print(self.failure_condition)
 
         print("<GAME FLOW>")
-        print(self.game_flow)
+        print('\n'.join(self.game_flow))
 
         print("<ENVIRONMENT>")
-        print(self.environment)
+        print('\n'.join(self.get_environment()))
 
         print("<RANDOM TABLES>")
-        print(self.random_tables)
+        print('\n'.join(self.get_random_tables()))
 
         print("<CONSEQUENCES>")
         print(self.consequences)
@@ -456,6 +461,35 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg
 
+    # Kani's function call for removing an item in the player's inventory.
+    @ai_function
+    def remove_item(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to remove the item from the inventory.")],
+        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to discard.")],
+        place: Annotated[str, AIParam(desc="The place where the player wants to throw away the item.")]=None
+    ):
+        """Let the player discard the item if the player requested to remove an item from the inventory."""
+        player = self.players[self.name_to_idx[player_name]]
+        item_names = [item['name'] for item in player.items]
+
+        # Checking if the item is in the inventory.
+        if item_name not in item_names:
+            msg = f"THERE IS NO ITEM {item_name} IN THE PLAYER {player_name}'S INVENTORY."
+            print_system_log(msg, after_break=True)
+            return msg
+
+        # Removing the item from the inventory.
+        idx = item_names.index(item_name)
+        player.remove_item(idx)        
+
+        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
+        print_system_log("PLAYER INVENTORY UPDATED:")
+        for item in player.get_items():
+            print(item)
+        print_system_log(msg, after_break=True)
+
+        return msg
+
     # Kani's function call for getting access to an item in a random table.
     @ai_function
     async def use_random_table(self, 
@@ -477,36 +511,68 @@ class GameManager(Kani):
         system_prompt += f"\n{self.scene_prompt.content}"
         
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Can the player get the given object {obj}?")
+        response = await kani.chat_round_str(f"Can the player get the given object {obj} in the inventory?")
 
         msg = None
         if self.translate_into_binary(response):  # The item is obtainble.
+            # Removing unnecessary punctuations from the object name.
+            puncs = list(string.punctuation)
+            cut_idx = len(obj)
+            for i in range(len(obj)-1, -1, -1):
+                if obj[i] in puncs:
+                    cut_idx = i
+                else:
+                    break
+            obj = obj[:cut_idx]
+
             item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {obj}.")
             print_system_log(f"{obj}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            confirmed = select_options(['yes', 'no'])
+            confirmed = select_options(['Yes', 'No'])
 
-            if confirmed == 'yes':
-                player_idx = self.name_to_idx[player_name]
-                player = self.players[player_idx]
+            player_idx = self.name_to_idx[player_name]
+            player = self.players[player_idx]
+
+            if confirmed == 'Yes':
                 if len(player.items) >= 6:  # The player inventory is already full.
-                    pass
+                    print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
+                    options = [
+                        "Discarding one item from the inventory.",
+                        "Not taking the found item."
+                    ]
+                    confirmed = select_options(options)
+                    if confirmed[0] == options:  # Discarding any item from the inventory.
+                        print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
+                        confirmed = select_options(player.items)
+                        self.remove_item(player_name, confirmed['name'])
+
+                        player.add_item(obj, item_desc)
+                        entries = entries[:idx] + entries[idx+1:]
+                        self.random_tables[table_name] = entries
+
+                        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {confirmed['name']} AND ADDED THE ITEM {obj} IN THE INVENTORY."
+                        print_system_log(msg, after_break=True)
+                        return msg
+                    else:  # Not taking the found item.
+                        msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."
+                        print_system_log(msg, after_break=True)
+                        return msg
                 else:
                     # Updating the player inventory and removing the item from the random table.
                     player.add_item(obj, item_desc)
                     entries = entries[:idx] + entries[idx+1:]
                     self.random_tables[table_name] = entries
 
-                    msg = f"THE PLAYER {player_name} OBTAINED THE ITEM {obj}."
+                    msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} AND ADDED IT IN THE INVENTORY."
                     print_system_log("PLAYER INVENTORY UPDATED:")
                     for item in player.get_items():
                         print(item)
                     print_system_log(msg, after_break=True)
             else:
-                msg = f"THE PLAYER {player_name} DID NOT TAKE THE ITME {obj}."
+                msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."
                 print_system_log(msg, after_break=True)
         else:
-            msg = f"THE PLAYER {player_name} FOUND {obj}."
+            msg = f"THE PLAYER {player_name} FOUND {obj}. IT SEEMS NOT OBTAINABLE."
             print_system_log(msg, after_break=True)
 
         return msg
