@@ -58,7 +58,7 @@ def select_options(options: List[Any]):
             if res < 1 or res > len(options):
                 print_system_log(f"THE ALLOWED VALUE IS FROM {1} TO {len(options)}.", after_break=True)
             else:
-                return options[res-1]
+                return res-1
         except ValueError:
             print_system_log("THE INPUT SHOULD BE AN INTEGER.", after_break=True)
 

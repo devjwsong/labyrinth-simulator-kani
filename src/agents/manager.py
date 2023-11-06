@@ -269,8 +269,12 @@ class GameManager(Kani):
         # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for p in participants:
-            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {' '.join(self.players[p].get_persona())} (GOAL) {self.players[p].goal} " + \
-                f"(TRAITS) {' '.join(self.players[p].get_traits())} (FLAWS) {' '.join(self.players[p].get_flaws())} (ITEMS) {' '.join(self.players[p].get_items())}"
+            persona_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].persona)]
+            traits_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_traits())]
+            flaws_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_flaws())]
+            inventory_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_inventory())]
+            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {' '.join(persona_prompt)} (GOAL) {self.players[p].goal} " + \
+                f"(TRAITS) {' '.join(traits_prompt)} (FLAWS) {' '.join(flaws_prompt)} (INVENTORY) {' '.join(inventory_prompt)}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.
@@ -469,26 +473,24 @@ class GameManager(Kani):
     ):
         """Let the player discard the item if the player requested to remove an item from the inventory."""
         player = self.players[self.name_to_idx[player_name]]
-        item_names = [item['name'] for item in player.items]
 
         # Checking if the item is in the inventory.
-        if item_name not in item_names:
-            msg = f"THERE IS NO ITEM {item_name} IN THE PLAYER {player_name}'S INVENTORY."
+        if item_name not in player.inventory:
+            msg = f"THE PLAYER {player_name} TRIED TO DISCARD THE ITEM {item_name} BUT THERE IS NO SUCH ITEM IN THE INVENTORY."
             print_system_log(msg, after_break=True)
             return msg
 
         # Removing the item from the inventory.
-        idx = item_names.index(item_name)
-        desc = player.items[idx]['description']
-        player.remove_item(idx)
+        desc = player.inventory[item_name]
+        player.remove_item(item_name)
 
         # Discarded item is placed in the environment.
         self.environment[item_name] = desc
 
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
         print_system_log("PLAYER INVENTORY UPDATED:")
-        for item in player.get_items():
-            print(item)
+        for l, line in enumerate(player.get_inventory()):
+            print(f"({l+1}) {line}")
         print_system_log(msg, after_break=True)
 
         return msg
@@ -531,29 +533,30 @@ class GameManager(Kani):
             item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {obj}.")
             print_system_log(f"{obj}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            confirmed = select_options(['Yes', 'No'])
+            selected = select_options(['Yes', 'No'])
 
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            if confirmed == 'Yes':
-                if len(player.items) >= 6:  # The player inventory is already full.
+            if selected == 0:
+                if len(player.inventory) >= 6:  # The player inventory is already full.
                     print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
                     options = [
                         "Discarding one item from the inventory.",
                         "Not taking the found item."
                     ]
-                    confirmed = select_options(options)
-                    if confirmed[0] == options:  # Discarding any item from the inventory.
+                    selected = select_options(options)
+                    if selected == 0:  # Discarding any item from the inventory.
                         print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                        confirmed = select_options(player.items)
-                        self.remove_item(player_name, confirmed['name'])
+                        selected = select_options(player.get_inventory())
+                        removal_target = list(player.inventory().keys())[selected]
+                        self.remove_item(player_name, removal_target)
 
                         player.add_item(obj, item_desc)
                         entries = entries[:idx] + entries[idx+1:]
                         self.random_tables[table_name] = entries
 
-                        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {confirmed['name']} AND ADDED THE ITEM {obj} IN THE INVENTORY."
+                        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {removal_target} AND ADDED THE ITEM {obj} IN THE INVENTORY."
                         print_system_log(msg, after_break=True)
                         return msg
                     else:  # Not taking the found item.
@@ -568,8 +571,8 @@ class GameManager(Kani):
 
                     msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} AND ADDED IT IN THE INVENTORY."
                     print_system_log("PLAYER INVENTORY UPDATED:")
-                    for item in player.get_items():
-                        print(item)
+                    for l, line in enumerate(player.get_inventory()):
+                        print(f"({l+1}) {line}")
                     print_system_log(msg, after_break=True)
             else:
                 msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."

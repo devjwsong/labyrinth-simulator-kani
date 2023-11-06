@@ -30,7 +30,9 @@ def create_character(data: Dict):
     while True:
         # Showing the list of kins.
         print_system_log("SELECT THE KIN TO SEE MORE DETAIL.")
-        kin = select_options(list(data['kins'].keys()))
+        kins = list(data['kins'].keys())
+        selected = select_options(kins)
+        kin = kins[selected]
         info = data['kins'][kin]
         persona = info['persona']
 
@@ -39,19 +41,19 @@ def create_character(data: Dict):
         print(f"Kin: {kin}")
         for s, sent in enumerate(persona):
             print(f"({s+1}) {sent}")
-        print(f"{info['guide']}")
+        print(' '.join(info['guide']))
 
         # Confirming the kin.
         print_question_start()
         print_system_log(f"ARE YOU GOING TO GO WITH {kin}?")
-        confirmed = select_options(['Yes', 'No'])
-        if confirmed == 'No':
+        selected = select_options(['Yes', 'No'])
+        if selected == 1:
             print_system_log("GOING BACK TO THE LIST...")
             continue
 
-        traits = []
-        flaws = []
-        items = []
+        traits = {}
+        flaws = {}
+        inventory = {}
 
         # Setting the name.
         print_question_start()
@@ -69,44 +71,46 @@ def create_character(data: Dict):
             print_system_log("YOU'VE SELECTED DWARF. SELECT YOUR JOB.")
             jobs_and_tools = info['tables']['jobs_and_tools']
             selected = select_options(jobs_and_tools)
-            traits.append(f"My job is {selected['job']}.")
+            job_and_tool = jobs_and_tools[selected]
+            traits['Job'] = f"My job is {job_and_tool['job']} and I can use my {job_and_tool['tool']} professionally."
 
             print_question_start()
-            print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {selected['tool']}")
+            print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {job_and_tool['tool']}")
             item_description = get_player_input(after_break=True)
-            items.append({'name': selected['tool'], 'description': item_description})
+            inventory[job_and_tool['tool']] = item_description
 
         elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
-            traits += info['default_traits']
+            traits.update(info['default_traits'])
 
         elif kin == 'Goblin':
             print_question_start()
-            print_system_log(f"YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING. IF YOU LEAVE AN EMPTY STRING, THE DEFAULT VALUE '{info['default_traits'][0]}' WILL BE ADDED.")
+            print_system_log("YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING.")
             default_traits = info['default_traits']
             reason = get_player_input(after_break=True)
             if len(reason) > 0:
-                default_traits[0] = reason
-            traits += default_traits
+                default_traits['Goblin feature'] = reason
+            traits.update(default_traits)
 
         elif kin == 'Horned Beast':
             print_question_start()
             print_system_log("YOU'VE SELECTED HORNED BEAST. SELECT ONE OBJECT TYPE YOU CAN CONTROL.")
-            object_type = select_options(info['tables']['objects'])
-            traits.append(f"I can control an object of type {object_type}.")
-
-            flaws += info['default_flaws']
+            objects = info['tables']['objects']
+            selected = select_options(objects)
+            traits['Control object'] = f"I can control an object of type {objects[selected]}."
+            flaws.update(info['default_flaws'])
 
         # Picking up a trait.
         print_question_start()
         print_system_log("NOW, SELECT ONE TRAIT FROM THE GIVEN LIST.")
-        selected = select_options(data['traits'])
-        traits.append(f"{selected['trait']}: {selected['description']}")
+        cands = data['traits']
+        selected = select_options(cands)
+        traits[cands[selected]['trait']] = cands[selected]['description']
         if kin == 'Human':
-            extra_traits = [entry for entry in data['traits'] if entry['trait'] != selected['trait']]
+            extra_cands = [entry for entry in data['traits'] if entry['trait'] not in traits]
             print_question_start()
             print_system_log("YOU'VE SELECTED HUMAN. YOU CAN PICK ONE MORE EXTRA TRAIT.")
-            selected = select_options(extra_traits)
-            traits.append(f"{selected['trait']}: {selected['description']}")
+            selected = select_options(extra_cands)
+            traits[extra_cands[selected]['trait']] = extra_cands[selected]['description']
 
         # Picking up a flaw.
         print_question_start()
@@ -122,7 +126,7 @@ def create_character(data: Dict):
             if included:
                 filtered_flaws.append(entry)
         selected = select_options(filtered_flaws)
-        flaws.append(f"{selected['flaw']}: {selected['description']}")
+        flaws[filtered_flaws[selected]['flaw']] = filtered_flaws[selected]['description']
 
         # Finally setting the player instance.
         player = Player(
@@ -132,7 +136,7 @@ def create_character(data: Dict):
             goal=goal,
             traits=traits,
             flaws=flaws,
-            items=items
+            inventory=inventory
         )
         print_question_start()
         print_system_log("FINALLY, CONFIRM IF THESE SPECIFICATIONS ARE MATCHED WITH YOUR CHOICES.")
@@ -140,8 +144,8 @@ def create_character(data: Dict):
 
         print_question_start()
         print_system_log("ARE THEY CORRECT?")
-        confirmed = select_options(['yes', 'no'])
-        if confirmed == 'no':
+        selected = select_options(['Yes', 'No'])
+        if selected == 1:
             print_system_log("GOING BACK TO THE LIST...", after_break=True)
             continue
 

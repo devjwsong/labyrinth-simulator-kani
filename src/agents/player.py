@@ -1,4 +1,7 @@
 # The player class.
+import enum
+
+
 class Player():
     def __init__(self, **kwargs):
         # Player character info based on the sheet in the text book.
@@ -9,23 +12,19 @@ class Player():
 
         self.traits = kwargs['traits']
         self.flaws = kwargs['flaws']
-        self.items = kwargs['items']
-    
-    # Getter for persona with the natural format.
-    def get_persona(self):
-        return [f"({s+1}) {sent}" for s, sent in enumerate(self.persona)]
+        self.inventory = kwargs['inventory']
 
     # Getter for traits with the natural format.
     def get_traits(self):
-        return [f"({s+1}) {sent}" for s, sent in enumerate(self.traits)]
+        return [f"{trait}: {desc}" for trait, desc in self.traits.items()]
 
     # Getter for flaws with the natural format.
     def get_flaws(self):
-        return [f"({s+1}) {sent}" for s, sent in enumerate(self.flaws)]
+        return [f"{flaw}: {desc}" for flaw, desc in self.flaws.items()]
 
-    # Getter for items with the natural format.
-    def get_items(self):
-        return [f"({i+1}) {item['name']}: {item['description']}" for i, item in enumerate(self.items)]
+    # Getter for inventory with the natural format.
+    def get_inventory(self):
+        return [f"{name}: {desc}" for name, desc in self.inventory.items()]
 
     # Printing the character sheet so far.
     def show_info(self):
@@ -33,39 +32,43 @@ class Player():
         print(f"KIN: {self.kin}")
         
         print("PERSONA")
-        print('\n'.join(self.get_persona()))
+        for l, line in enumerate(self.persona):
+            print(f"({l+1}) {line}")
 
         print(f"GOAL: {self.goal}")
 
         print("TRAITS")
-        print('\n'.join(self.get_traits()))
+        for l, line in enumerate(self.get_traits()):
+            print(f"({l+1}) {line}")
 
         print("FLAWS")
-        print('\n'.join(self.get_flaws()))
+        for l, line in enumerate(self.get_flaws()):
+            print(f"({l+1}) {line}")
 
-        print("ITEMS")
-        print('\n'.join(self.get_items()))
+        print("INVENTORY")
+        for l, line in enumerate(self.get_inventory()):
+            print(f"({l+1}) {line}")
             
     # Adding trait.
-    def add_trait(self, trait):
-        self.traits.append(trait)
+    def add_trait(self, trait, desc):
+        self.traits[trait] = desc
     
     # Adding flaw.
-    def add_flaw(self, flaw):
-        self.flaws.append(flaw)
+    def add_flaw(self, flaw, desc):
+        self.flaws[flaw] = desc
     
     # Adding item.
-    def add_item(self, item_name, item_desc):
-        self.items.append({'name': item_name, 'description': item_desc})
+    def add_item(self, name, desc):
+        self.inventory[name] = desc
 
     # Removing trait.
-    def remove_trait(self, idx):
-        self.traits = self.traits[:idx] + self.traits[idx+1:]
+    def remove_trait(self, trait):
+        self.traits.pop(trait)
 
     # Removing flaw.
-    def remove_flaw(self, idx):
-        self.flaws = self.flaws[:idx] + self.flaws[idx+1:]
+    def remove_flaw(self, flaw):
+        self.flaws.pop(flaw)
 
     # Removing item.
-    def remove_item(self, idx):
-        self.items = self.items[:idx] + self.items[idx+1:]
+    def remove_item(self, name):
+        self.inventory.pop(name)
