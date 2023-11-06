@@ -269,8 +269,8 @@ class GameManager(Kani):
         # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for p in participants:
-            prompt = f"[Player {p}] (Name) {self.players[p].name} (Kin) {self.players[p].kin} (Persona) {' '.join(self.players[p].get_persona())} (Goal) {self.players[p].goal} " + \
-                f"(Traits) {' '.join(self.players[p].get_traits())} (Flaws) {' '.join(self.players[p].get_flaws())} (Items) {' '.join(self.players[p].get_items())}"
+            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {' '.join(self.players[p].get_persona())} (GOAL) {self.players[p].goal} " + \
+                f"(TRAITS) {' '.join(self.players[p].get_traits())} (FLAWS) {' '.join(self.players[p].get_flaws())} (ITEMS) {' '.join(self.players[p].get_items())}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.
@@ -465,8 +465,7 @@ class GameManager(Kani):
     @ai_function
     def remove_item(self,
         player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to remove the item from the inventory.")],
-        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to discard.")],
-        place: Annotated[str, AIParam(desc="The place where the player wants to throw away the item.")]=None
+        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to discard.")]
     ):
         """Let the player discard the item if the player requested to remove an item from the inventory."""
         player = self.players[self.name_to_idx[player_name]]
@@ -480,7 +479,11 @@ class GameManager(Kani):
 
         # Removing the item from the inventory.
         idx = item_names.index(item_name)
-        player.remove_item(idx)        
+        desc = player.items[idx]['description']
+        player.remove_item(idx)
+
+        # Discarded item is placed in the environment.
+        self.environment[item_name] = desc
 
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
         print_system_log("PLAYER INVENTORY UPDATED:")
