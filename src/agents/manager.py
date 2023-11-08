@@ -91,30 +91,46 @@ class GameManager(Kani):
         if self.sent_embs is not None:
             self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
 
-    # Getter for NPC in natural format.
+    # Getter for NPC in a natural format.
     def get_npc(self, info):
         return f"Kin: {info['kin']} {SEP} Persona: {' '.join(info['persona'])} {SEP} Goal: {info['goal']} {SEP} Trait: {info['trait']} {SEP} Flaw: {info['flaw']}"
 
-    # Getter for NPCs in natural format.
-    def get_npcs(self):
+    # Getter for NPCs in a (numbered) list format.
+    def get_npcs(self, with_number=False):
         res = []
         for n, (name, info) in enumerate(self.npcs.items()):
-            res.append(f"({n+1}) Name: {name} {SEP} {self.get_npc(info)}")
+            if with_number:
+                res.append(f"({n+1}) Name: {name} {SEP} {self.get_npc(info)}")
+            else:
+                res.append(f"Name: {name} {SEP} {self.get_npc(info)}")
         return res
 
-    # Getter for generation rules in natural format.
-    def get_generation_rules(self):
-        return [f"({r+1}) {rule}" for r, rule in enumerate(self.generation_rules)]
+    # Getter for generation rules in a (numbered) list format.
+    def get_generation_rules(self, with_number=False):
+        if with_number:
+            return [f"({r+1}) {rule}" for r, rule in enumerate(self.generation_rules)]
+        return self.generation_rules
 
-    # Getter for environment in natrual format.
-    def get_environment(self):
-        return [f"({o+1}) {name}: {desc}" for o, (name, desc) in enumerate(self.environment.items())]
+    # Getter for game flow in a (numbered) list format.
+    def get_game_flow(self, with_number=False):
+        if with_number:
+            return [f"({f+1}) {flow}" for f, flow in enumerate(self.game_flow)]
+        return self.game_flow
 
-    # Getter for random tables in natural format.
-    def get_random_tables(self):
+    # Getter for environment in a (numbered) list format.
+    def get_environment(self, with_number=False):
+        if with_number:
+            return [f"({o+1}) {object}: {desc}" for o, (object, desc) in enumerate(self.environment.items())]
+        return [f"{object}: {desc}" for object, desc in self.environment.items()]
+
+    # Getter for random tables in a (numbered) list format.
+    def get_random_tables(self, with_number=False):
         res = []
-        for table, entries in self.random_tables.items():
-            res.append(f"{table}: {(' ' + SEP + ' ').join(entries)}")
+        for t, (table, entries) in enumerate(self.random_tables.items()):
+            if with_number:
+                res.append(f"({t+1}) {table}: {(' ' + SEP + ' ').join(entries)}")
+            else:
+                res.append(f"{table}: {(' ' + SEP + ' ').join(entries)}")
         return res
 
     # Showing the scene information which the manager has initialized.
@@ -129,10 +145,10 @@ class GameManager(Kani):
         print('\n'.join(self.scene_summary))
 
         print("<NPCS>")
-        print('\n'.join(self.get_npcs()))
+        print('\n'.join(self.get_npcs(with_number=True)))
 
         print("<GENERATION RULES>")
-        print('\n'.join(self.get_generation_rules()))
+        print('\n'.join(self.get_generation_rules(with_number=True)))
 
         print("<SUCCESS CONDITION>")
         print(self.success_condition)
@@ -141,13 +157,13 @@ class GameManager(Kani):
         print(self.failure_condition)
 
         print("<GAME FLOW>")
-        print('\n'.join(self.game_flow))
+        print('\n'.join(self.get_game_flow(with_number=True)))
 
         print("<ENVIRONMENT>")
-        print('\n'.join(self.get_environment()))
+        print('\n'.join(self.get_environment(with_number=True)))
 
         print("<RANDOM TABLES>")
-        print('\n'.join(self.get_random_tables()))
+        print('\n'.join(self.get_random_tables(with_number=True)))
 
         print("<CONSEQUENCES>")
         print(self.consequences)
@@ -257,11 +273,16 @@ class GameManager(Kani):
 
     # Making the scene prompt.
     def make_scene_prompt(self):
+        npcs_prompt = ' '.join(self.get_npcs(with_number=True))
+        generation_rules_prompt = ' '.join(self.get_generation_rules(with_number=True))
+        game_flow_prompt = ' '.join(self.get_game_flow(with_number=True))
+        environment_prompt = ' '.join(self.get_environment(with_number=True))
+        random_tables_prompt = ' '.join(self.get_random_tables(with_number=True))
         prompt= f"[SCENE INFORMATION] (CHAPTER) {self.chapter} (SCENE) {self.scene} (SCENE_SUMMARY) {' '.join(self.scene_summary)} " + \
-            f"(NPCS) {' '.join(self.get_npcs())} (GENERATION_RULES) {' '.join(self.get_generation_rules())} " + \
+            f"(NPCS) {npcs_prompt} (GENERATION_RULES) {generation_rules_prompt} " + \
             f"(SUCCESS_CONDITION) {self.success_condition} (FAILURE_CONDITION) {self.failure_condition}" + \
-            f"(GAME_FLOW) {' '.join(self.game_flow)} (ENVIRONMENT) {' '.join(self.environment)} " + \
-            f"(RANDOM_TABLE) {' '.join(self.get_random_tables())} (CONSEQUENCES) {self.consequences}"
+            f"(GAME_FLOW) {game_flow_prompt} (ENVIRONMENT) {environment_prompt} " + \
+            f"(RANDOM_TABLE) {random_tables_prompt} (CONSEQUENCES) {self.consequences}"
         self.scene_prompt = ChatMessage.system(prompt)
 
     # Making the player prompts.
@@ -269,12 +290,12 @@ class GameManager(Kani):
         # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for p in participants:
-            persona_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].persona)]
-            traits_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_traits())]
-            flaws_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_flaws())]
-            inventory_prompt = [f"({s+1}) {sent}" for s, sent in enumerate(self.players[p].get_inventory())]
-            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {' '.join(persona_prompt)} (GOAL) {self.players[p].goal} " + \
-                f"(TRAITS) {' '.join(traits_prompt)} (FLAWS) {' '.join(flaws_prompt)} (INVENTORY) {' '.join(inventory_prompt)}"
+            persona_prompt = ' '.join(self.players[p].get_persona(with_number=True))
+            traits_prompt = ' '.join(self.players[p].get_traits(with_number=True))
+            flaws_prompt = ' '.join(self.players[p].get_flaws(with_number=True))
+            inventory_prompt = ' '.join(self.players[p].get_inventory(with_number=True))
+            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {persona_prompt} (GOAL) {self.players[p].goal} " + \
+                f"(TRAITS) {traits_prompt} (FLAWS) {flaws_prompt} (INVENTORY) {inventory_prompt}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.
@@ -501,8 +522,7 @@ class GameManager(Kani):
 
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
         print_system_log("PLAYER INVENTORY UPDATED:")
-        for l, line in enumerate(player.get_inventory()):
-            print(f"({l+1}) {line}")
+        print('\n'.join(player.get_inventory(with_number=True)))
         print_system_log(msg, after_break=True)
 
         return msg
@@ -561,14 +581,16 @@ class GameManager(Kani):
                     if selected == 0:  # Discarding any item from the inventory.
                         print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
                         selected = select_options(player.get_inventory())
-                        removal_target = list(player.inventory().keys())[selected]
+                        removal_target = list(player.inventory.keys())[selected]
                         self.remove_item(player_name, removal_target)
 
                         player.add_item(obj, item_desc)
                         entries = entries[:idx] + entries[idx+1:]
                         self.random_tables[table_name] = entries
 
-                        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {removal_target} AND ADDED THE ITEM {obj} IN THE INVENTORY."
+                        msg = f"THE PLAYER {player_name} ADDED THE ITEM {obj} IN THE INVENTORY."
+                        print_system_log("PLAYER INVENTORY UPDATED:")
+                        print('\n'.join(player.get_inventory(with_number=True)))
                         print_system_log(msg, after_break=True)
                         return msg
                     else:  # Not taking the found item.
@@ -583,8 +605,7 @@ class GameManager(Kani):
 
                     msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} AND ADDED IT IN THE INVENTORY."
                     print_system_log("PLAYER INVENTORY UPDATED:")
-                    for l, line in enumerate(player.get_inventory()):
-                        print(f"({l+1}) {line}")
+                    print('\n'.join(player.get_inventory(with_number=True)))
                     print_system_log(msg, after_break=True)
             else:
                 msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."

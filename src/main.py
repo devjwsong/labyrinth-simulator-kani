@@ -183,6 +183,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             loop.close()
     loop.run_until_complete(scene_init())
 
+    # DEBUG
+    print(manager.show_scene())
+
     # Explaining the current scene.
     print_logic_start("GAME START.")
     print_system_log(f"CHAPTER: {manager.chapter}")
