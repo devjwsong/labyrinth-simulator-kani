@@ -35,7 +35,7 @@ class GameManager(Kani):
         self.success_condition = ""
         self.failure_condition = ""
         self.game_flow = []
-        self.environment = []
+        self.environment = {}
         self.random_tables = {}
         self.consequences = ""
 
@@ -464,6 +464,18 @@ class GameManager(Kani):
         msg = f"NPC {name} CREATED: {self.get_npc(self.npcs[name])}"
         print_system_log(msg, after_break=True)
         return msg
+
+    # Kani's function call for obtaining an item in the environment.
+    @ai_function
+    def obtain_item(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to get the item from the environment")],
+        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to obtain.")]
+    ):
+        """Let the player obtain the item in the environment if the player requested to get the item in the environment."""
+        print("#" * 10 + "DEBUG" + "#" * 10)
+        print(player_name)
+        print("#" * 10 + "DEBUG" + "#" * 10)
+        print(item_name)
 
     # Kani's function call for removing an item in the player's inventory.
     @ai_function

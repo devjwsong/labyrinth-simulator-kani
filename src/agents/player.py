@@ -16,15 +16,15 @@ class Player():
 
     # Getter for traits with the natural format.
     def get_traits(self):
-        return [f"{trait}: {desc}" for trait, desc in self.traits.items()]
+        return [f"{trait} - {desc}" for trait, desc in self.traits.items()]
 
     # Getter for flaws with the natural format.
     def get_flaws(self):
-        return [f"{flaw}: {desc}" for flaw, desc in self.flaws.items()]
+        return [f"{flaw} - {desc}" for flaw, desc in self.flaws.items()]
 
     # Getter for inventory with the natural format.
     def get_inventory(self):
-        return [f"{name}: {desc}" for name, desc in self.inventory.items()]
+        return [f"{name} - {desc}" for name, desc in self.inventory.items()]
 
     # Printing the character sheet so far.
     def show_info(self):
