@@ -1,7 +1,3 @@
-# The player class.
-import enum
-
-
 class Player():
     def __init__(self, **kwargs):
         # Player character info based on the sheet in the text book.

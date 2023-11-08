@@ -4,8 +4,9 @@ from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunctio
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
+from agents.player import Player
 from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
-from utils import print_system_log, select_options
+from utils import print_system_log, remove_punctuation, select_options
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -15,7 +16,6 @@ import logging
 import random
 import numpy as np
 import torch
-import string
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -325,7 +325,7 @@ class GameManager(Kani):
                 # do the model prediction
                 self.make_scene_prompt()
                 self.make_player_prompts(participants)
-                
+
                 completion = await self.get_model_completion(**kwargs)
                 message = completion.message
                 await self.add_to_history(message)
@@ -486,17 +486,40 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg
 
-    # Kani's function call for obtaining an item in the environment.
-    @ai_function
-    def obtain_item(self,
-        player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to get the item from the environment")],
-        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to obtain.")]
-    ):
-        """Let the player obtain the item in the environment if the player requested to get the item in the environment."""
-        print("#" * 10 + "DEBUG" + "#" * 10)
-        print(player_name)
-        print("#" * 10 + "DEBUG" + "#" * 10)
-        print(item_name)
+    # Logic for obtaining an item.
+    def obtain_item(self, player: Player, item_name: str, item_desc: str):
+        if len(player.inventory) >= 6:  # The player inventory is already full.
+            print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
+            options = [
+                "Discarding one item from the inventory.",
+                "Not taking the found item."
+            ]
+            selected = select_options(options)
+            if selected == 0:  # Discarding any item from the inventory.
+                print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
+                selected = select_options(player.get_inventory())
+                removal_target = list(player.inventory.keys())[selected]
+                self.remove_item(player.name, removal_target)
+
+                player.add_item(item_name, item_desc)
+
+                msg = f"THE PLAYER {player.name} DISCARDED {removal_target} FROM THE INVENTORY ADDED THE ITEM {item_name}."
+                print_system_log("PLAYER INVENTORY UPDATED:")
+                print('\n'.join(player.get_inventory(with_number=True)))
+                print_system_log(msg, after_break=True)
+            else:  # Not taking the found item.
+                msg = f"THE PLAYER {player.name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
+                print_system_log(msg, after_break=True)
+        else:
+            # Updating the player inventory and removing the item from the random table.
+            player.add_item(item_name, item_desc)
+
+            msg = f"THE PLAYER {player.name} FOUND THE ITEM {item_name} AND ADDED IT IN THE INVENTORY."
+            print_system_log("PLAYER INVENTORY UPDATED:")
+            print('\n'.join(player.get_inventory(with_number=True)))
+            print_system_log(msg, after_break=True)
+
+        return msg
 
     # Kani's function call for removing an item in the player's inventory.
     @ai_function
@@ -527,43 +550,32 @@ class GameManager(Kani):
 
         return msg
 
-    # Kani's function call for getting access to an item in a random table.
+    # Kani's function call for getting access to an object in the environment.
     @ai_function
-    async def use_random_table(self, 
-        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to get an item if the random table is a list of obtainable items.")], 
-        table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
+    async def use_environment(self, 
+        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to reach out to an object in the environment.")], 
+        object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
     ):
         """
-        Let the player use to a random table if the player tries to use something in any random table 
-        or if a certain table should be referred to anytime during the game.
+        Let the player get access to an object in the environment if the player tries to reach out to it
+        or if the object should be referred to anytime during the game.
+        If the object name also exists as a random table, ignore this function and call use_random_table function instead.
         """
-
-        entries = self.random_tables[table_name]
-        _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
-        idx = random.randint(0, len(entries)-1)
-        obj = entries[idx]
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         system_prompt += f"\n{self.scene_prompt.content}"
         
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Can the player get the given object {obj} in the inventory?")
+        response = await kani.chat_round_str(f"Can the player get the given object {object_name} in the inventory?")
 
-        msg = None
         if self.translate_into_binary(response):  # The item is obtainble.
-            # Removing unnecessary punctuations from the object name.
-            puncs = list(string.punctuation)
-            cut_idx = len(obj)
-            for i in range(len(obj)-1, -1, -1):
-                if obj[i] in puncs:
-                    cut_idx = i
-                else:
-                    break
-            obj = obj[:cut_idx]
+            item_desc = self.environment[object_name]
 
-            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {obj}.")
-            print_system_log(f"{obj}: {item_desc}")
+            # Removing unnecessary punctuations from the object name.
+            item_name = remove_punctuation(object_name)
+
+            print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_options(['Yes', 'No'])
 
@@ -571,47 +583,75 @@ class GameManager(Kani):
             player = self.players[player_idx]
 
             if selected == 0:
-                if len(player.inventory) >= 6:  # The player inventory is already full.
-                    print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
-                    options = [
-                        "Discarding one item from the inventory.",
-                        "Not taking the found item."
-                    ]
-                    selected = select_options(options)
-                    if selected == 0:  # Discarding any item from the inventory.
-                        print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                        selected = select_options(player.get_inventory())
-                        removal_target = list(player.inventory.keys())[selected]
-                        self.remove_item(player_name, removal_target)
+                msg = self.obtain_item(player, item_name, item_desc)
 
-                        player.add_item(obj, item_desc)
-                        entries = entries[:idx] + entries[idx+1:]
-                        self.random_tables[table_name] = entries
-
-                        msg = f"THE PLAYER {player_name} ADDED THE ITEM {obj} IN THE INVENTORY."
-                        print_system_log("PLAYER INVENTORY UPDATED:")
-                        print('\n'.join(player.get_inventory(with_number=True)))
-                        print_system_log(msg, after_break=True)
-                        return msg
-                    else:  # Not taking the found item.
-                        msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."
-                        print_system_log(msg, after_break=True)
-                        return msg
-                else:
-                    # Updating the player inventory and removing the item from the random table.
-                    player.add_item(obj, item_desc)
-                    entries = entries[:idx] + entries[idx+1:]
-                    self.random_tables[table_name] = entries
-
-                    msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} AND ADDED IT IN THE INVENTORY."
-                    print_system_log("PLAYER INVENTORY UPDATED:")
-                    print('\n'.join(player.get_inventory(with_number=True)))
-                    print_system_log(msg, after_break=True)
+                # Checking if the player took the item to update the environment.
+                if item_name in player.inventory:
+                    self.environment.pop(object_name)
             else:
-                msg = f"THE PLAYER {player_name} FOUND THE ITEM {obj} BUT DECIDED NOT TO TAKE THE ITME {obj}."
+                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
                 print_system_log(msg, after_break=True)
         else:
-            msg = f"THE PLAYER {player_name} FOUND {obj}. IT SEEMS NOT OBTAINABLE."
+            msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+            print_system_log(msg, after_break=True)
+
+        return msg
+
+    # Kani's function call for getting access to the random table.
+    @ai_function
+    async def use_random_table(self, 
+        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to reach out to the random table.")], 
+        table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
+    ):
+        """
+        Let the player use to a random table if the player tries to reach out to any random table 
+        or if a certain table should be referred to anytime during the game.
+        If the table name also exists in the environment, ignore it and call this function in priorty.
+        """
+
+        entries = self.random_tables[table_name]
+
+        # If the table entries are emoty.
+        if len(entries) == 0:
+            msg = f"THERE IS NOTHING IN {table_name}. CONTINUING THE GAME..."
+            print_system_log(msg, after_break=True)
+            return msg
+
+        _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
+        idx = random.randint(0, len(entries)-1)
+        object_name = entries[idx]
+
+        # The default system prompt consists of the instruction to check if the object is obtainable.
+        system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
+        system_prompt += f"\n{self.scene_prompt.content}"
+        
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        response = await kani.chat_round_str(f"Can the player get the given object {object_name} in the inventory?")
+
+        if self.translate_into_binary(response):  # The item is obtainble.
+            # Removing unnecessary punctuations from the object name.
+            item_name = remove_punctuation(object_name)
+
+            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {item_name}.")
+            print_system_log(f"{item_name}: {item_desc}")
+            print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
+            selected = select_options(['Yes', 'No'])
+
+            player_idx = self.name_to_idx[player_name]
+            player = self.players[player_idx]
+
+            if selected == 0:
+                msg = self.obtain_item(player, item_name, item_desc)
+
+                # Checking if the player took the item to update the random table.
+                if item_name in player.inventory:
+                    entries = entries[:idx] + entries[idx+1:]
+                    self.random_tables[table_name] = entries
+            else:
+                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
+                print_system_log(msg, after_break=True)
+        else:
+            msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
             print_system_log(msg, after_break=True)
 
         return msg

@@ -2,6 +2,7 @@ from inputimeout import inputimeout
 from typing import Any, List
 
 import logging
+import string
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -47,6 +48,7 @@ def log_break():
     print()
 
 
+# Default function for allowing a multi-choice query.
 def select_options(options: List[Any]):
     while True:
         for o, option in enumerate(options):
@@ -61,6 +63,19 @@ def select_options(options: List[Any]):
                 return res-1
         except ValueError:
             print_system_log("THE INPUT SHOULD BE AN INTEGER.", after_break=True)
+
+
+# Removing unnecessary punctuations from the object name.
+def remove_punctuation(word: str):
+    puncs = list(string.punctuation)
+    cut_idx = len(word)
+    for i in range(len(word)-1, -1, -1):
+        if word[i] in puncs:
+            cut_idx = i
+        else:
+            break
+    word = word[:cut_idx]
+    return word
 
 
 # Checking the types of attributes for initialization.
