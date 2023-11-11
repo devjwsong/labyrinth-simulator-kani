@@ -254,12 +254,12 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
 
-    # Arguments for the game play.
-    parser.add_argument('--seed', type=int, required=True, help="The random seed for every randomized operation.")
-    parser.add_argument('--engine_name', type=str, required=True, help="The engine corresponding the model tested.")
-    parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
-    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection type.")
-    parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
+    # Arguments for the gameplay.
+    parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
+    parser.add_argument('--engine_name', type=str, required=True, help="The name of the engine for running kani corresponding the language model used.")
+    parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
+    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
+    parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
 
     # Parameters for the prompt construction.

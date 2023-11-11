@@ -29,16 +29,8 @@ There are a few technical details of the system, which can help you understand h
 
 - **Different rule injection methods**: You can change how the model understands or leverages the game rules during the interaction.
 - **Active utilization of function calling**: The game manager not only generates a natural-language response but also calls different functions depending on the need. You might experience a more flexible and interesting game flow than just a simple chat-based interaction.
-- **Per-scene execution**:  You can simulate each game scene without playing the whole game from the beginning.
-- **(Local) Multi-player gameplay**: The system has been implemented considering the multi-player participation.
 - **Different prompt designs**: You can change how an input prompt is made for each generation. You can set the concatenation policy for combining the chat history, the number of past utterances to include, and the summarization period.
-- **Flexible decoding parameters**: You can set the decoding parameters to control the output just as using the OpenAI APIs. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
-
-<br/>
-
----
-
-### Limitations
+- **Flexible decoding parameters**: You can set the decoding parameters to control the quality of a response just as using the OpenAI APIs. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
 
 <br/>
 
@@ -46,11 +38,31 @@ There are a few technical details of the system, which can help you understand h
 
 ### Arguments
 
+**Arguments for the gameplay**
+
+| Argument           | Type  | Description                                                  | Default  |
+| ------------------ | ----- | ------------------------------------------------------------ | -------- |
+| `--seed`           | `int` | The random seed for randomized operations.                   | `0`      |
+| `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
+| `--model_idx`      | `str` | The index of the model.                                      | `gpt-4`  |
+| `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval`(*TODO*) - The system fetches the relevant rule segments every time the model generates a response. | `full`   |
+| `--scene_idx`      | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`      |
+| `--num_players`    | `int` | The number of players.                                       | `1`      |
+
 <br/>
 
 ---
 
 ### How to run
+
+<br/>
+
+---
+
+### Limitations & Future improvements
+
+- **Per-scene execution**: The system is run on scene-by-scene. Currently, this project does not support the whole game. In other words, while the user can run each scene for simulation, but the state or result from the completion of a scene is not stored and not connected to the next scene execution.
+- **Local multi-player gameplay**: While the system has been implemented considering the multi-player participation, the project does not support remote gameplay. That means the users should play the game on one machine.
 
 <br/>
 
