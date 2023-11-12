@@ -30,7 +30,10 @@ There are a few technical details of the system, which can help you understand h
 - **Different rule injection methods**: You can change how the model understands or leverages the game rules during the interaction.
 - **Active utilization of function calling**: The game manager not only generates a natural-language response but also calls different functions depending on the need. You might experience a more flexible and interesting game flow than just a simple chat-based interaction.
 - **Different prompt designs**: You can change how an input prompt is made for each generation. You can set the concatenation policy for combining the chat history, the number of past utterances to include, and the summarization period.
-- **Flexible decoding parameters**: You can set the decoding parameters to control the quality of a response just as using the OpenAI APIs. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
+- **Supporting performance evaluation**: The project supports a separate script for evaluating the model performance in each sub-task. Also, you can export the whole game state and history for further human evaluation.
+  - Currently, the evaluation script supports the performance validations for: **1) Scene Initialization** and **2) Rule Understanding**.
+  - *The game result export will be added soon!*
+
 
 <br/>
 
@@ -59,7 +62,21 @@ There are a few technical details of the system, which can help you understand h
 | `--max_turns`      | `int`          | The maximum number of turns to be included. If it is not specified, the model includes as many turns as possible. Note that without this argument, the retrieval method for concatenation will work identically to the simple concatenation. | -        |
 | `--summarization`  | `'store_true'` | Setting whether to include the summarization or not. The system will summarize the chat logs when a certain number of turns has reached(`--summ_period`), and add the output to the chat history. The summarized logs are also considered as the chat logs and fetched according to `--concat_policy` and `--max_turns`. | -        |
 | `--summ_period`    | `int`          | The summarization period in terms of the number of turns. If a value $p$ is set for this argument, the system will summarize the last $p$ turns when the number of logs becomes a multiple of $p$. Note that if this is not specified but only `--summarization` is set, the system will ignore `--concat_policy` and `--max_turns` and summarize as many logs as possible to make a prompt only with the summarization and current queries. (This is definitely different from setting `--summ_period=1`!) | -        |
-| `--clear_raw_logs` | `store_true`   | Setting whether to remove the raw chat logs after the summarization. That is, except for the turns which have not been summarized yet, the rest of logs included are all summarized logs. | -        |
+| `--clear_raw_logs` | `store_true`   | Setting whether to remove the raw chat logs after the summarization. That is, except for the turns which have not been summarized yet, the rest of the logs included are all summarized logs. | -        |
+
+<br/>
+
+**Arguments for the response generation**
+
+Note that these are only used for the actual interaction during the game. Other tasks, such as initializing a scene, classification-based decisions in the functions, and summarization, will have default decoding parameters. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
+
+| Argument              | Type    | Description                                                  | Default |
+| --------------------- | ------- | ------------------------------------------------------------ | ------- |
+| `--max_tokens`        | `int`   | The maximum number of tokens to generate.                    | -       |
+| `--frequency_penalty` | `float` | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`   |
+| `--presence_penalty`  | `float` | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`   |
+| `--temperature`       | `float` | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`   |
+| `--top_p`             | `float` | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`   |
 
 <br/>
 

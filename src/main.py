@@ -272,7 +272,7 @@ if __name__=='__main__':
     # Parameters for the response generation.
     parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
     parser.add_argument('--frequency_penalty', type=float, default=0.0, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
-    parser.add_argument('--presence_penalty', type=float, default=0.0, help="A positive value penalizes the new tokens based on whehter they appear in the text so far. (-2.0 - 2.0)")
+    parser.add_argument('--presence_penalty', type=float, default=0.0, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
     parser.add_argument('--temperature', type=float, default=1.0, help="A higher value makes the output more random. (0.0 - 2.0)")
     parser.add_argument('--top_p', type=float, default=1.0, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
 
