@@ -43,11 +43,23 @@ There are a few technical details of the system, which can help you understand h
 | Argument           | Type  | Description                                                  | Default  |
 | ------------------ | ----- | ------------------------------------------------------------ | -------- |
 | `--seed`           | `int` | The random seed for randomized operations.                   | `0`      |
-| `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
+| `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc ([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
 | `--model_idx`      | `str` | The index of the model.                                      | `gpt-4`  |
 | `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval`(*TODO*) - The system fetches the relevant rule segments every time the model generates a response. | `full`   |
 | `--scene_idx`      | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`      |
 | `--num_players`    | `int` | The number of players.                                       | `1`      |
+
+<br/>
+
+**Arguments for the prompt construction**
+
+| Argument           | Type           | Description                                                  | Default  |
+| ------------------ | -------------- | ------------------------------------------------------------ | -------- |
+| `--concat_policy`  | `str`          | The concatenation policy for including the previous chat logs. The available options include: 1) `simple` - The manager simply concatenates the most recent turns. 2) `retrieval` - The manager retrieves the most relevant utterances from the history using sentence embedding and cosine similarity. Note that the current user inputs are always included. | `simple` |
+| `--max_turns`      | `int`          | The maximum number of turns to be included. If it is not specified, the model includes as many turns as possible. Note that without this argument, the retrieval method for concatenation will work identically to the simple concatenation. | -        |
+| `--summarization`  | `'store_true'` | Setting whether to include the summarization or not. The system will summarize the chat logs when a certain number of turns has reached(`--summ_period`), and add the output to the chat history. The summarized logs are also considered as the chat logs and fetched according to `--concat_policy` and `--max_turns`. | -        |
+| `--summ_period`    | `int`          | The summarization period in terms of the number of turns. If a value $p$ is set for this argument, the system will summarize the last $p$ turns when the number of logs becomes a multiple of $p$. Note that if this is not specified but only `--summarization` is set, the system will ignore `--concat_policy` and `--max_turns` and summarize as many logs as possible to make a prompt only with the summarization and current queries. (This is definitely different from setting `--summ_period=1`!) | -        |
+| `--clear_raw_logs` | `store_true`   | Setting whether to remove the raw chat logs after the summarization. That is, except for the turns which have not been summarized yet, the rest of logs included are all summarized logs. | -        |
 
 <br/>
 

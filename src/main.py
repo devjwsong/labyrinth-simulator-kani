@@ -264,10 +264,10 @@ if __name__=='__main__':
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
-    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included. If it is None, the model includes as many turns as possible.")
-    parser.add_argument('--summarization', action='store_true', help="Specifying either including the summarization or not.")
-    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period. If it is None, all logs are summarized regardless of the concatenation policy.")
-    parser.add_argument('--clear_raw_logs', action='store_true', help="Specifying if the raw chat logs are cleared after the summarization.")
+    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included.")
+    parser.add_argument('--summarization', action='store_true', help="Setting whether to include the summarization or not.")
+    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period in terms of the number of turns.")
+    parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
 
     # Parameters for the response generation.
     parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
