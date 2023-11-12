@@ -84,6 +84,24 @@ Note that these are only used for the actual interaction during the game. Other 
 
 ### How to run
 
+1. In your virtual environment, install the required packages.
+
+   ```shell
+   pip install -r requirements.txt
+   ```
+
+   <br/>
+
+2. Modify the arguments in `exec_main.sh` to run a game scene with your preferences.
+
+   <br/>
+
+3. Enjoy the game!
+
+   ```shell
+   sh exec_main.sh
+   ```
+
 <br/>
 
 ---
