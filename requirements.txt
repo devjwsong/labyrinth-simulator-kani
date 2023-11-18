@@ -1,6 +1,6 @@
 openai==0.27.8
 torch==2.1.0
-kani[openai]==0.4.0
-kani[llama]==0.4.0
+kani[openai]==0.6.2
+kani[llama]==0.6.2
 sentence-transformers==2.2.2
 inputimeout==1.0.4

@@ -184,7 +184,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     loop.run_until_complete(scene_init())
 
     # DEBUG
-    print(manager.show_scene())
+    manager.show_scene()
 
     # Explaining the current scene.
     print_logic_start("GAME START.")
@@ -308,7 +308,7 @@ if __name__=='__main__':
         main_args=args,
         encoder=encoder,
         engine=engine, 
-        system_prompt=system_prompt, 
+        system_prompt=system_prompt
     )
 
     # Loading the scene file.

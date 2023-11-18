@@ -5,7 +5,7 @@ from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
 from agents.player import Player
-from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT
+from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT, EXPENDABLE_CHECK_PROMPT
 from utils import print_system_log, remove_punctuation, select_options
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
@@ -273,16 +273,9 @@ class GameManager(Kani):
 
     # Making the scene prompt.
     def make_scene_prompt(self):
-        npcs_prompt = ' '.join(self.get_npcs(with_number=True))
-        generation_rules_prompt = ' '.join(self.get_generation_rules(with_number=True))
-        game_flow_prompt = ' '.join(self.get_game_flow(with_number=True))
-        environment_prompt = ' '.join(self.get_environment(with_number=True))
-        random_tables_prompt = ' '.join(self.get_random_tables(with_number=True))
-        prompt= f"[SCENE INFORMATION] (CHAPTER) {self.chapter} (SCENE) {self.scene} (SCENE_SUMMARY) {' '.join(self.scene_summary)} " + \
-            f"(NPCS) {npcs_prompt} (GENERATION_RULES) {generation_rules_prompt} " + \
-            f"(SUCCESS_CONDITION) {self.success_condition} (FAILURE_CONDITION) {self.failure_condition}" + \
-            f"(GAME_FLOW) {game_flow_prompt} (ENVIRONMENT) {environment_prompt} " + \
-            f"(RANDOM_TABLE) {random_tables_prompt} (CONSEQUENCES) {self.consequences}"
+        prompt = f"[SCENE STATE] chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
+            f"npcs={self.npcs}, generation_rules={self.generation_rules}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
+            f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}"
         self.scene_prompt = ChatMessage.system(prompt)
 
     # Making the player prompts.
@@ -290,12 +283,8 @@ class GameManager(Kani):
         # Converting the player information into the natural language prompt.
         self.player_prompts.clear()
         for p in participants:
-            persona_prompt = ' '.join(self.players[p].get_persona(with_number=True))
-            traits_prompt = ' '.join(self.players[p].get_traits(with_number=True))
-            flaws_prompt = ' '.join(self.players[p].get_flaws(with_number=True))
-            inventory_prompt = ' '.join(self.players[p].get_inventory(with_number=True))
-            prompt = f"[CURRENT STATE OF Player {p}] (NAME) {self.players[p].name} (KIN) {self.players[p].kin} (PERSONA) {persona_prompt} (GOAL) {self.players[p].goal} " + \
-                f"(TRAITS) {traits_prompt} (FLAWS) {flaws_prompt} (INVENTORY) {inventory_prompt}"
+            prompt = f"[PLAYER {self.players[p].name} STATE] name={self.players[p].name}, kin={self.players[p].kin}, persona={self.players[p].persona}, goal={self.players[p].goal}, " + \
+                f"traits={self.players[p].traits}, flaws={self.players[p].flaws}, inventory={self.players[p].inventory}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.
@@ -412,9 +401,9 @@ class GameManager(Kani):
     # Kani's function call for a dice roll test.
     @ai_function
     async def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
-        """Activate the test if there is a test to be performed and let the player roll a dice."""
+        """Activate a test if a player is trying to do something with a certain difficulty."""
         _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
-        res = random.randint(2, 6)
+        res = random.randint(1, 6)
 
         if res < difficulty:
             msg = f"TEST FAILED. THE DICE ROLL RESULT IS: {res}."
@@ -428,7 +417,7 @@ class GameManager(Kani):
     # Kani's function call for starting an action scene.
     @ai_function
     def activate_action_scene(self):
-        """Activate an action scene if there is a circumstance that players should take actions in a tight time limit."""
+        """Activate an action scene if this is a circumstance that players should take actions in a tight time limit."""
         self.is_action_scene = True
         msg = "ACTION SCENE ACTIVATED."
         print_system_log(msg, after_break=True)
@@ -437,7 +426,7 @@ class GameManager(Kani):
     # Kani's function call for ending an action scene.
     @ai_function
     def terminate_action_scene(self):
-        """Terminate the current ongoing action scene if an urgent circumstance has been finished."""
+        """Terminate the current ongoing action scene if the urgent circumstance has been finished now."""
         self.is_action_scene = False
         msg = "ACTION SCENE TERMINATED."
         print_system_log(msg, after_break=True)
@@ -445,21 +434,23 @@ class GameManager(Kani):
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
-    async def create_npc(self, name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
-        """Create an NPC a player requested to talk with if it has not been initialized yet.""" 
+    async def create_npc(self, npc_name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
+        """
+        Create an NPC if the NPC requested by a user does not exist in the scene yet.
+        This function must not be called if the NPC already exists in the scene.
+        """ 
 
-        # The NPC has been already initialized.
-        if name in self.npcs:
-            msg = "NPC ALREADY EXISTS. CONTINUING THE GAME..."
+        # False Positive: The function is called even if the argument is an NPC which already exists.
+        if npc_name in self.npcs:
+            msg = "UNEXPECTED FUNCTION CALLING: NPC ALREADY EXISTS."
             print_system_log(msg, after_break=True)
             return msg
 
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
-        system_prompt += f"\nCurrently initialized NPCs: {self.npcs}"
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{name}'.")
+        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{npc_name}'.")
 
         # Converting & Fetching information.
         try:
@@ -471,7 +462,7 @@ class GameManager(Kani):
             assert isinstance(res['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(res['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
 
-            self.npcs[name] = res
+            self.npcs[npc_name] = res
 
         except json.decoder.JSONDecodeError as e:
             log.debug(res)
@@ -482,7 +473,7 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
-        msg = f"NPC {name} CREATED: {self.get_npc(self.npcs[name])}"
+        msg = f"NPC {npc_name} CREATED."
         print_system_log(msg, after_break=True)
         return msg
 
@@ -527,12 +518,15 @@ class GameManager(Kani):
         player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to remove the item from the inventory.")],
         item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to discard.")]
     ):
-        """Let the player discard the item if the player requested to remove an item from the inventory."""
+        """
+        Remove an item if the player wants to discard it from the inventory.
+        This function must not be called if the item does not exist in the inventory of the player who triggered this function.
+        """
         player = self.players[self.name_to_idx[player_name]]
 
-        # Checking if the item is in the inventory.
+        # False Positive: The function is called even if the argument is an item which does not exist in the inventory.
         if item_name not in player.inventory:
-            msg = f"THE PLAYER {player_name} TRIED TO DISCARD THE ITEM {item_name} BUT THERE IS NO SUCH ITEM IN THE INVENTORY."
+            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
             return msg
 
@@ -550,26 +544,66 @@ class GameManager(Kani):
 
         return msg
 
+    # Kani's function call for using an item.
+    @ai_function
+    async def use_item(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater who wants to use the item from the inventory.")],
+        item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to use.")]
+    ):
+        """
+        Let the player use an item if the player wants to use it from the inventory.
+        This function must not be called if the item does not exist in the inventory of the player who triggered this function.
+        """
+        player = self.players[self.name_to_idx[player_name]]
+
+        # False Positive: The function is called even if the argument is an item which does not exist in the inventory.
+        if item_name not in player.inventory:
+            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
+            print_system_log(msg, after_break=True)
+            return msg
+
+        # The default system prompt consists of the instruction to check if the item is expendable.
+        system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
+        
+        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the item {item_name} expendable which should disappear after usage?")
+
+        if self.translate_into_binary(res):  # The item is expendable.
+            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT WAS CONSUMABLE, SO REMOVED FROM THE INVENTORY."
+            print_system_log(msg, after_break=True)
+            self.remove_item(player_name, item_name)
+            return msg
+
+        # The item is permanent.
+        msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}."
+        print_system_log(msg, after_break=True)
+        return msg
+
     # Kani's function call for getting access to an object in the environment.
     @ai_function
     async def use_environment(self, 
-        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to reach out to an object in the environment.")], 
+        player_name: Annotated[str, AIParam(desc="The name of the player charater who tries to reach out to an object in the environment.")], 
         object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
     ):
         """
-        Let the player get access to an object in the environment if the player tries to reach out to it
-        or if the object should be referred to anytime during the game.
+        Let the player get access to an object in the environment if the player tries to reach out to it or if the object should be referred to anytime during the game.
+        This function must not be called if the object does not exist in the environment.
         If the object name also exists as a random table, ignore this function and call use_random_table function instead.
         """
 
+        # False Positive: The function is called even if the argument is an object which does not exist in the environment.
+        if object_name not in self.environment:
+            msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
+            print_system_log(msg, after_break=True)
+            return msg
+
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
-        system_prompt += f"\n{self.scene_prompt.content}"
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Can the player get the given object {object_name} in the inventory?")
+        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
-        if self.translate_into_binary(response):  # The item is obtainble.
+        if self.translate_into_binary(res):  # The item is obtainble.
             item_desc = self.environment[object_name]
 
             # Removing unnecessary punctuations from the object name.
@@ -604,10 +638,16 @@ class GameManager(Kani):
         table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
     ):
         """
-        Let the player use to a random table if the player tries to reach out to any random table 
-        or if a certain table should be referred to anytime during the game.
-        If the table name also exists in the environment, ignore it and call this function in priorty.
+        Let the player use to a random table if the player tries to reach out to any random table or if a certain table should be referred to anytime during the game.
+        This function must not be called if the table does not exist in the random table dictionary.
+        If the table name also exists in the environment, ignore use_environment and call this function in priorty.
         """
+
+        # False Positive: The function is called even if the argument is a table name which does not exist in the random table dictionary.
+        if table_name not in self.random_tables:
+            msg = f"UNEXPECTED FUNCTION CALLING: THE TABLE {table_name} DOES NOT EXIST IN THE RANDOM TABLE DICTIONARY."
+            print_system_log(msg, after_break=True)
+            return msg
 
         entries = self.random_tables[table_name]
 
@@ -623,12 +663,11 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
-        system_prompt += f"\n{self.scene_prompt.content}"
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Can the player get the given object {object_name} in the inventory?")
+        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
-        if self.translate_into_binary(response):  # The item is obtainble.
+        if self.translate_into_binary(res):  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
