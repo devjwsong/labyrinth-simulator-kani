@@ -279,10 +279,16 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
-    assert args.concat_policy in ['simple', 'retrieval'], "The concatenation polich should be either 'simple' or 'retrieval'."
-    if args.max_turns is None:
-        print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
-        args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
+    if not args.summarization:
+        assert args.summ_period is None, "To use summ_period, you must set the summarization argument."
+        assert args.clear_raw_logs is None, "To use clear_raw_logs, you must set the summarization argument."
+    if args.summarization and args.summ_period is None:
+        print_system_log("SUMMARIZATION WITHOUT PERIOD WILL IGNORE ALL OTHER SETTINGS FOR PROMPT. THE WHOLE CHAT LOGS WILL BE SUMMARIZED INTO A PROMPT.")
+    else:
+        assert args.concat_policy in ['simple', 'retrieval'], "The concatenation policy should be either 'simple' or 'retrieval'."
+        if args.max_turns is None:
+            print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
+            args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
 
     # Creating the engine.
     random.seed(args.seed)
