@@ -5,8 +5,8 @@ from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
 from agents.player import Player
-from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT, EXPENDABLE_CHECK_PROMPT
-from utils import print_system_log, remove_punctuation, select_options
+from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT, EXPENDABLE_CHECK_PROMPT, SUMMARIZE_PROMPT
+from utils import print_system_log, remove_punctuation, select_options, find_split_point
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -219,6 +219,16 @@ class GameManager(Kani):
 
         return valid_chat_history
 
+    # Summarizing the given dialogue history.
+    async def summarize_history(self, input_history: List[ChatMessage]) -> ChatMessage:
+        # The default system prompt for the instruction.
+        system_prompt = ' '.join(SUMMARIZE_PROMPT)
+        
+        kani = Kani(self.engine, chat_history=input_history, system_prompt=system_prompt)
+        res = await kani.chat_round_str("Give me the summarization of the chat history so far.")
+
+        return ChatMessage.system(content=res, name="Summary")
+
     # Overriding get_prompt.
     async def get_prompt(self) -> list[ChatMessage]:
         scene_prompt_len = 0
@@ -228,13 +238,16 @@ class GameManager(Kani):
         for message in self.player_prompts:  # Additional length for player information.
             always_len += self.message_token_len(message)
 
-        if self.summarization and self.summ_period is None:
-            pass  # TODO: Summarizing all previous chat logs and return the prompt.
-
-        if self.concat_policy == 'simple':
-            valid_chat_history = self.get_simple_history()
-        elif self.concat_policy == 'retrieval':
-            valid_chat_history = self.get_retrieval_history()
+        # If summarization + no period, valid_chat_history is just one summary and the current query.
+        if self.summarization and self.summ_period is None and len(self.chat_history) >= 2:
+            idx = find_split_point(self.chat_history)
+            summary = await self.summarize_history(self.chat_history[:idx])
+            valid_chat_history = [summary] + self.chat_history[idx:]
+        else:
+            if self.concat_policy == 'simple':
+                valid_chat_history = self.get_simple_history()
+            elif self.concat_policy == 'retrieval':
+                valid_chat_history = self.get_retrieval_history()
 
         remaining = max_size = self.max_context_size - always_len
         total_tokens = 0

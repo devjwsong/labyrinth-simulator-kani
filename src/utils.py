@@ -1,4 +1,5 @@
 from inputimeout import inputimeout
+from kani.models import ChatMessage, ChatRole
 from typing import Any, List
 
 import logging
@@ -119,3 +120,21 @@ def check_init_types(manager):
     except AssertionError as e:
         log.error(f"{e}: ASSERTION ERROR.")
         raise Exception()
+
+
+# Finding the target chat history to summarize.
+def find_split_point(chat_history: List[ChatMessage]) -> int:
+    # The current query is an assistant message with function request + a function message after execution.
+    if chat_history[-1].role == ChatRole.FUNCTION:  
+        return -2
+
+    idx = len(chat_history)
+
+    # The current query is the sequence of user queries.
+    for i in range(len(chat_history)-1, -1, -1):
+        if chat_history[i].role == ChatRole.USER:
+            idx = i
+        else:
+            break
+
+    return idx

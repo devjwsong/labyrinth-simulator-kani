@@ -192,3 +192,9 @@ VALIDATE_FAILURE_PROMPT = [
     "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
     "You must answer only either 'yes' or 'no'. "
 ]
+
+SUMMARIZE_PROMPT = [
+    "You are given a dialogue history in a fantasy text adventure game.",
+    "You should summarize the given dialogue to include the essential information in the output.",
+    "Note that the user is a game player and the assistant is the game manager which controls the game scene."
+]

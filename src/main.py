@@ -111,17 +111,7 @@ def create_character(data: Dict):
             print_system_log("YOU'VE SELECTED HUMAN. YOU CAN PICK ONE MORE EXTRA TRAIT.")
             selected = select_options(extra_cands)
             traits[extra_cands[selected]['trait']] = extra_cands[selected]['description']
-
-            # DEBUG.
-            inventory = {
-                "Ebubu1": "Ebubu1",
-                "Ebubu2": "Ebubu2",
-                "Ebubu3": "Ebubu3",
-                "Ebubu4": "Ebubu4",
-                "Ebubu5": "Ebubu5",
-                "Ebubu6": "Ebubu6",
-            }
-
+            
         # Picking up a flaw.
         print_question_start()
         print_system_log("NEXT, SELECT ONE FLAW FROM THE GIVEN LIST.")
