@@ -112,6 +112,16 @@ def create_character(data: Dict):
             selected = select_options(extra_cands)
             traits[extra_cands[selected]['trait']] = extra_cands[selected]['description']
 
+            # DEBUG.
+            inventory = {
+                "Ebubu1": "Ebubu1",
+                "Ebubu2": "Ebubu2",
+                "Ebubu3": "Ebubu3",
+                "Ebubu4": "Ebubu4",
+                "Ebubu5": "Ebubu5",
+                "Ebubu6": "Ebubu6",
+            }
+
         # Picking up a flaw.
         print_question_start()
         print_system_log("NEXT, SELECT ONE FLAW FROM THE GIVEN LIST.")
@@ -203,7 +213,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             elapsed_time = int(time.time() - start_time)
             if elapsed_time >= (notified * ONE_HOUR):
                 hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
-                print_system_log(f"{hours}hours {minutes}minutes {seconds}seconds have passed from the start of the game.", after_break=True)
+                print_system_log(f"{hours} hours {minutes} minutes {seconds} seconds have passed from the start of the game.", after_break=True)
                 notified += 1
 
             user_queries = []

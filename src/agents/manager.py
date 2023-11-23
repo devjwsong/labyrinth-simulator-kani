@@ -490,25 +490,28 @@ class GameManager(Kani):
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
                 selected = select_options(player.get_inventory())
                 removal_target = list(player.inventory.keys())[selected]
-                self.remove_item(player.name, removal_target)
+                remove_msg = self.remove_item(player.name, removal_target)
 
                 player.add_item(item_name, item_desc)
-
-                msg = f"THE PLAYER {player.name} DISCARDED {removal_target} FROM THE INVENTORY ADDED THE ITEM {item_name}."
+                msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
                 print_system_log("PLAYER INVENTORY UPDATED:")
                 print('\n'.join(player.get_inventory(with_number=True)))
                 print_system_log(msg, after_break=True)
-            else:  # Not taking the found item.
-                msg = f"THE PLAYER {player.name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
-                print_system_log(msg, after_break=True)
-        else:
-            # Updating the player inventory and removing the item from the random table.
-            player.add_item(item_name, item_desc)
 
-            msg = f"THE PLAYER {player.name} FOUND THE ITEM {item_name} AND ADDED IT IN THE INVENTORY."
-            print_system_log("PLAYER INVENTORY UPDATED:")
-            print('\n'.join(player.get_inventory(with_number=True)))
+                return f"{remove_msg}\n{msg}"
+            
+            # Not taking the found item.
+            msg = f"THE PLAYER {player.name} DECIDED NOT TO TAKE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
+
+            return msg
+
+        # Taking the item since there is still a room in the inventory.
+        player.add_item(item_name, item_desc)
+        msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
+        print_system_log("PLAYER INVENTORY UPDATED:")
+        print('\n'.join(player.get_inventory(with_number=True)))
+        print_system_log(msg, after_break=True)
 
         return msg
 
@@ -569,10 +572,10 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is the item {item_name} expendable which should disappear after usage?")
 
         if self.translate_into_binary(res):  # The item is expendable.
-            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT WAS CONSUMABLE, SO REMOVED FROM THE INVENTORY."
+            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT WAS AN EXPENDABLE ITEM."
             print_system_log(msg, after_break=True)
-            self.remove_item(player_name, item_name)
-            return msg
+            remove_msg = self.remove_item(player_name, item_name)
+            return f"{msg}\n{remove_msg}"
 
         # The item is permanent.
         msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}."
@@ -616,18 +619,25 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
+            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}."
+            print_system_log(msg, after_break=True)
+
             if selected == 0:
-                msg = self.obtain_item(player, item_name, item_desc)
+                obtain_msg = self.obtain_item(player, item_name, item_desc)
 
                 # Checking if the player took the item to update the environment.
                 if item_name in player.inventory:
                     self.environment.pop(object_name)
-            else:
-                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
-                print_system_log(msg, after_break=True)
-        else:
-            msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+
+                return f"{msg}\n{obtain_msg}"
+            
+            msg = f"{msg} BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
+
+            return msg
+
+        msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+        print_system_log(msg, after_break=True)
 
         return msg
 
@@ -651,9 +661,9 @@ class GameManager(Kani):
 
         entries = self.random_tables[table_name]
 
-        # If the table entries are emoty.
+        # If the table entries are empty.
         if len(entries) == 0:
-            msg = f"THERE IS NOTHING IN {table_name}. CONTINUING THE GAME..."
+            msg = f"THERE IS NOTHING IN {table_name}."
             print_system_log(msg, after_break=True)
             return msg
 
@@ -679,19 +689,26 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
+            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}."
+            print_system_log(msg, after_break=True)
+
             if selected == 0:
-                msg = self.obtain_item(player, item_name, item_desc)
+                obtain_msg = self.obtain_item(player, item_name, item_desc)
 
                 # Checking if the player took the item to update the random table.
                 if item_name in player.inventory:
                     entries = entries[:idx] + entries[idx+1:]
                     self.random_tables[table_name] = entries
-            else:
-                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name} BUT DECIDED NOT TO TAKE IT."
-                print_system_log(msg, after_break=True)
-        else:
-            msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+
+                return f"{msg}\n{obtain_msg}"
+            
+            msg = f"{msg} BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
+
+            return msg
+
+        msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+        print_system_log(msg, after_break=True)
 
         return msg
 
