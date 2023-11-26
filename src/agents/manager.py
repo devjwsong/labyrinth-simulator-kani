@@ -54,6 +54,7 @@ class GameManager(Kani):
         self.players = {}
         self.name_to_idx = {}
         self.is_action_scene = False
+        self.log_archive = []
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -171,6 +172,7 @@ class GameManager(Kani):
     # Overriding add_to_history.
     async def add_to_history(self, message: ChatMessage):
         self.chat_history.append(message)
+        self.log_archive.append(message)
 
         # Sentence embedding for the retrieval.
         if self.encoder is not None:

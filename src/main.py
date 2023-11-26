@@ -281,7 +281,7 @@ if __name__=='__main__':
     assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
     if not args.summarization:
         assert args.summ_period is None, "To use summ_period, you must set the summarization argument."
-        assert args.clear_raw_logs is None, "To use clear_raw_logs, you must set the summarization argument."
+        assert args.clear_raw_logs is False, "To use clear_raw_logs, you must set the summarization argument."
     if args.summarization and args.summ_period is None:
         print_system_log("SUMMARIZATION WITHOUT PERIOD WILL IGNORE ALL OTHER SETTINGS FOR PROMPT. THE WHOLE CHAT LOGS WILL BE SUMMARIZED INTO A PROMPT.")
     else:
