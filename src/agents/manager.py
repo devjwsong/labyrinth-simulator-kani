@@ -49,12 +49,14 @@ class GameManager(Kani):
         self.summarization = True if main_args.summarization else False
         self.summ_period = main_args.summ_period
         self.clear_raw_logs = True if main_args.clear_raw_logs else False
+        self.log_archive = []
+        self.start_idx = 0
+        self.turn_count = 0
 
         # Additional attributes for game play.
         self.players = {}
         self.name_to_idx = {}
         self.is_action_scene = False
-        self.log_archive = []
 
     # Initialization of the scene.
     async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
@@ -170,12 +172,13 @@ class GameManager(Kani):
         print(self.consequences)
 
     # Overriding add_to_history.
-    async def add_to_history(self, message: ChatMessage):
+    async def add_to_history(self, message: ChatMessage, store_in_archive: bool=True):
         self.chat_history.append(message)
-        self.log_archive.append(message)
+        if store_in_archive:
+            self.log_archive.append(message)
 
         # Sentence embedding for the retrieval.
-        if self.encoder is not None:
+        if self.concat_policy == 'retrieval':
             # Converting the content into an informative form.
             content = f"[{message.role.value.upper()}]"
             if message.name:
@@ -332,12 +335,13 @@ class GameManager(Kani):
 
                 completion = await self.get_model_completion(**kwargs)
                 message = completion.message
-                await self.add_to_history(message)
+                if message.role != ChatRole.ASSISTANT or message.content is not None:  # Ignoring pending function calling.
+                    await self.add_to_history(message)
                 yield message
 
                 # if function call, do it and attempt retry if it's wrong
                 if not message.function_call:
-                    return
+                    break
 
                 try:
                     is_model_turn = await self.do_function_call(message.function_call)
@@ -351,6 +355,22 @@ class GameManager(Kani):
                     continue
                 else:
                     retry = 0
+
+            # Increasing the turn count. If the summarization period has been reached, adding the summary.
+            self.turn_count += 1
+            if self.summarization and self.summ_period is not None and self.turn_count == self.summ_period:
+                input_history = self.chat_history[self.start_idx:]
+                summary = await self.summarize_history(input_history)
+                await self.add_to_history(summary, store_in_archive=False)
+
+                if self.clear_raw_logs:
+                    self.chat_history = self.chat_history[:self.start_idx] + self.chat_history[-1:]
+                    
+                    if self.concat_policy == 'retrieval':
+                        self.sent_embs = np.concatenate((self.sent_embs[:self.start_idx], self.sent_embs[-1:]), axis=0)
+                
+                self.start_idx = len(self.chat_history)
+                self.turn_count = 0
 
     # Overriding do_function_call.
     async def do_function_call(self, call: FunctionCall) -> FunctionCallResult:
