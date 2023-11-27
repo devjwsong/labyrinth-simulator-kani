@@ -79,7 +79,7 @@ def evaluate_rules(manager: GameManager):
     async def test():
         for q, question in enumerate(questions):
             query = f"Answer the following question according to the Labyrinth's rules.\n{question}"
-            response = await manager.chat_round_str(query)
+            response = await manager.chat_round_str(query, include_functions=False)
             print()
             print(f"QUESTION {q+1}: {question}")
             print(f"ANSWER: {response}")
@@ -118,16 +118,8 @@ if __name__=='__main__':
     # Creating the engine.
     engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
 
-    # Setting the system prompt.
-    system_prompt = ' '.join(INSTRUCTION)
-    if args.rule_injection == 'full':
-        rule_summary = '\n'.join([' '. join(rule) for rule in RULE_SUMMARY])
-        system_prompt = f"{system_prompt}\nHere are the rules of the Labyrinth you should follow.\n{rule_summary}"
-    elif args.rule_injection == 'retrieval':
-        # TODO: Adding after the RAG method is completed.
-        pass
-
     # Initializing the game manager.
+    system_prompt = ' '.join(INSTRUCTION)
     manager = GameManager(
         main_args=args,
         encoder=None,

@@ -49,16 +49,21 @@ class GameManager(Kani):
         self.random_tables = {}
         self.consequences = ""
 
-        # Additional prompt attrbutes.
-        self.scene_prompt = None
-        self.player_prompts = []
-        self.encoder = encoder
-        self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.encoder is not None else None
+        # Additional arguments for prompt design policy.
         self.concat_policy = main_args.concat_policy
         self.max_turns = main_args.max_turns
         self.summarization = True if main_args.summarization else False
         self.summ_period = main_args.summ_period
         self.clear_raw_logs = True if main_args.clear_raw_logs else False
+
+        # Context prompts.
+        self.rule_prompt = None
+        self.scene_prompt = None
+        self.player_prompts = []
+
+        # Additional attributes for enabling the prompt policies.
+        self.encoder = encoder
+        self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.concat_policy == 'retrieval' else None
         self.log_archive = []
         self.start_idx = 0
         self.turn_count = 0
@@ -67,6 +72,10 @@ class GameManager(Kani):
         self.players = {}
         self.name_to_idx = {}
         self.is_action_scene = False
+
+        # Pre-buidling the rule prompt.
+        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+        self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
 
     # Initialization of the scene.
     async def init_scene(self, scene: Dict[str, Any]):
@@ -293,7 +302,14 @@ class GameManager(Kani):
             f" ({len(self.always_included_messages)} always)"
         )
 
-        default_prompt = self.always_included_messages + [self.scene_prompt] + self.player_prompts if self.scene_prompt is not None else self.always_included_messages
+        default_prompt = self.always_included_messages
+        if self.rule_prompt is not None:
+            default_prompt += [self.rule_prompt]
+        if self.scene_prompt is not None:
+            default_prompt += [self.scene_prompt]
+        if len(self.player_prompts) > 0:
+            default_prompt += self.player_prompts
+
         if not to_keep:
             return default_prompt
         return default_prompt + valid_chat_history[-to_keep:]
