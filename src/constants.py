@@ -82,10 +82,11 @@ RULE_SUMMARY = [
     ]
 ]
 
-INIT_QUERY = [
-    [
-        "First, you should initialize essential attributes for the game scene.",
-        "You are given a scene information in JSON format.",
+SCENE_INIT_PROMPT = [
+    [   
+        "You are the scene initializer in a fantasy text adventure game.",
+        "You should initialize essential attributes for the game scene given as a JSON object which contains the scene information.",
+        "You are also given the game rules for the game to get some help for understanding and initializaing the scene.",
         "You should understand and extract the necessary information to initialize the scene before the game starts.",
         "You should give the output as only another JSON format which can be converted into Python dictionary, so DO NOT PUT ANY STRING RESPONSE WITH IT.",
         "Avoid copying and pasting the contents in the JSON object identically.",
@@ -163,7 +164,7 @@ CREATE_NPC_PROMPT = [
     "You should generate an NPC information in a dictionary form.",
     "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
     "Each key and corresponding value is as follows:"
-] + INIT_QUERY[2][3:-1]
+] + SCENE_INIT_PROMPT[2][3:-1]
 
 OBTAINABLE_CHECK_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game and an object which is located in the game scene.",

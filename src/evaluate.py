@@ -1,7 +1,7 @@
 from agents.manager import GameManager
 from agents.kani_models import generate_engine
 from utils import select_options, check_init_types
-from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY
+from constants import INSTRUCTION, RULE_SUMMARY
 from typing import Dict
 
 import asyncio
@@ -14,15 +14,9 @@ message_log = logging.getLogger("kani.messages")
 
 
 def evaluate_init(manager: GameManager, scene: Dict):
-    # Converting the query into string.
-    init_query = '\n'.join([' '. join(query) for query in INIT_QUERY])
-
     async def test():
         try:
-            await manager.init_scene(
-                init_query,
-                scene,
-            )
+            await manager.init_scene(scene)
             check_init_types(manager)
         except json.decoder.JSONDecodeError:
             return 0.0

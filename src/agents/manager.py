@@ -5,7 +5,17 @@ from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from sentence_transformers import SentenceTransformer, util
 from agents.player import Player
-from constants import SEP, VALIDATE_SUCCESS_PROMPT, VALIDATE_FAILURE_PROMPT, CREATE_NPC_PROMPT, OBTAINABLE_CHECK_PROMPT, EXPENDABLE_CHECK_PROMPT, SUMMARIZE_PROMPT
+from constants import (
+    SEP,
+    RULE_SUMMARY,
+    SCENE_INIT_PROMPT,
+    VALIDATE_SUCCESS_PROMPT, 
+    VALIDATE_FAILURE_PROMPT, 
+    CREATE_NPC_PROMPT, 
+    OBTAINABLE_CHECK_PROMPT, 
+    EXPENDABLE_CHECK_PROMPT, 
+    SUMMARIZE_PROMPT
+)
 from utils import print_system_log, remove_punctuation, select_options, find_split_point
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
@@ -59,9 +69,13 @@ class GameManager(Kani):
         self.is_action_scene = False
 
     # Initialization of the scene.
-    async def init_scene(self, init_query: str, scene: Dict[str, Any], **kwargs):
-        query = f"{init_query}\n{scene}"
-        res = await self.chat_round_str(query, include_functions=False, **kwargs)
+    async def init_scene(self, scene: Dict[str, Any]):
+        system_prompt = '\n'.join([' '. join(part) for part in SCENE_INIT_PROMPT])
+        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+        rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+
+        kani = Kani(self.engine, chat_history=[rule_prompt], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Generate the JSON output for initialized scene attributes.\n{scene}")
 
         # Finding each key and mapping into the corresponding attribute.
         try:
@@ -88,11 +102,6 @@ class GameManager(Kani):
             log.debug(res)
             log.error(f"{e}: Missing key.")
             raise Exception()
-
-        # Initialization record should be removed.
-        self.chat_history = []
-        if self.sent_embs is not None:
-            self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
 
     # Getter for NPC in a natural format.
     def get_npc(self, info):

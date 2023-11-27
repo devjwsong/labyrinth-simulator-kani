@@ -4,7 +4,7 @@ from kani.utils.message_formatters import assistant_message_contents_thinking
 from agents.player import Player
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
-from constants import INSTRUCTION, RULE_SUMMARY, INIT_QUERY, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
+from constants import INSTRUCTION, RULE_SUMMARY, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
@@ -170,13 +170,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
 
     # Initializaing the scene.
     print_system_log("INITIALIZING THE SCENE...")
-    init_query = '\n'.join([' '. join(query) for query in INIT_QUERY])
     async def scene_init():
         try:
-            await manager.init_scene(
-                init_query,
-                scene,
-            )
+            await manager.init_scene(scene)
             check_init_types(manager)
         except:
             log.error("Scene initialization failed. Try again.")
