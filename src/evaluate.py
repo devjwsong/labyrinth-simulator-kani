@@ -1,6 +1,6 @@
 from agents.manager import GameManager
 from agents.kani_models import generate_engine
-from utils import select_options, check_init_types
+from utils import print_system_log, select_options, check_init_types
 from constants import INSTRUCTION
 from sentence_transformers import SentenceTransformer
 from typing import Dict
@@ -101,21 +101,28 @@ def evaluate_rules(manager: GameManager):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--eval_name', type=str, required=True, help="The evaluation name.")
-    parser.add_argument('--engine_name', type=str, required=True, help="The engine corresponding the model tested.")
-    parser.add_argument('--model_idx', type=str, required=True, help="The model index.")
-    parser.add_argument('--rule_injection', type=str, required=False, help="The rule injection type.")
+    parser.add_argument('--eval_name', type=str, required=True, help="The name of the evaluation task.")
+    parser.add_argument('--engine_name', type=str, required=True, help="The name of the engine for running kani corresponding the language model used.")
+    parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
+    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
-    parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
-    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included. If it is None, the model includes as many turns as possible.")
-    parser.add_argument('--summarization', action='store_true', help="Specifying either including the summarization or not.")
-    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period. If it is None, all logs are summarized regardless of the concatenation policy.")
-    parser.add_argument('--clear_raw_logs', action='store_true', help="Specifying if the raw chat logs are cleared after the summarization.")
 
     args = parser.parse_args()
 
-    assert args.eval_name in ['init', 'rules'], "Specify the correct evaluation name."
-    assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
+    assert args.eval_name in ['init', 'rules'], "Specify the correct evaluation task name."
+
+    # Setting the default arguments for each evaluation task.
+    if args.eval_name == 'init':
+        if args.rule_injection is None or args.rule_injection != 'full':
+            print_system_log("THE EVALUATION FOR SCENE INITIALZIATION ALWAYS USES THE FULL RULE INJECTION.")
+            args.rule_injection = 'full'
+    else:
+        assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
+    args.concat_policy = 'simple'
+    args.max_turns = None
+    args.summarization = False
+    args.summ_period = None
+    args.clear_raw_logs = False
 
     # Creating the engine.
     engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)

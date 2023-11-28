@@ -1,5 +1,5 @@
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole, FunctionCall
+from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
@@ -22,6 +22,7 @@ from argparse import Namespace
 from copy import deepcopy
 from itertools import chain
 
+import warnings
 import json
 import logging
 import random
@@ -374,6 +375,39 @@ class GameManager(Kani):
             prompt = f"[PLAYER {player.name} STATE] name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
                 f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}"
             self.player_prompts.append(ChatMessage.system(prompt))
+
+    # Overriding chat_round.
+    async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
+        """Perform a single chat round (user -> model -> user, no functions allowed).
+
+        This is slightly faster when you are chatting with a kani with no AI functions defined.
+
+        :param query: The contents of the user's chat message.
+        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
+        :returns: The model's reply.
+        """
+        # warn if the user has functions defined and has not explicitly silenced them in this call
+        if self.functions and "include_functions" not in kwargs:
+            warnings.warn(
+                f"You have defined functions in the body of {type(self).__name__} but chat_round() will not call"
+                " functions. Use full_round() instead.\nIf this is intentional, use chat_round(...,"
+                " include_functions=False) to silence this warning."
+            )
+        kwargs = {**kwargs, "include_functions": False}
+        # do the chat round
+        async with self.lock:
+            # add the user's chat input to the state
+            await self.add_to_history(ChatMessage.user(query))
+
+            # Setting addtional context prompt.
+            # chat_round is only used for evaluation, so it does not require scene_prompt or player_prompts.
+            self.make_rule_prompt()
+
+            # and get a completion
+            completion = await self.get_model_completion(**kwargs)
+            message = completion.message
+            await self.add_to_history(message)
+            return message
 
     # Overriding full_round.
     async def full_round(self, user_queries: List[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:

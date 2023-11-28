@@ -48,7 +48,7 @@ There are a few technical details of the system, which can help you understand h
 | `--seed`           | `int` | The random seed for randomized operations.                   | `0`      |
 | `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc ([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
 | `--model_idx`      | `str` | The index of the model.                                      | `gpt-4`  |
-| `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval`(*TODO*) - The system fetches the relevant rule segments every time the model generates a response. | `full`   |
+| `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`   |
 | `--scene_idx`      | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`      |
 | `--num_players`    | `int` | The number of players.                                       | `1`      |
 
@@ -80,6 +80,20 @@ Note that these are only used for the actual interaction during the game. Other 
 
 <br/>
 
+**Arguments for the evaluation**
+
+These are for using the separate evaluation script to test each individual model's capability on different tasks. The user can manually check the model's response and give a score for each task/question.
+
+| Argument           | Type  | Description                                                  | Default  |
+| ------------------ | ----- | ------------------------------------------------------------ | -------- |
+| `--eval_name`      | `str` | The name of the evaluation task. The currently available options include: 1) `init` - The scene initialization for a given scene input. 2) `rules` - The understanding of the game rules based on Q&A form. | `init`   |
+| `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc ([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
+| `--model_idx`      | `str` | The index of the model.                                      | `gpt-4`  |
+| `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. Note that for the evaluation `init`, the model always uses `full` injection no matter which value is set for this argument. | `full`   |
+| `--scene_idx`      | `int` | The index of the scene for the initialization evaluation. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. Note that this does not used for the evaluation `rules`. | `0`      |
+
+<br/>
+
 ---
 
 ### How to run
@@ -101,6 +115,14 @@ Note that these are only used for the actual interaction during the game. Other 
    ```shell
    sh exec_main.sh
    ```
+
+<br/>
+
+For running the evaluation script, run the command below after modifying the arguments in `exec_evaluate.sh`.
+
+```shell
+sh exec_evaluate.sh
+```
 
 <br/>
 
