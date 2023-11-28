@@ -14,13 +14,13 @@ INSTRUCTION = [
 
 RULE_SUMMARY = [
     [
-        "1. Player characters: Each player has own character.",
+        "Player characters: Each player has own character.",
         "Basically, each character has its name, kin, persona, and goal.",
         "Also, each player character has own traits, flaws, and items.",
         "You should consider these property of players when you interact with them and try to be consistent with them while being creative."
     ],
     [
-        "2. Difficulty: The player party will come across many challenges and when a player character tries something that has a chance of failure, there should be a test by rolling a dice.",
+        "Difficulty: The player party will come across many challenges and when a player character tries something that has a chance of failure, there should be a test by rolling a dice.",
         "The Goblin King should decides how difficult the test is by choosing a number between 2 and 6.",
         "Then, the Goblin King should let the player roll a die and see if the result is equal to or higher than the difficulty number.",
         "If it is, the player has succeeded to pass, otherwise the player has failed.",
@@ -31,13 +31,13 @@ RULE_SUMMARY = [
         "Each player that is helping reduces the difficulty by 1 to a minimum of 2."
     ],
     [
-        "3. Equipment: The players might find items or equipments throughout the Labyrinth.",
+        "Equipment: The players might find items or equipments throughout the Labyrinth.",
         "Players can ask the Goblin King if they can use the items, and you may decide that an item improves your test or allows you to succeed without rolling altogether.",
         "The maximum number of items a player can carry is 6.",
         "If a player wants to pick up an additional item but the inventory is full, an item should be dropped or given to another player."
     ],
     [
-        "4. Action scenes: An action scene is a situation where the players should do something under a strict time limit.",
+        "Action scenes: An action scene is a situation where the players should do something under a strict time limit.",
         "If they do nothing, the situation would change drastically.",
         "An action scene is declared by the Goblin King.",
         "After the action scene is activated, each player should describe one action to do per player.",
@@ -52,16 +52,16 @@ RULE_SUMMARY = [
         "If there are, declaring an action scene might be better, otherwise just a test."
     ],
     [
-        "5. Using tables: The random tables are used during the scene if there are some objects that should be brought in or selected for proceeding the scene.",
+        "Using tables: The random tables are used during the scene if there are some objects that should be brought in or selected for proceeding the scene.",
         "The Goblin King should first determine if the current game flow requires to use the random table, decide which table should be referred to, pick one entry randomly, and notify it to the players."
     ],
     [
-        "6. Hours: Other than the time limit during an action scene, the Labyrinth has the total time limit per each scene.",
+        "Hours: Other than the time limit during an action scene, the Labyrinth has the total time limit per each scene.",
         "The Goblin King should count the time and tell the players everytime they lose an hour.",
         "If 13 hours has passed, the players lose the game regardless of the current game state."
     ],
     [
-        "7. NPCs: Sometimes, the players can make friends with NPCs by convincing them during the game.",
+        "NPCs: Sometimes, the players can make friends with NPCs by convincing them during the game.",
         "However, the NPCs are usually afraid of the Goblin King, they would not stay long.",
         "If a player tries to chat with an NPC, you should generate the NPC by finding the corresponding NPC's name in 'npcs' and checking its persona and goal.",
         "If there is no name which is matched with the one the player wants to talk to, you can make the kin, persona, goal, traits, and flaws for the requested NPC on the spot to generate the NPC.",
@@ -75,7 +75,7 @@ RULE_SUMMARY = [
         "If the Goblin King himself appears in the scene, all NPCs will flee without any tests."
     ],
     [
-        "8. Additional instructions: During the interactions with the players, you should keep your role as a game manager.",
+        "Additional instructions: During the interactions with the players, you should keep your role as a game manager.",
         "You should keep track of the game flow and try to lead the game which should not be too far from the game flow rules.",
         "And you should keep thinking whether the current circumstance is matched with the success/failure condition so that you can wrap-up the scene.",
         "Also, you should also validate every output from the NPCs if if violates some of the generation rules."

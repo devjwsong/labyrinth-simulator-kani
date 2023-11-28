@@ -122,17 +122,16 @@ def check_init_types(manager):
         raise Exception()
 
 
-# Finding the target chat history to summarize.
-def find_split_point(chat_history: List[ChatMessage]) -> int:
-    # The current query is an assistant message with function request + a function message after execution.
-    if chat_history[-1].role == ChatRole.FUNCTION:  
-        return -2
+# Finding the valid current queries.
+def find_current_point(chat_history: List[ChatMessage]) -> int:
+    if chat_history[-1].role == ChatRole.USER:
+        target_role = ChatRole.USER
+    elif chat_history[-1].role == ChatRole.FUNCTION:
+        target_role = ChatRole.FUNCTION
 
     idx = len(chat_history)
-
-    # The current query is the sequence of user queries.
     for i in range(len(chat_history)-1, -1, -1):
-        if chat_history[i].role == ChatRole.USER:
+        if chat_history[i].role == target_role:
             idx = i
         else:
             break

@@ -1,13 +1,15 @@
 from agents.manager import GameManager
 from agents.kani_models import generate_engine
 from utils import select_options, check_init_types
-from constants import INSTRUCTION, RULE_SUMMARY
+from constants import INSTRUCTION
+from sentence_transformers import SentenceTransformer
 from typing import Dict
 
 import asyncio
 import argparse
 import json
 import logging
+import torch
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -118,11 +120,17 @@ if __name__=='__main__':
     # Creating the engine.
     engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
 
+    # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
+    encoder = None
+    if args.rule_injection == 'retrieval':
+        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
+
     # Initializing the game manager.
     system_prompt = ' '.join(INSTRUCTION)
     manager = GameManager(
         main_args=args,
-        encoder=None,
+        encoder=encoder,
         engine=engine, 
         system_prompt=system_prompt
     )

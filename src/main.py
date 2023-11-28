@@ -1,6 +1,7 @@
 from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_manager_log, get_player_input, logic_break
 from agents.kani_models import generate_engine
 from kani.utils.message_formatters import assistant_message_contents_thinking
+from kani.models import ChatMessage
 from agents.player import Player
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
@@ -207,7 +208,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 try:
                     query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
                     if len(query) > 0:  # Empty input is ignored.
-                        user_queries.append((p, query))
+                        user_queries.append(ChatMessage.user(content=query.strip(), name=player.name))
                 except TimeoutOccurred:
                     break
 
@@ -290,9 +291,9 @@ if __name__=='__main__':
     random.seed(args.seed)
     engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
 
-    # Intializing the sentence encoder if the concatenation policy is retrieval.
+    # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
     encoder = None
-    if args.concat_policy == 'retrieval':
+    if args.concat_policy == 'retrieval' or args.rule_injection == 'retrieval':
         device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
         encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
 

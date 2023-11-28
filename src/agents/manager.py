@@ -16,10 +16,11 @@ from constants import (
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT
 )
-from utils import print_system_log, remove_punctuation, select_options, find_split_point
+from utils import print_system_log, remove_punctuation, select_options, find_current_point
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
+from itertools import chain
 
 import json
 import logging
@@ -73,9 +74,20 @@ class GameManager(Kani):
         self.name_to_idx = {}
         self.is_action_scene = False
 
-        # Pre-buidling the rule prompt.
-        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-        self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+        # Pre-buidling the rule prompt or embeddings.
+        self.game_rules = []
+        self.rule_embs = None
+        if main_args.rule_injection == 'full':
+            rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+            self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+        elif main_args.rule_injection == 'retrieval':
+            self.game_rules = list(chain.from_iterable(RULE_SUMMARY))
+            self.rule_embs = np.empty((0, encoder.get_sentence_embedding_dimension()))
+            for sent in self.game_rules:
+                emb = self.encoder.encode(sent)
+                self.rule_embs = np.concatenate((self.rule_embs, np.expand_dims(emb, axis=0)))
+
+            assert self.rule_embs.shape[0] == len(self.game_rules), "The number of rule embeddings should be identical to the length of rule list."
 
     # Initialization of the scene.
     async def init_scene(self, scene: Dict[str, Any]):
@@ -189,6 +201,16 @@ class GameManager(Kani):
         print("<CONSEQUENCES>")
         print(self.consequences)
 
+    # Encoding the chat message into a sentence embedding.
+    def encode_message(self, message: ChatMessage):
+        content = f"[{message.role.value.upper()}]"
+        if message.name:
+            content += f" {message.name}:"
+        if message.content:
+            content += f" {message.content}"
+
+        return self.encoder.encode(content)
+
     # Overriding add_to_history.
     async def add_to_history(self, message: ChatMessage, store_in_archive: bool=True):
         self.chat_history.append(message)
@@ -196,15 +218,8 @@ class GameManager(Kani):
             self.log_archive.append(message)
 
         # Sentence embedding for the retrieval.
-        if self.concat_policy == 'retrieval':
-            # Converting the content into an informative form.
-            content = f"[{message.role.value.upper()}]"
-            if message.name:
-                content += f" {message.name}:"
-            if message.content:
-                content += f" {message.content}"
-
-            emb = self.encoder.encode(content)
+        if self.sent_embs is not None:
+            emb = self.encode_message(message)
             self.sent_embs = np.concatenate((self.sent_embs, np.expand_dims(emb, axis=0)))
 
             # The number of sentence embeddings and chat logs should always be identical.
@@ -226,9 +241,11 @@ class GameManager(Kani):
             return self.get_simple_history()
         
         # Calculating the max-pooled cosine similarities.
-        top_n = self.max_turns - len(self.player_prompts)
-        query_embs, cand_embs = self.sent_embs[-len(self.player_prompts):], self.sent_embs[:-len(self.player_prompts)]  # (P, d), (C, d)
-        cos_sims = util.cos_sim(query_embs, cand_embs)  # (P, C)
+        cur = find_current_point(self.chat_history)
+        top_n = self.max_turns - (len(self.chat_history)-cur)
+        assert top_n > 0, f"The maximum number of turns has been set to be too small. This should be larger than the number of current query: {len(self.chat_history)-cur}."
+        query_embs, cand_embs = self.sent_embs[cur:], self.sent_embs[:cur]  # (Q, d), (C, d)
+        cos_sims = util.cos_sim(query_embs, cand_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
 
         # Sorting the candidate logs by the similarities.
@@ -238,7 +255,7 @@ class GameManager(Kani):
         valid_chat_history += self.chat_history[-len(self.player_prompts):]
 
         # Checking the length of the valid chat logs.
-        assert len(valid_chat_history) == self.max_turns, "The number of sampled chat logs and the maximum number of turns are different."
+        assert len(valid_chat_history) == self.max_turns, "The numbers of sampled chat logs and the maximum number of turns are different."
 
         return valid_chat_history
 
@@ -254,18 +271,21 @@ class GameManager(Kani):
 
     # Overriding get_prompt.
     async def get_prompt(self) -> list[ChatMessage]:
+        rule_prompt_len = 0
+        if self.rule_prompt is not None:
+            rule_prompt_len = self.message_token_len(self.rule_prompt)
         scene_prompt_len = 0
         if self.scene_prompt is not None:
             scene_prompt_len = self.message_token_len(self.scene_prompt)
-        always_len = self.always_len + scene_prompt_len  # Additional length for scene information.
+        always_len = self.always_len + rule_prompt_len + scene_prompt_len  # Additional length for rule/scene information.
         for message in self.player_prompts:  # Additional length for player information.
             always_len += self.message_token_len(message)
 
         # If summarization + no period, valid_chat_history is just one summary and the current query.
-        if self.summarization and self.summ_period is None and len(self.chat_history) >= 2:
-            idx = find_split_point(self.chat_history)
-            summary = await self.summarize_history(self.chat_history[:idx])
-            valid_chat_history = [summary] + self.chat_history[idx:]
+        if self.summarization and self.summ_period is None:
+            cur = find_current_point(self.chat_history)
+            summary = await self.summarize_history(self.chat_history[:cur])
+            valid_chat_history = [summary] + self.chat_history[cur:]
         else:
             if self.concat_policy == 'simple':
                 valid_chat_history = self.get_simple_history()
@@ -302,7 +322,7 @@ class GameManager(Kani):
             f" ({len(self.always_included_messages)} always)"
         )
 
-        default_prompt = self.always_included_messages
+        default_prompt = deepcopy(self.always_included_messages)
         if self.rule_prompt is not None:
             default_prompt += [self.rule_prompt]
         if self.scene_prompt is not None:
@@ -314,6 +334,32 @@ class GameManager(Kani):
             return default_prompt
         return default_prompt + valid_chat_history[-to_keep:]
 
+    # Making the rule prompt.
+    def make_rule_prompt(self, top_n: int=5):
+        if self.rule_embs is None:
+            return
+
+        # Calculating the cosine similarities between the queries and rules.
+        cur = find_current_point(self.chat_history)
+        if self.sent_embs is not None:
+            query_embs = self.sent_embs[cur:]  # (Q, d)
+        else:
+            query_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
+            queries = self.chat_history[cur:]
+            for query in queries:
+                emb = self.encode_message(query)
+                query_embs = np.concatenate((query_embs, np.expand_dims(emb, axis=0)))
+        cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
+        scores = torch.max(cos_sims, dim=0).values  # (C)
+
+        # Sorting the candidate logs by the similarities.
+        idxs = torch.sort(scores, descending=True).indices[:top_n]
+        idxs = torch.sort(idxs).values
+        valid_rules = [self.game_rules[idx] for idx in idxs]
+
+        rule_content = '\n'.join(valid_rules)
+        self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+
     # Making the scene prompt.
     def make_scene_prompt(self):
         prompt = f"[SCENE STATE] chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
@@ -322,16 +368,15 @@ class GameManager(Kani):
         self.scene_prompt = ChatMessage.system(prompt)
 
     # Making the player prompts.
-    def make_player_prompts(self, participants):
-        # Converting the player information into the natural language prompt.
+    def make_player_prompts(self):
         self.player_prompts.clear()
-        for p in participants:
-            prompt = f"[PLAYER {self.players[p].name} STATE] name={self.players[p].name}, kin={self.players[p].kin}, persona={self.players[p].persona}, goal={self.players[p].goal}, " + \
-                f"traits={self.players[p].traits}, flaws={self.players[p].flaws}, inventory={self.players[p].inventory}"
+        for p, player in self.players.items():
+            prompt = f"[PLAYER {player.name} STATE] name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
+                f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
     # Overriding full_round.
-    async def full_round(self, user_queries: List[Tuple[int, str]], **kwargs) -> AsyncIterable[ChatMessage]:
+    async def full_round(self, user_queries: List[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
 
         Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
@@ -344,20 +389,19 @@ class GameManager(Kani):
         :param query: The content of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
-        participants = []
-        for pair in user_queries:
-            p, query = pair
-            participants.append(p)
-            await self.add_to_history(ChatMessage.user(content=query.strip(), name=self.players[p].name))
+        for msg in user_queries:
+            await self.add_to_history(msg)
 
         retry = 0
         is_model_turn = True
         async with self.lock:
             while is_model_turn:
-                # do the model prediction
+                # Setting additional context prompts.
+                self.make_rule_prompt()
                 self.make_scene_prompt()
-                self.make_player_prompts(participants)
+                self.make_player_prompts()
 
+                # do the model prediction
                 completion = await self.get_model_completion(**kwargs)
                 message = completion.message
                 if message.role != ChatRole.ASSISTANT or message.content is not None:  # Ignoring pending function calling.
@@ -391,7 +435,7 @@ class GameManager(Kani):
                 if self.clear_raw_logs:
                     self.chat_history = self.chat_history[:self.start_idx] + self.chat_history[-1:]
                     
-                    if self.concat_policy == 'retrieval':
+                    if self.sent_embs is not None:
                         self.sent_embs = np.concatenate((self.sent_embs[:self.start_idx], self.sent_embs[-1:]), axis=0)
                 
                 self.start_idx = len(self.chat_history)
@@ -509,7 +553,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
         
-        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{npc_name}'.")
 
         # Converting & Fetching information.
@@ -628,7 +672,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the item {item_name} expendable which should disappear after usage?")
 
         if self.translate_into_binary(res):  # The item is expendable.
@@ -663,7 +707,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
         if self.translate_into_binary(res):  # The item is obtainble.
@@ -734,7 +778,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, chat_history=self.chat_history[:-1], system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
         if self.translate_into_binary(res):  # The item is obtainble.
