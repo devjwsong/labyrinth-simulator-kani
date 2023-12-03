@@ -53,26 +53,26 @@ class Player():
         print("INVENTORY")
         print('\n'.join(self.get_inventory(with_number=True)))
             
-    # Adding trait.
+    # Adding a trait.
     def add_trait(self, trait, desc):
         self.traits[trait] = desc
     
-    # Adding flaw.
+    # Adding a flaw.
     def add_flaw(self, flaw, desc):
         self.flaws[flaw] = desc
     
-    # Adding item.
+    # Adding an item.
     def add_item(self, name, desc):
         self.inventory[name] = desc
 
-    # Removing trait.
+    # Removing a trait.
     def remove_trait(self, trait):
         self.traits.pop(trait)
 
-    # Removing flaw.
+    # Removing a flaw.
     def remove_flaw(self, flaw):
         self.flaws.pop(flaw)
 
-    # Removing item.
+    # Removing an item.
     def remove_item(self, name):
         self.inventory.pop(name)

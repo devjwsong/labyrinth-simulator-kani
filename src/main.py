@@ -210,7 +210,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                     if len(query) > 0:  # Empty input is ignored.
                         user_queries.append(ChatMessage.user(content=query.strip(), name=player.name))
                 except TimeoutOccurred:
-                    break
+                    continue
 
             async for response in manager.full_round_str(
                 user_queries,
