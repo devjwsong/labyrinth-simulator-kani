@@ -137,3 +137,16 @@ def find_current_point(chat_history: List[ChatMessage]) -> int:
             break
 
     return idx
+
+
+# Converting ChatMessage into a natural language message.
+def convert_into_natural(message: ChatMessage):
+    name, content = message.name, message.content
+    if name is None:
+        name = "[Game manager] Goblin King"
+    if message.role == ChatRole.USER:
+        name = f"[Player] {name}"
+    if message.role == ChatRole.FUNCTION:
+        name = f"[Function] {name}"
+    
+    return f"{name}: {content}"

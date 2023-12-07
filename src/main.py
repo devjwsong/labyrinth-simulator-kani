@@ -9,6 +9,7 @@ from constants import INSTRUCTION, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
+from datetime import datetime
 
 import argparse
 import json
@@ -17,6 +18,7 @@ import asyncio
 import random
 import time
 import torch
+import os
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -258,6 +260,7 @@ if __name__=='__main__':
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
+    parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
@@ -315,3 +318,18 @@ if __name__=='__main__':
 
     main(manager, scenes[args.scene_idx], args)
 
+    # Exporting data after finishing the scene.
+    if args.export_data:
+        if not os.path.isdir("result"):
+            os.makedirs("result")
+
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+
+        print_question_start()
+        print_system_log("FOR EXPORTING THE CHAT DATA, GIVE YOUR NAME.")
+        owner_name = get_player_input(after_break=True)
+
+        file = f"result/{owner_name}-{current_time}.json"
+        with open(file, 'w') as f:
+            json.dump(manager.context_archive, f)

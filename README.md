@@ -43,14 +43,15 @@ There are a few technical details of the system, which can help you understand h
 
 **Arguments for the gameplay**
 
-| Argument           | Type  | Description                                                  | Default  |
-| ------------------ | ----- | ------------------------------------------------------------ | -------- |
-| `--seed`           | `int` | The random seed for randomized operations.                   | `0`      |
-| `--engine_name`    | `str` | The name of the engine for running kani corresponding to the language model used. Check kani's doc ([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai` |
-| `--model_idx`      | `str` | The index of the model.                                      | `gpt-4`  |
-| `--rule_injection` | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`   |
-| `--scene_idx`      | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`      |
-| `--num_players`    | `int` | The number of players.                                       | `1`      |
+| Argument           | Type           | Description                                                  | Default           |
+| ------------------ | -------------- | ------------------------------------------------------------ | ----------------- |
+| `--seed`           | `int`          | The random seed for randomized operations.                   | `0`               |
+| `--engine_name`    | `str`          | The name of the engine for running kani corresponding to the language model used. Check kani's doc ([https://kani.readthedocs.io/en/latest/engines.html](https://colab.research.google.com/corgiredirector?site=https%3A%2F%2Fkani.readthedocs.io%2Fen%2Flatest%2Fengines.html)) to see the available options for this argument. (Currently, only `openai` is supported.) | `openai`          |
+| `--model_idx`      | `str`          | The index of the model.                                      | `gpt-4`           |
+| `--rule_injection` | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`            |
+| `--scene_idx`      | `int`          | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`               |
+| `--num_players`    | `int`          | The number of players.                                       | `1`               |
+| `--export_data`    | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. | *Set by default.* |
 
 <br/>
 

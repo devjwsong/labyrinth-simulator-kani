@@ -16,7 +16,7 @@ from constants import (
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT
 )
-from utils import print_system_log, remove_punctuation, select_options, find_current_point
+from utils import print_system_log, remove_punctuation, select_options, find_current_point, convert_into_natural
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -66,9 +66,11 @@ class GameManager(Kani):
         # Additional attributes for enabling the prompt policies.
         self.encoder = encoder
         self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.concat_policy == 'retrieval' else None
-        self.log_archive = []
+        self.raw_history = []
         self.start_idx = 0
         self.turn_count = 0
+        self.context_archive = []
+        self.function_intermediate_res = []
 
         # Additional attributes for game play.
         self.players = {}
@@ -204,19 +206,14 @@ class GameManager(Kani):
 
     # Encoding the chat message into a sentence embedding.
     def encode_message(self, message: ChatMessage):
-        content = f"[{message.role.value.upper()}]"
-        if message.name:
-            content += f" {message.name}:"
-        if message.content:
-            content += f" {message.content}"
-
+        content = convert_into_natural(message)
         return self.encoder.encode(content)
 
     # Overriding add_to_history.
-    async def add_to_history(self, message: ChatMessage, store_in_archive: bool=True):
+    async def add_to_history(self, message: ChatMessage, store_in_raw: bool=True):
         self.chat_history.append(message)
-        if store_in_archive:
-            self.log_archive.append(message)
+        if store_in_raw:
+            self.raw_history.append(message)
 
         # Sentence embedding for the retrieval.
         if self.sent_embs is not None:
@@ -376,6 +373,38 @@ class GameManager(Kani):
                 f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}"
             self.player_prompts.append(ChatMessage.system(prompt))
 
+    # Making the context for exporting data.
+    def make_context(self):
+        context = {
+            "scene": {
+                "chapter": self.chapter,
+                "scene": self.scene,
+                "scene_summary": deepcopy(self.scene_summary),
+                "npcs": deepcopy(self.npcs),
+                "generation_rules": deepcopy(self.generation_rules),
+                "success_condition": self.success_condition,
+                "failure_condition": self.failure_condition,
+                "game_flow": deepcopy(self.game_flow),
+                "environment": deepcopy(self.environment),
+                "random_tables": deepcopy(self.random_tables),
+                "consequences": self.consequences
+            },
+        }
+        players = []
+        for p, player in self.players.items():
+            players.append({
+                "name": player.name,
+                "kin": player.kin,
+                "persona": deepcopy(player.persona),
+                "goal": player.goal,
+                "traits": deepcopy(player.traits),
+                "flaws": deepcopy(player.flaws),
+                "inventory": deepcopy(player.inventory)
+            })
+        context["players"] = players
+
+        return context
+
     # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
@@ -423,6 +452,9 @@ class GameManager(Kani):
         :param query: The content of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
+        past_history = deepcopy(self.raw_history)
+        current_queries = deepcopy(user_queries)
+
         for msg in user_queries:
             await self.add_to_history(msg)
 
@@ -435,6 +467,15 @@ class GameManager(Kani):
                 self.make_scene_prompt()
                 self.make_player_prompts()
 
+                # Making the context for exporting data.
+                context = self.make_context()
+                context["past_history"] = []
+                for msg in past_history:
+                    context["past_history"].append(convert_into_natural(msg))
+                context["current_queries"] = []
+                for msg in current_queries:
+                    context["current_queries"].append(convert_into_natural(msg))
+
                 # do the model prediction
                 completion = await self.get_model_completion(**kwargs)
                 message = completion.message
@@ -444,10 +485,13 @@ class GameManager(Kani):
 
                 # if function call, do it and attempt retry if it's wrong
                 if not message.function_call:
+                    context["generated"] = convert_into_natural(message)
+                    self.context_archive.append(context)
                     break
 
                 try:
-                    is_model_turn = await self.do_function_call(message.function_call)
+                    func_res = await self.do_function_call(message.function_call)
+                    is_model_turn = func_res.is_model_turn
                 except FunctionCallException as e:
                     should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
                     # retry if we have retry attempts left
@@ -459,12 +503,21 @@ class GameManager(Kani):
                 else:
                     retry = 0
 
+                context["generated"] = convert_into_natural(func_res.message)
+                
+                # If the generated message is from a function, the intermediate results should be stored.
+                context["function_intermediate_results"] = deepcopy(self.function_intermediate_res)
+                self.function_intermediate_res.clear()
+
+                self.context_archive.append(context)
+                current_queries.append(func_res.message)
+
             # Increasing the turn count. If the summarization period has been reached, adding the summary.
             self.turn_count += 1
             if self.summarization and self.summ_period is not None and self.turn_count == self.summ_period:
                 input_history = self.chat_history[self.start_idx:]
                 summary = await self.summarize_history(input_history)
-                await self.add_to_history(summary, store_in_archive=False)
+                await self.add_to_history(summary, store_in_raw=False)
 
                 if self.clear_raw_logs:
                     self.chat_history = self.chat_history[:self.start_idx] + self.chat_history[-1:]
@@ -593,6 +646,8 @@ class GameManager(Kani):
         # Converting & Fetching information.
         try:
             res = json.loads(res)
+            npc_res = {f"Generated information of the NPC '{npc_name}'": res}
+            self.function_intermediate_res.append(npc_res)
 
             assert isinstance(res['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(res['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
@@ -709,7 +764,11 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the item {item_name} expendable which should disappear after usage?")
 
-        if self.translate_into_binary(res):  # The item is expendable.
+        is_expendable = self.translate_into_binary(res)
+        expendable_res = {f"Expendable item detection result for '{item_name}'": is_expendable}
+        self.function_intermediate_res.append(expendable_res)
+
+        if is_expendable:  # The item is expendable.
             msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT WAS AN EXPENDABLE ITEM."
             print_system_log(msg, after_break=True)
             remove_msg = self.remove_item(player_name, item_name)
@@ -744,7 +803,11 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
-        if self.translate_into_binary(res):  # The item is obtainble.
+        is_obtainable = self.translate_into_binary(res)
+        obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
+        self.function_intermediate_res.append(obtainable_res)
+
+        if is_obtainable:  # The item is obtainble.
             item_desc = self.environment[object_name]
 
             # Removing unnecessary punctuations from the object name.
@@ -815,7 +878,11 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
-        if self.translate_into_binary(res):  # The item is obtainble.
+        is_obtainable = self.translate_into_binary(res)
+        obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
+        self.function_intermediate_res.append(obtainable_res)
+
+        if is_obtainable:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
@@ -823,6 +890,9 @@ class GameManager(Kani):
             print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_options(['Yes', 'No'])
+
+            item_desc_res = {f"Generated description of the item '{item_name}'": item_desc}
+            self.function_intermediate_res.append(item_desc_res)
 
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
@@ -854,10 +924,8 @@ class GameManager(Kani):
     def translate_into_binary(self, response: str):
         if 'yes' in response.lower():
             return True
-        elif 'no' in response.lower():
-            return False
-        else:
-            return None
+        
+        return False
 
     # Validating if the current interaction falls into the success condition.
     async def validate_success_condition(self):
