@@ -1,6 +1,6 @@
 from inputimeout import inputimeout
 from kani.models import ChatMessage, ChatRole
-from typing import Any, List
+from typing import Any, List, Union
 
 import logging
 import string
@@ -26,7 +26,7 @@ def print_system_log(msg: str, after_break: bool=False):
 
 
 def print_manager_log(msg: str, after_break: bool=False):
-    print(f"[GOBLIN KING] {msg}")
+    print(f"[Game Manager] Goblin King: {msg}")
     if after_break:
         log_break()
 
@@ -35,7 +35,7 @@ def get_player_input(name: str=None, per_player_time: int=None, after_break: boo
     if name is None:
         query = input("INPUT: ")
     else:
-        query = inputimeout(f"[PLAYER / {name.upper()}]: ", timeout=per_player_time)
+        query = inputimeout(f"[PLAYER] {name.replace('-', ' ')}: ", timeout=per_player_time)
     if after_break:
         log_break()
     return query
@@ -125,13 +125,13 @@ def check_init_types(manager):
 # Finding the valid current queries.
 def find_current_point(chat_history: List[ChatMessage]) -> int:
     if chat_history[-1].role == ChatRole.USER:
-        target_role = ChatRole.USER
+        target_roles = [ChatRole.USER]
     elif chat_history[-1].role == ChatRole.FUNCTION:
-        target_role = ChatRole.FUNCTION
+        target_roles = [ChatRole.FUNCTION]
 
     idx = len(chat_history)
     for i in range(len(chat_history)-1, -1, -1):
-        if chat_history[i].role == target_role:
+        if chat_history[i].role in target_roles:
             idx = i
         else:
             break
@@ -142,11 +142,16 @@ def find_current_point(chat_history: List[ChatMessage]) -> int:
 # Converting ChatMessage into a natural language message.
 def convert_into_natural(message: ChatMessage):
     name, content = message.name, message.content
-    if name is None:
-        name = "[Game manager] Goblin King"
+    if message.role == ChatRole.ASSISTANT:
+        name = "[Game Manager] Goblin-King"
     if message.role == ChatRole.USER:
         name = f"[Player] {name}"
     if message.role == ChatRole.FUNCTION:
         name = f"[Function] {name}"
+    if message.role == ChatRole.SYSTEM:
+        if name is None:
+            name = "[SYSTEM]"
+        else:
+            name = f"[SYSTEM] {name}"
     
     return f"{name}: {content}"

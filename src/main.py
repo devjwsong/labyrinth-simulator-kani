@@ -63,6 +63,9 @@ def create_character(data: Dict):
         print_system_log("WHAT IS YOUR NAME?")
         name = get_player_input(after_break=True)
 
+        # Removing the white space in the name.
+        name = name.replace(' ', '-')
+
         # Setting the goal.
         print_question_start()
         print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
@@ -264,7 +267,7 @@ if __name__=='__main__':
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
-    parser.add_argument('--max_turns', type=int, default=None, help="The maximum number of turns to be included.")
+    parser.add_argument('--max_num_msgs', type=int, default=None, help="The maximum number of messages to be included.")
     parser.add_argument('--summarization', action='store_true', help="Setting whether to include the summarization or not.")
     parser.add_argument('--summ_period', type=int, default=None, help="The summarization period in terms of the number of turns.")
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
@@ -286,8 +289,8 @@ if __name__=='__main__':
         print_system_log("SUMMARIZATION WITHOUT PERIOD WILL IGNORE ALL OTHER SETTINGS FOR PROMPT. THE WHOLE CHAT LOGS WILL BE SUMMARIZED INTO A PROMPT.")
     else:
         assert args.concat_policy in ['simple', 'retrieval'], "The concatenation policy should be either 'simple' or 'retrieval'."
-        if args.max_turns is None:
-            print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF TURNS WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
+        if args.max_num_msgs is None:
+            print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF MESSAGES WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
             args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
 
     # Creating the engine.

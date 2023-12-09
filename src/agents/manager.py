@@ -3,6 +3,7 @@ from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
+from kani.engines.base import BaseCompletion
 from sentence_transformers import SentenceTransformer, util
 from agents.player import Player
 from constants import (
@@ -53,7 +54,7 @@ class GameManager(Kani):
 
         # Additional arguments for prompt design policy.
         self.concat_policy = main_args.concat_policy
-        self.max_turns = main_args.max_turns
+        self.max_num_msgs = main_args.max_num_msgs
         self.summarization = True if main_args.summarization else False
         self.summ_period = main_args.summ_period
         self.clear_raw_logs = True if main_args.clear_raw_logs else False
@@ -82,7 +83,7 @@ class GameManager(Kani):
         self.rule_embs = None
         if main_args.rule_injection == 'full':
             rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-            self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+            self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
         elif main_args.rule_injection == 'retrieval':
             self.game_rules = list(chain.from_iterable(RULE_SUMMARY))
             self.rule_embs = np.empty((0, encoder.get_sentence_embedding_dimension()))
@@ -96,7 +97,7 @@ class GameManager(Kani):
     async def init_scene(self, scene: Dict[str, Any]):
         system_prompt = '\n'.join([' '. join(part) for part in SCENE_INIT_PROMPT])
         rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-        rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+        rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
 
         kani = Kani(self.engine, chat_history=[rule_prompt], system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Generate the JSON output for initialized scene attributes.\n{scene}")
@@ -225,23 +226,23 @@ class GameManager(Kani):
 
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
-        if self.max_turns is None:
+        if self.max_num_msgs is None:
             valid_chat_history = deepcopy(self.chat_history)
         else:
-            valid_chat_history = self.chat_history[max(len(self.chat_history)-self.max_turns, 0):]
+            valid_chat_history = self.chat_history[max(len(self.chat_history)-self.max_num_msgs, 0):]
 
         return valid_chat_history
 
     # Making a prompt using the retrieval concatenation.
     def get_retrieval_history(self) -> list[ChatMessage]:
+        cur = find_current_point(self.chat_history)
+
         # If this is the case, retrieval has no meaning.
-        if len(self.chat_history) <= self.max_turns or self.max_turns <= len(self.player_prompts):
+        if len(self.chat_history) <= self.max_num_msgs or self.max_num_msgs <= (len(self.chat_history)-cur):
             return self.get_simple_history()
         
         # Calculating the max-pooled cosine similarities.
-        cur = find_current_point(self.chat_history)
-        top_n = self.max_turns - (len(self.chat_history)-cur)
-        assert top_n > 0, f"The maximum number of turns has been set to be too small. This should be larger than the number of current query: {len(self.chat_history)-cur}."
+        top_n = self.max_num_msgs - (len(self.chat_history)-cur)
         query_embs, cand_embs = self.sent_embs[cur:], self.sent_embs[:cur]  # (Q, d), (C, d)
         cos_sims = util.cos_sim(query_embs, cand_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
@@ -249,11 +250,11 @@ class GameManager(Kani):
         # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        valid_chat_history = [self.chat_history[:-len(self.player_prompts)][idx] for idx in idxs]
-        valid_chat_history += self.chat_history[-len(self.player_prompts):]
+        valid_chat_history = [self.chat_history[:cur][idx] for idx in idxs]
+        valid_chat_history += self.chat_history[cur:]
 
         # Checking the length of the valid chat logs.
-        assert len(valid_chat_history) == self.max_turns, "The numbers of sampled chat logs and the maximum number of turns are different."
+        assert len(valid_chat_history) == self.max_num_msgs, "The numbers of sampled chat logs and the maximum number of turns are different."
 
         return valid_chat_history
 
@@ -356,22 +357,22 @@ class GameManager(Kani):
         valid_rules = [self.game_rules[idx] for idx in idxs]
 
         rule_content = '\n'.join(valid_rules)
-        self.rule_prompt = ChatMessage.system(f"[GAME RULES]\n{rule_content}")
+        self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
 
     # Making the scene prompt.
     def make_scene_prompt(self):
-        prompt = f"[SCENE STATE] chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
+        content = f"chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
             f"npcs={self.npcs}, generation_rules={self.generation_rules}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
             f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}"
-        self.scene_prompt = ChatMessage.system(prompt)
+        self.scene_prompt = ChatMessage.system(name="Scene_State", content=content)
 
     # Making the player prompts.
     def make_player_prompts(self):
         self.player_prompts.clear()
         for p, player in self.players.items():
-            prompt = f"[PLAYER {player.name} STATE] name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
+            content = f"name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
                 f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}"
-            self.player_prompts.append(ChatMessage.system(prompt))
+            self.player_prompts.append(ChatMessage.system(name=f"Player_State", content=content))
 
     # Making the context for exporting data.
     def make_context(self):
@@ -405,6 +406,40 @@ class GameManager(Kani):
 
         return context
 
+    # Overriding get_model_completion.
+    async def get_model_completion(self, include_functions: bool = True, **kwargs) -> Tuple[BaseCompletion, List[ChatMessage]]:
+        """Get the model's completion with the current chat state.
+
+        Compared to :meth:`chat_round` and :meth:`full_round`, this lower-level method does not save the model's reply
+        to the chat history or mutate the chat state; it is intended to help with logging or to repeat a call multiple
+        times.
+
+        :param include_functions: Whether to pass this kani's function definitions to the engine.
+        :param kwargs: Arguments to pass to the model engine.
+        """
+        # get the current chat state
+        messages = await self.get_prompt()
+
+        # log it (message_log includes the number of messages sent and the last message)
+        n_messages = len(messages)
+        if n_messages == 0:
+            message_log.debug("[0]>>> [requested completion with no prompt]")
+        else:
+            message_log.debug(f"[{n_messages}]>>> {messages[-1]}")
+
+        # get the model's completion at the given state
+        if include_functions:
+            completion = await self.engine.predict(messages=messages, functions=list(self.functions.values()), **kwargs)
+        else:
+            completion = await self.engine.predict(messages=messages, **kwargs)
+
+        # cache its length (if the completion isn't saved to state, this weakrefs and gc's later)
+        message = completion.message
+        self._message_tokens[message] = completion.completion_tokens or self.message_token_len(message)
+        # and log it too
+        message_log.debug(f"<<< {message}")
+        return completion, messages
+
     # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
@@ -433,7 +468,7 @@ class GameManager(Kani):
             self.make_rule_prompt()
 
             # and get a completion
-            completion = await self.get_model_completion(**kwargs)
+            completion, _ = await self.get_model_completion(**kwargs)
             message = completion.message
             await self.add_to_history(message)
             return message
@@ -477,7 +512,11 @@ class GameManager(Kani):
                     context["current_queries"].append(convert_into_natural(msg))
 
                 # do the model prediction
-                completion = await self.get_model_completion(**kwargs)
+                completion, messages = await self.get_model_completion(**kwargs)
+                context["actual_prompt"] = []
+                for msg in messages:
+                    context["actual_prompt"].append(convert_into_natural(msg))
+
                 message = completion.message
                 if message.role != ChatRole.ASSISTANT or message.content is not None:  # Ignoring pending function calling.
                     await self.add_to_history(message)
