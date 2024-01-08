@@ -264,6 +264,7 @@ if __name__=='__main__':
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
+    parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")

@@ -1,14 +1,20 @@
-class Player():
-    def __init__(self, **kwargs):
-        # Player character info based on the sheet in the text book.
-        self.name = kwargs['name']
-        self.kin = kwargs['kin']
-        self.persona = kwargs['persona']
-        self.goal = kwargs['goal']
+from kani import Kani
+from argparse import Namespace
+from utils import print_system_log
 
-        self.traits = kwargs['traits']
-        self.flaws = kwargs['flaws']
-        self.inventory = kwargs['inventory']
+
+# Default Player class.
+class Player():
+    def __init__(self, main_args: Namespace):
+        # Player character info based on the sheet in the text book.
+        self.name = main_args['name']
+        self.kin = main_args['kin']
+        self.persona = main_args['persona']
+        self.goal = main_args['goal']
+
+        self.traits = main_args['traits']
+        self.flaws = main_args['flaws']
+        self.inventory = main_args['inventory']
 
     # Getter for persona in a (numbered) list format.
     def get_persona(self, with_number=False):
@@ -56,23 +62,60 @@ class Player():
     # Adding a trait.
     def add_trait(self, trait, desc):
         self.traits[trait] = desc
+        
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} ADDED A TRAIT '{trait}: {desc}'"
+        print_system_log(msg, after_break=True)
+        return msg
     
     # Adding a flaw.
     def add_flaw(self, flaw, desc):
         self.flaws[flaw] = desc
+
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} ADDED A FLAW '{flaw}: {desc}'"
+        print_system_log(msg, after_break=True)
+        return msg
     
     # Adding an item.
-    def add_item(self, name, desc):
-        self.inventory[name] = desc
+    def add_item(self, item, desc):
+        self.inventory[item] = desc
+
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} ADDED AN ITEM '{item}: {desc}' IN THE INVENTORY."
+        print_system_log(msg, after_break=True)
+        return msg
 
     # Removing a trait.
     def remove_trait(self, trait):
         self.traits.pop(trait)
 
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} REMOVED THE TRAIT '{trait}'."
+        print_system_log(msg, after_break=True)
+        return msg
+
     # Removing a flaw.
     def remove_flaw(self, flaw):
         self.flaws.pop(flaw)
 
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} REMOVED THE FLAW '{flaw}'."
+        print_system_log(msg, after_break=True)
+        return msg
+
     # Removing an item.
-    def remove_item(self, name):
-        self.inventory.pop(name)
+    def remove_item(self, item):
+        self.inventory.pop(item)
+
+        # Updating the new chat message.
+        msg = f"PLAYER {self.name.upper()} REMOVED THE ITEM '{item}'."
+        print_system_log(msg, after_break=True)
+        return msg
+
+
+# Kani version of Player class.
+class PlayerKani(Player, Kani):
+    def __init__(self, main_args: Namespace, *args, **kwargs):
+        Player.__init__(main_args)
+        Kani.__init__(*args, **kwargs)

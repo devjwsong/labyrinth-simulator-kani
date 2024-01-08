@@ -36,7 +36,7 @@ message_log = logging.getLogger("kani.messages")
 
 # The whole game manager class.
 class GameManager(Kani):
-    def __init__(self, main_args: Namespace, encoder: SentenceTransformer,*args, **kwargs):
+    def __init__(self, main_args: Namespace, encoder: SentenceTransformer, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.

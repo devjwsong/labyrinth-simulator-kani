@@ -4,6 +4,7 @@ from typing import Any, List, Union
 
 import logging
 import string
+import random
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -64,6 +65,13 @@ def select_options(options: List[Any]):
                 return res-1
         except ValueError:
             print_system_log("THE INPUT SHOULD BE AN INTEGER.", after_break=True)
+            
+
+# Function for a randomized/automated multi-choice query. (For simulation)
+def select_random_options(options: List[Any]):
+    idxs = list(range(len(options)))
+    selected = random.choice(idxs)
+    return selected
 
 
 # Removing unnecessary punctuations from the object name.
