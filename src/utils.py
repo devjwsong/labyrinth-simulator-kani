@@ -1,6 +1,6 @@
 from inputimeout import inputimeout
 from kani.models import ChatMessage, ChatRole
-from typing import Any, List, Union
+from typing import Any, List
 
 import logging
 import string
@@ -8,6 +8,25 @@ import random
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
+
+
+# User request class for handling a complex input.
+class UserRequest:
+    def __init__(self, **kwargs):
+        self.query = kwargs['query'] if 'query' in kwargs else None
+        self.prop = kwargs['prop'] if 'prop' in kwargs else None
+        self.key = kwargs['key'] if 'key' in kwargs else None
+        self.value = kwargs['value'] if 'value' in kwargs else None
+
+        self.check_integrity()
+
+    def check_integrity(self):
+        if self.query:
+            assert self.prop is None and self.key is None and self.value is None, \
+                "The query is in natural language but additional properties has been set."
+        else:
+            assert self.prop in ['trait', 'flaw', 'item'], "An updatable property should be among 'trait', 'flaw', 'item'."
+            assert self.key is not None, "The property key must not be None."
 
 
 # Trivial definitions for CLI printing.
@@ -35,11 +54,67 @@ def print_manager_log(msg: str, after_break: bool=False):
 def get_player_input(name: str=None, per_player_time: int=None, after_break: bool=False):
     if name is None:
         query = input("INPUT: ")
+        req = UserRequest(query=query)
     else:
-        query = inputimeout(f"[PLAYER] {name.replace('-', ' ')}: ", timeout=per_player_time)
+        options = [
+            "Adding a trait",
+            "Adding a flaw",
+            "Adding an item",
+            "Removing a trait",
+            "Removing a flaw",
+            "Removing an item",
+            "Typing a query",
+            "Terminating the game."  # For debugging.
+        ]
+        selected = select_options(options)
+
+        if selected == 0:
+            print_system_log("SPECIFY A TRAIT YOU WANT TO ADD.")
+            trait = get_player_input(name=None, per_player_time=None).query
+            print_system_log("GIVE THE DESCRIPTION OF THE TRAIT.")
+            desc = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='trait', key=trait, value=desc)
+
+        elif selected == 1:
+            print_system_log("SPECIFY A FLAW YOU WANT TO ADD.")
+            flaw = get_player_input(name=None, per_player_time=None).query
+            print_system_log("GIVE THE DESCRIPTION OF THE FLAW.")
+            desc = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='flaw', key=flaw, value=desc)
+
+        elif selected == 2:
+            print_system_log("SPECIFY AN ITEM YOU WANT TO ADD.")
+            item = get_player_input(name=None, per_player_time=None).query
+            print_system_log("GIVE THE DESCRIPTION OF THE ITEM.")
+            desc = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='item', key=item, value=desc)
+
+        elif selected == 3:
+            print_system_log("SPECIFY THE TRAIT YOU WANT TO REMOVE.")
+            trait = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='trait', key=trait)
+            
+        elif selected == 4:
+            print_system_log("SPECIFY THE FLAW YOU WANT TO REMOVE.")
+            flaw = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='flaw', key=flaw)
+
+        elif selected == 5:
+            print_system_log("SPECIFY THE ITEM YOU WANT TO REMOVE.")
+            item = get_player_input(name=None, per_player_time=None).query
+            req = UserRequest(prop='item', key=item)
+
+        elif selected == 6:
+            query = inputimeout(f"[PLAYER] {name.replace('-', ' ')}: ", timeout=per_player_time)
+            req = UserRequest(query=query)
+
+        else:
+            req = None
+
     if after_break:
         log_break()
-    return query
+        
+    return req
 
 
 def logic_break():
@@ -55,7 +130,7 @@ def select_options(options: List[Any]):
     while True:
         for o, option in enumerate(options):
             print(f"({o+1}) {option}")
-        res = get_player_input(after_break=True)
+        res = get_player_input(after_break=True).query
 
         try:
             res = int(res)

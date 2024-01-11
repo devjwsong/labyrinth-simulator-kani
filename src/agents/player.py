@@ -10,24 +10,26 @@ from typing import AsyncIterable, Callable
 import logging
 import asyncio
 
+from utils import print_system_log
+
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
 # Default Player class.
 class Player():
-    def __init__(self, main_args: Namespace):
+    def __init__(self, **kwargs):
         # Player character info based on the sheet in the text book.
-        self.name = main_args['name']
-        self.kin = main_args['kin']
-        self.persona = main_args['persona']
-        self.goal = main_args['goal']
+        self.name = kwargs['name']
+        self.kin = kwargs['kin']
+        self.persona = kwargs['persona']
+        self.goal = kwargs['goal']
 
-        self.traits = main_args['traits']
-        self.flaws = main_args['flaws']
-        self.inventory = main_args['inventory']
+        self.traits = kwargs['traits']
+        self.flaws = kwargs['flaws']
+        self.inventory = kwargs['inventory']
 
-        self.guide = main_args['guide']
+        self.guide = kwargs['guide']
 
     # Getter for persona in a (numbered) list format.
     def get_persona(self, with_number=False):
@@ -78,6 +80,7 @@ class Player():
         
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} ADDED A TRAIT '{trait}: {desc}'"
+        print_system_log(msg)
         return msg
     
     # Adding a flaw.
@@ -86,6 +89,7 @@ class Player():
 
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} ADDED A FLAW '{flaw}: {desc}'"
+        print_system_log(msg)
         return msg
     
     # Adding an item.
@@ -94,6 +98,7 @@ class Player():
 
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} ADDED AN ITEM '{item}: {desc}' IN THE INVENTORY."
+        print_system_log(msg)
         return msg
 
     # Removing a trait.
@@ -102,6 +107,7 @@ class Player():
 
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} REMOVED THE TRAIT '{trait}'."
+        print_system_log(msg)
         return msg
 
     # Removing a flaw.
@@ -110,6 +116,7 @@ class Player():
 
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} REMOVED THE FLAW '{flaw}'."
+        print_system_log(msg)
         return msg
 
     # Removing an item.
@@ -118,13 +125,14 @@ class Player():
 
         # Updating the new chat message.
         msg = f"PLAYER {self.name.upper()} REMOVED THE ITEM '{item}'."
+        print_system_log(msg)
         return msg
 
 
 # Kani version of Player class.
 class PlayerKani(Player, Kani):
-    def __init__(self, main_args: Namespace, *args, **kwargs):
-        Player.__init__(main_args)
+    def __init__(self, *args, **kwargs):
+        Player.__init__(**kwargs)
         Kani.__init__(*args, **kwargs)
 
         # Context prompts.

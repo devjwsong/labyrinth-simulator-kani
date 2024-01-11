@@ -2,7 +2,8 @@ from utils import select_options, check_init_types, print_logic_start, print_que
 from agents.kani_models import generate_engine
 from kani.utils.message_formatters import assistant_message_contents_thinking
 from kani.models import ChatMessage
-from agents.player import Player
+from kani.engines.openai import OpenAIEngine
+from agents.player import Player, PlayerKani
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
 from constants import INSTRUCTION, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
@@ -24,7 +25,7 @@ log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
-def create_character(data: Dict):
+def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
     print_system_log("BEFORE WE GET STARTED, CREATE YOUR CHARACTER TO PLAY THE GAME.")
 
     print_system_log("IN THE LABYRINTH, THERE ARE MULTIPLE KINS TO CHOOSE.")
@@ -38,13 +39,14 @@ def create_character(data: Dict):
         kin = kins[selected]
         info = data['kins'][kin]
         persona = info['persona']
+        guide = info['guide']
 
         # Showing the details of the selected kin.
         print_system_log("INFORMATION ON THE SELECTED KIN IS...")
         print(f"Kin: {kin}")
         for s, sent in enumerate(persona):
             print(f"({s+1}) {sent}")
-        print(' '.join(info['guide']))
+        print(' '.join(guide))
 
         # Confirming the kin.
         print_question_start()
@@ -61,7 +63,7 @@ def create_character(data: Dict):
         # Setting the name.
         print_question_start()
         print_system_log("WHAT IS YOUR NAME?")
-        name = get_player_input(after_break=True)
+        name = get_player_input(after_break=True).query
 
         # Removing the white space in the name.
         name = name.replace(' ', '-')
@@ -69,7 +71,7 @@ def create_character(data: Dict):
         # Setting the goal.
         print_question_start()
         print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
-        goal = get_player_input(after_break=True)
+        goal = get_player_input(after_break=True).query
 
         # Setting the character-specific additional features.
         if kin == 'Dwarf':
@@ -82,7 +84,7 @@ def create_character(data: Dict):
 
             print_question_start()
             print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {job_and_tool['tool']}")
-            item_description = get_player_input(after_break=True)
+            item_description = get_player_input(after_break=True).query
             inventory[job_and_tool['tool']] = item_description
 
         elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
@@ -92,7 +94,7 @@ def create_character(data: Dict):
             print_question_start()
             print_system_log("YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING.")
             default_traits = info['default_traits']
-            reason = get_player_input(after_break=True)
+            reason = get_player_input(after_break=True).query
             if len(reason) > 0:
                 default_traits['Goblin feature'] = reason
             traits.update(default_traits)
@@ -135,15 +137,29 @@ def create_character(data: Dict):
         flaws[filtered_flaws[selected]['flaw']] = filtered_flaws[selected]['description']
 
         # Finally setting the player instance.
-        player = Player(
-            name=name,
-            kin=kin,
-            persona=persona,
-            goal=goal,
-            traits=traits,
-            flaws=flaws,
-            inventory=inventory
-        )
+        if automated_player:
+            player = PlayerKani(
+                engine=engine,
+                name=name,
+                kin=kin,
+                persona=persona,
+                goal=goal,
+                traits=traits,
+                flaws=flaws,
+                inventory=inventory,
+                guide=guide
+            )
+        else:
+            player = Player(
+                name=name,
+                kin=kin,
+                persona=persona,
+                goal=goal,
+                traits=traits,
+                flaws=flaws,
+                inventory=inventory,
+                guide=guide
+            )
         print_question_start()
         print_system_log("FINALLY, CONFIRM IF THESE SPECIFICATIONS ARE MATCHED WITH YOUR CHOICES.")
         player.show_info()
@@ -166,7 +182,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     players = {}
     for p in range(args.num_players):
         print_logic_start(f"CHARACTER {p+1} CREATION")
-        player = create_character(character_data)
+        player = create_character(character_data, manager.engine, args.automated_player)
         players[p+1] = player
         logic_break()
     manager.players = players
@@ -211,9 +227,49 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             user_queries = []
             for p, player in players.items():
                 try:
-                    query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
-                    if len(query) > 0:  # Empty input is ignored.
-                        user_queries.append(ChatMessage.user(content=query.strip(), name=player.name))
+                    if args.automated_player:
+                        pass
+                    else:
+                        while True:
+                            req = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
+                            if req is None: return  # Forcefully terminating the game.
+
+                            if req.query and len(req.query) > 0:  # Empty input is ignored.
+                                user_queries.append(ChatMessage.user(content=req.query.strip(), name=player.name))
+                                break
+                            else:
+                                if req.prop == 'trait':
+                                    if req.value is None:  # This is removing.
+                                        if req.key not in player.traits: 
+                                            print_system_log("NO SUCH TRAIT. BACK TO THE COMMMAND SELECTION.")
+                                        else:
+                                            msg = player.remove_trait(req.key)
+                                            user_queries.append(ChatMessage.function(name='remove_trait', content=msg))
+                                    else:  # This is adding.
+                                        msg = player.add_trait(req.key, req.value)
+                                        user_queries.append(ChatMessage.function(name='add_trait', content=msg))
+
+                                if req.prop == 'flaw':
+                                    if req.value is None:  # This is removing.
+                                        if req.key not in player.flaws: 
+                                            print_system_log("NO SUCH FLAW. BACK TO THE COMMMAND SELECTION.")
+                                        else:
+                                            msg = player.remove_flaw(req.key)
+                                            user_queries.append(ChatMessage.function(name='remove_flaw', content=msg))
+                                    else:  # This is adding.
+                                        msg = player.add_flaw(req.key, req.value)
+                                        user_queries.append(ChatMessage.function(name='add_flaw', content=msg))
+
+                                if req.prop == 'item':
+                                    if req.value is None:  # This is removing.
+                                        if req.key not in player.inventory: 
+                                            print_system_log("NO SUCH ITEM. BACK TO THE COMMMAND SELECTION.")
+                                        else:
+                                            msg = player.remove_item(req.key)
+                                            user_queries.append(ChatMessage.function(name='remove_item', content=msg))
+                                    else:  # This is adding.
+                                        msg = player.add_item(req.key, req.value)
+                                        user_queries.append(ChatMessage.function(name='add_item', content=msg))
                 except TimeoutOccurred:
                     continue
 
@@ -332,7 +388,7 @@ if __name__=='__main__':
 
         print_question_start()
         print_system_log("FOR EXPORTING THE CHAT DATA, GIVE YOUR NAME.")
-        owner_name = get_player_input(after_break=True)
+        owner_name = get_player_input(after_break=True).query
 
         file = f"result/{owner_name}-{current_time}.json"
         with open(file, 'w') as f:
