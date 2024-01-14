@@ -1,12 +1,12 @@
-from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_manager_log, get_player_input, logic_break
+from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
 from agents.kani_models import generate_engine
 from kani.utils.message_formatters import assistant_message_contents_thinking
-from kani.models import ChatMessage
+from kani.models import ChatMessage, ChatRole
 from kani.engines.openai import OpenAIEngine
 from agents.player import Player, PlayerKani
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
-from constants import INSTRUCTION, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
+from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
@@ -138,8 +138,10 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
 
         # Finally setting the player instance.
         if automated_player:
+            system_prompt = ' '.join(USER_INSTRUCTION)
             player = PlayerKani(
                 engine=engine,
+                system_prompt=system_prompt,
                 name=name,
                 kin=kin,
                 persona=persona,
@@ -205,13 +207,14 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     manager.show_scene()
 
     # Explaining the current scene.
-    print_logic_start("GAME START.")
-    print_system_log(f"CHAPTER: {manager.chapter}")
-    print_system_log(f"SCENE: {manager.scene}")
-    print_system_log(f"{' '.join(manager.scene_summary)}", after_break=True)
+    start_sent = "GAME START."
+    print_logic_start(start_sent)
+    scene_intro = f"CHAPTER: {manager.chapter}\nSCENE: {manager.scene}\n{' '.join(manager.scene_summary)}"
+    print_system_log(scene_intro, after_break=True)
     async def main_logic():
         start_time = time.time()
         notified = 0
+        turn = 0
 
         while True:
             # Checking if this is an action scene now.
@@ -225,10 +228,23 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 notified += 1
 
             user_queries = []
+            ai_queries = [] if turn > 0 else [ChatMessage.system(content=f"{start_sent}\n{scene_intro}")]
             for p, player in players.items():
                 try:
                     if args.automated_player:
-                        pass
+                        async for msg in player.full_round(
+                            ai_queries,
+                            max_tokens=args.max_tokens,
+                            frequency_penalty=args.frequency_penalty,
+                            presence_penalty=args.presence_penalty,
+                            temperature=args.temperature,
+                            top_p=args.top_p
+                        ):
+                            if msg.role == ChatRole.FUNCTION:
+                                user_queries.append(msg)
+                            else:
+                                user_queries.append(ChatMessage.user(msg.content, name=player.name))
+                            print_player_log(msg.content, player.name, after_break=True)
                     else:
                         while True:
                             req = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
@@ -240,40 +256,31 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                             else:
                                 if req.prop == 'trait':
                                     if req.value is None:  # This is removing.
-                                        if req.key not in player.traits: 
-                                            print_system_log("NO SUCH TRAIT. BACK TO THE COMMMAND SELECTION.")
-                                        else:
-                                            msg = player.remove_trait(req.key)
-                                            user_queries.append(ChatMessage.function(name='remove_trait', content=msg))
+                                        msg = player.remove_trait(req.key)
+                                        user_queries.append(ChatMessage.function(name='remove_trait', content=msg))
                                     else:  # This is adding.
                                         msg = player.add_trait(req.key, req.value)
                                         user_queries.append(ChatMessage.function(name='add_trait', content=msg))
 
                                 if req.prop == 'flaw':
                                     if req.value is None:  # This is removing.
-                                        if req.key not in player.flaws: 
-                                            print_system_log("NO SUCH FLAW. BACK TO THE COMMMAND SELECTION.")
-                                        else:
-                                            msg = player.remove_flaw(req.key)
-                                            user_queries.append(ChatMessage.function(name='remove_flaw', content=msg))
+                                        msg = player.remove_flaw(req.key)
+                                        user_queries.append(ChatMessage.function(name='remove_flaw', content=msg))
                                     else:  # This is adding.
                                         msg = player.add_flaw(req.key, req.value)
                                         user_queries.append(ChatMessage.function(name='add_flaw', content=msg))
 
                                 if req.prop == 'item':
                                     if req.value is None:  # This is removing.
-                                        if req.key not in player.inventory: 
-                                            print_system_log("NO SUCH ITEM. BACK TO THE COMMMAND SELECTION.")
-                                        else:
-                                            msg = player.remove_item(req.key)
-                                            user_queries.append(ChatMessage.function(name='remove_item', content=msg))
+                                        msg = player.remove_item(req.key)
+                                        user_queries.append(ChatMessage.function(name='remove_item', content=msg))
                                     else:  # This is adding.
                                         msg = player.add_item(req.key, req.value)
                                         user_queries.append(ChatMessage.function(name='add_item', content=msg))
                 except TimeoutOccurred:
                     continue
 
-            async for response in manager.full_round_str(
+            async for response, role in manager.full_round_str(
                 user_queries,
                 message_formatter=assistant_message_contents_thinking,
                 max_tokens=args.max_tokens,
@@ -282,6 +289,10 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
+                if role == ChatRole.FUNCTION:
+                    ai_queries.append(response)
+                else:
+                    ai_queries.append(ChatMessage.user(name="Goblin-King", content=response))
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
@@ -302,7 +313,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             elif fail:
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print(f"[FAILURE CONDITION] {manager.failure_condition}")
-                break
+                break       
+
+            turn += 1     
         logic_break()
 
     loop.run_until_complete(main_logic())
@@ -361,7 +374,7 @@ if __name__=='__main__':
         encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
 
     # Initializing the game manager.
-    system_prompt = ' '.join(INSTRUCTION)
+    system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
     manager = GameManager(
         main_args=args,
         encoder=encoder,

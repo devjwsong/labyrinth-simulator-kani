@@ -17,7 +17,7 @@ from constants import (
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT
 )
-from utils import print_system_log, remove_punctuation, select_options, find_current_point, convert_into_natural
+from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -76,6 +76,7 @@ class GameManager(Kani):
         # Additional attributes for game play.
         self.players = {}
         self.name_to_idx = {}
+        self.automated_player = main_args.automated_player
         self.is_action_scene = False
 
         # Pre-buidling the rule prompt or embeddings.
@@ -613,26 +614,27 @@ class GameManager(Kani):
     # Overriding full_round_str.
     async def full_round_str(
         self,
-        user_queries: List[Tuple[int, str]],
+        user_queries: List[ChatMessage],
         message_formatter: Callable[[ChatMessage], str | None] = assistant_message_contents,
         **kwargs,
-    ) -> AsyncIterable[str]:
+    ) -> AsyncIterable[tuple[str, ChatRole]]:
         """Like :meth:`full_round`, but each yielded element is a str rather than a ChatMessage.
 
-        :param query: The content of the user's chat message.
+        :param user_queries: The list of the user's chat messages.
         :param message_formatter: A function that returns a string to yield for each message. By default, `
             `full_round_str`` yields the content of each assistant message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
         async for message in self.full_round(user_queries, **kwargs):
             if text := message_formatter(message):
-                yield text
+                yield text, message.role
 
     # Kani's function call for a dice roll test.
     @ai_function
-    async def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
+    def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
         """Activate a test if a player is trying to do something with a certain difficulty."""
-        _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
+        if not self.automated_player:
+            _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
         res = random.randint(1, 6)
 
         if res < difficulty:
@@ -717,10 +719,10 @@ class GameManager(Kani):
                 "Discarding one item from the inventory.",
                 "Not taking the found item."
             ]
-            selected = select_options(options)
+            selected = select_random_options(options) if self.automated_player else select_options(options)
             if selected == 0:  # Discarding any item from the inventory.
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                selected = select_options(player.get_inventory())
+                selected = select_random_options(player.get_inventory) if self.automated_player else select_options(player.get_inventory())
                 removal_target = list(player.inventory.keys())[selected]
                 remove_msg = self.remove_item(player.name, removal_target)
 
@@ -854,7 +856,7 @@ class GameManager(Kani):
 
             print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            selected = select_options(['Yes', 'No'])
+            selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
 
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
@@ -928,7 +930,7 @@ class GameManager(Kani):
             item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {item_name}.")
             print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            selected = select_options(['Yes', 'No'])
+            selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
 
             item_desc_res = {f"Generated description of the item '{item_name}'": item_desc}
             self.function_intermediate_res.append(item_desc_res)

@@ -44,9 +44,14 @@ def print_system_log(msg: str, after_break: bool=False):
     if after_break:
         log_break()
 
+def print_player_log(msg: str, name:str, after_break: bool=False):
+    print(f"[PLAYER] {name.replace('-', ' ')}: {msg}")
+    if after_break:
+        log_break()
+
 
 def print_manager_log(msg: str, after_break: bool=False):
-    print(f"[Game Manager] Goblin King: {msg}")
+    print(f"[GAME MANAGER] Goblin King: {msg}")
     if after_break:
         log_break()
 

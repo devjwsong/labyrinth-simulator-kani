@@ -5,7 +5,8 @@ from kani.internal import ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
 from argparse import Namespace
 from constants import RULE_SUMMARY
-from typing import AsyncIterable, Callable
+from typing import AsyncIterable
+from copy import deepcopy
 
 import logging
 import asyncio
@@ -103,6 +104,10 @@ class Player():
 
     # Removing a trait.
     def remove_trait(self, trait):
+        if trait not in self.traits:
+            print_system_log("NO SUCH TRAIT. BACK TO THE COMMMAND SELECTION.")
+            return
+
         self.traits.pop(trait)
 
         # Updating the new chat message.
@@ -112,6 +117,10 @@ class Player():
 
     # Removing a flaw.
     def remove_flaw(self, flaw):
+        if flaw not in self.flaws:
+            print_system_log("NO SUCH FLAW. BACK TO THE COMMMAND SELECTION.")
+            return
+
         self.flaws.pop(flaw)
 
         # Updating the new chat message.
@@ -121,6 +130,10 @@ class Player():
 
     # Removing an item.
     def remove_item(self, item):
+        if item not in self.inventory:
+            print_system_log("NO SUCH ITEM. BACK TO THE COMMMAND SELECTION.")
+            return
+        
         self.inventory.pop(item)
 
         # Updating the new chat message.
@@ -132,8 +145,8 @@ class Player():
 # Kani version of Player class.
 class PlayerKani(Player, Kani):
     def __init__(self, *args, **kwargs):
-        Player.__init__(**kwargs)
-        Kani.__init__(*args, **kwargs)
+        Player.__init__(self, **kwargs)
+        Kani.__init__(self, engine=kwargs['engine'], system_prompt=kwargs['system_prompt'])
 
         # Context prompts.
         rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
@@ -192,6 +205,13 @@ class PlayerKani(Player, Kani):
             f" {len(self.always_included_messages) + to_keep} messages"
             f" ({len(self.always_included_messages)} always)"
         )
+
+        default_prompt = deepcopy(self.always_included_messages)
+        if self.rule_prompt is not None:
+            default_prompt += [self.rule_prompt]
+        if self.player_prompt is not None:
+            default_prompt += [self.player_prompt]
+
         if not to_keep:
             return self.always_included_messages
         return self.always_included_messages + self.chat_history[-to_keep:]
@@ -219,7 +239,7 @@ class PlayerKani(Player, Kani):
         async with self.lock:
             while is_model_turn:
                 # Setting the player prompt.
-                self.make_player_prompts()
+                self.make_player_prompt()
 
                 # do the model prediction
                 completion = await self.get_model_completion(**kwargs)
@@ -264,21 +284,3 @@ class PlayerKani(Player, Kani):
                         kwargs["include_functions"] = False
                 else:
                     retry = 0
-
-    # Overriding full_round_str.
-    async def full_round_str(
-        self,
-        ai_queries: list[tuple[int, str]],
-        message_formatter: Callable[[ChatMessage], str | None] = assistant_message_contents,
-        **kwargs,
-    ) -> AsyncIterable[str]:
-        """Like :meth:`full_round`, but each yielded element is a str rather than a ChatMessage.
-
-        :param query: The content of the user's chat message.
-        :param message_formatter: A function that returns a string to yield for each message. By default, `
-            `full_round_str`` yields the content of each assistant message.
-        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
-        """
-        async for message in self.full_round(ai_queries, **kwargs):
-            if text := message_formatter(message):
-                yield text

@@ -10,4 +10,5 @@ python src/main.py \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \
     --temperature=1.0 \
-    --top_p=0.8
+    --top_p=0.8 \
+    --automated_player
