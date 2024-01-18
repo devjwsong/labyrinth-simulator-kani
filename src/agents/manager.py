@@ -15,7 +15,8 @@ from constants import (
     CREATE_NPC_PROMPT, 
     OBTAINABLE_CHECK_PROMPT, 
     EXPENDABLE_CHECK_PROMPT, 
-    SUMMARIZE_PROMPT
+    SUMMARIZE_PROMPT,
+    GENERATE_ITEM_DESC_PROMPT
 )
 from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
@@ -927,7 +928,11 @@ class GameManager(Kani):
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
-            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item {item_name}.")
+            system_prompt = ' '.join(GENERATE_ITEM_DESC_PROMPT)
+            kani.system_prompt = system_prompt
+            self.make_scene_prompt()
+            kani.chat_history = deepcopy([self.scene_prompt])
+            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item: {item_name}.")
             print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])

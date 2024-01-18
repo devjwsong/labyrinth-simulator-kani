@@ -1,11 +1,10 @@
-from kani import Kani
+from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole, ToolCall
 from kani.exceptions import MessageTooLong, FunctionCallException
 from kani.internal import ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
-from argparse import Namespace
-from constants import RULE_SUMMARY
-from typing import AsyncIterable
+from constants import RULE_SUMMARY, GENERATE_TRAIT_DESC_PROMPT, GENERATE_FLAW_DESC_PROMPT, GENERATE_ITEM_DESC_PROMPT
+from typing import AsyncIterable, Annotated
 from copy import deepcopy
 
 import logging
@@ -284,3 +283,43 @@ class PlayerKani(Player, Kani):
                         kwargs["include_functions"] = False
                 else:
                     retry = 0
+
+    # Kani's function call for adding a trait.
+    @ai_function
+    async def add_trait(self, trait: Annotated[str, AIParam(desc="The name of the new trait to be added as a player attribute.")]):
+        """
+        Let the player add a new trait into the current player state if it is necessary considering the game rule and current game state.
+        """
+        
+        # Generating the trait description using a sub-kani.
+        system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
+        self.make_player_prompt()
+        kani = Kani(self.engine, chat_history=deepcopy([self.player_prompt]), system_prompt=system_prompt)
+        desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the trait: {trait}.")
+
+        return super().add_trait(trait, desc)
+
+    # Kani's function call for adding a flaw.
+    @ai_function
+    def add_flaw(self, flaw: Annotated[str, AIParam(desc="The name of the new flaw to be added as a player attribute.")]):
+        pass
+
+    # Kani's function call for adding a item.
+    @ai_function
+    def add_item(self, item: Annotated[str, AIParam(desc="The name of the new item to be added in the player inventory.")]):
+        pass
+
+    # Kani's function call for removing a trait.
+    @ai_function
+    def remove_trait(self, trait: Annotated[str, AIParam(desc="The name of the existing trait to be removed from the player attributes.")]):
+        pass
+
+    # Kani's function call for removing a flaw.
+    @ai_function
+    def remove_flaw(self, flaw: Annotated[str, AIParam(desc="The name of the existing flaw to be removed from the player attributes.")]):
+        pass
+
+    # Kani's function call for removing a item.
+    @ai_function
+    def remove_item(self, item: Annotated[str, AIParam(desc="The name of the existing item to be removed from the player inventory.")]):
+        pass

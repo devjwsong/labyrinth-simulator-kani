@@ -209,3 +209,21 @@ SUMMARIZE_PROMPT = [
     "You should summarize the given dialogue to include the essential information in the output.",
     "Note that the user is a game player and the assistant is the game manager which controls the game scene."
 ]
+
+GENERATE_TRAIT_DESC_PROMPT = [
+    "You are given the name of a trait and the current state of the game scene or player in a fantasy text adventure game.",
+    "A trait is a personality or an aspect which might be helpful for the player to proceed with the game.",
+    "You should generate the simple description of the given trait which is not contradictory with the current game state."
+]
+
+GENERATE_FLAW_DESC_PROMPT = [
+    "You are given the name of a flaw and the current state of the game scene or player in a fantasy text adventure game.",
+    "A flaw is a personality or an aspect which might be harmful for the player to proceed with the game",
+    "You should generate the simple description of the given flaw which is not contradictory with the current game state."
+]
+
+GENERATE_ITEM_DESC_PROMPT = [
+    "You are given the name of an item and the current state of the game scene or player in a fantasy text adventure game.",
+    "An item is an object which can be stored in the player inventory and might be helpful to proceed with the game.",
+    "You should generate the simple description of the given item which is not contradictory with the current game state."
+]
