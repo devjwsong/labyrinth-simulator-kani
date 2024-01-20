@@ -231,7 +231,7 @@ def find_current_point(chat_history: List[ChatMessage]) -> int:
 def convert_into_natural(message: ChatMessage):
     name, content = message.name, message.content
     if message.role == ChatRole.ASSISTANT:
-        name = "[Game Manager] Goblin-King"
+        name = f"[Game Manager] {name}"
     if message.role == ChatRole.USER:
         name = f"[Player] {name}"
     if message.role == ChatRole.FUNCTION:

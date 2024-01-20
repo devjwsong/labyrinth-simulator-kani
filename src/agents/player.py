@@ -1,16 +1,13 @@
-from kani import Kani, ai_function, AIParam
+from kani import Kani
 from kani.models import ChatMessage, ChatRole, ToolCall
 from kani.exceptions import MessageTooLong, FunctionCallException
 from kani.internal import ExceptionHandleResult
-from kani.utils.message_formatters import assistant_message_contents
-from constants import RULE_SUMMARY, GENERATE_TRAIT_DESC_PROMPT, GENERATE_FLAW_DESC_PROMPT, GENERATE_ITEM_DESC_PROMPT
-from typing import AsyncIterable, Annotated
+from constants import RULE_SUMMARY
+from typing import AsyncIterable
 from copy import deepcopy
 
 import logging
 import asyncio
-
-from utils import print_system_log
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -29,7 +26,7 @@ class Player():
         self.flaws = kwargs['flaws']
         self.inventory = kwargs['inventory']
 
-        self.guide = kwargs['guide']
+        self.additional_notes = kwargs['additional_notes']
 
     # Getter for persona in a (numbered) list format.
     def get_persona(self, with_number=False):
@@ -55,6 +52,12 @@ class Player():
             return [f"({i+1}) {item} - {desc}" for i, (item, desc) in enumerate(self.inventory.items())]
         return [f"{item} - {desc}" for item, desc in self.inventory.items()]
 
+    # Getter for additional notes in a (numbered) list format.
+    def get_additional_notes(self, with_number=False):
+        if with_number:
+            return [f"({s+1}) {sent}" for s, sent in enumerate(self.additional_notes)]
+        return self.additional_notes
+
     # Printing the character sheet so far.
     def show_info(self):
         print(f"NAME: {self.name}")
@@ -73,72 +76,33 @@ class Player():
 
         print("INVENTORY")
         print('\n'.join(self.get_inventory(with_number=True)))
+
+        print("ADDITIONAL NOTES")
+        print('\n'.join(self.get_additional_notes(with_number=True)))
             
     # Adding a trait.
     def add_trait(self, trait, desc):
         self.traits[trait] = desc
-        
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} ADDED A TRAIT '{trait}: {desc}'"
-        print_system_log(msg)
-        return msg
     
     # Adding a flaw.
     def add_flaw(self, flaw, desc):
         self.flaws[flaw] = desc
-
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} ADDED A FLAW '{flaw}: {desc}'"
-        print_system_log(msg)
-        return msg
     
     # Adding an item.
     def add_item(self, item, desc):
         self.inventory[item] = desc
 
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} ADDED AN ITEM '{item}: {desc}' IN THE INVENTORY."
-        print_system_log(msg)
-        return msg
-
     # Removing a trait.
     def remove_trait(self, trait):
-        if trait not in self.traits:
-            print_system_log("NO SUCH TRAIT. BACK TO THE COMMMAND SELECTION.")
-            return
-
         self.traits.pop(trait)
-
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} REMOVED THE TRAIT '{trait}'."
-        print_system_log(msg)
-        return msg
 
     # Removing a flaw.
     def remove_flaw(self, flaw):
-        if flaw not in self.flaws:
-            print_system_log("NO SUCH FLAW. BACK TO THE COMMMAND SELECTION.")
-            return
-
         self.flaws.pop(flaw)
-
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} REMOVED THE FLAW '{flaw}'."
-        print_system_log(msg)
-        return msg
 
     # Removing an item.
     def remove_item(self, item):
-        if item not in self.inventory:
-            print_system_log("NO SUCH ITEM. BACK TO THE COMMMAND SELECTION.")
-            return
-        
         self.inventory.pop(item)
-
-        # Updating the new chat message.
-        msg = f"PLAYER {self.name.upper()} REMOVED THE ITEM '{item}'."
-        print_system_log(msg)
-        return msg
 
 
 # Kani version of Player class.
@@ -283,43 +247,3 @@ class PlayerKani(Player, Kani):
                         kwargs["include_functions"] = False
                 else:
                     retry = 0
-
-    # Kani's function call for adding a trait.
-    @ai_function
-    async def add_trait(self, trait: Annotated[str, AIParam(desc="The name of the new trait to be added as a player attribute.")]):
-        """
-        Let the player add a new trait into the current player state if it is necessary considering the game rule and current game state.
-        """
-        
-        # Generating the trait description using a sub-kani.
-        system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
-        self.make_player_prompt()
-        kani = Kani(self.engine, chat_history=deepcopy([self.player_prompt]), system_prompt=system_prompt)
-        desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the trait: {trait}.")
-
-        return super().add_trait(trait, desc)
-
-    # Kani's function call for adding a flaw.
-    @ai_function
-    def add_flaw(self, flaw: Annotated[str, AIParam(desc="The name of the new flaw to be added as a player attribute.")]):
-        pass
-
-    # Kani's function call for adding a item.
-    @ai_function
-    def add_item(self, item: Annotated[str, AIParam(desc="The name of the new item to be added in the player inventory.")]):
-        pass
-
-    # Kani's function call for removing a trait.
-    @ai_function
-    def remove_trait(self, trait: Annotated[str, AIParam(desc="The name of the existing trait to be removed from the player attributes.")]):
-        pass
-
-    # Kani's function call for removing a flaw.
-    @ai_function
-    def remove_flaw(self, flaw: Annotated[str, AIParam(desc="The name of the existing flaw to be removed from the player attributes.")]):
-        pass
-
-    # Kani's function call for removing a item.
-    @ai_function
-    def remove_item(self, item: Annotated[str, AIParam(desc="The name of the existing item to be removed from the player inventory.")]):
-        pass

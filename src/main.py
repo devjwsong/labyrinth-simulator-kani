@@ -40,6 +40,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         info = data['kins'][kin]
         persona = info['persona']
         guide = info['guide']
+        additional_notes = info['additional_notes'] if 'additional_notes' in info else []
 
         # Showing the details of the selected kin.
         print_system_log("INFORMATION ON THE SELECTED KIN IS...")
@@ -149,7 +150,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
                 traits=traits,
                 flaws=flaws,
                 inventory=inventory,
-                guide=guide
+                additional_notes=additional_notes
             )
         else:
             player = Player(
@@ -160,7 +161,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
                 traits=traits,
                 flaws=flaws,
                 inventory=inventory,
-                guide=guide
+                additional_notes=additional_notes
             )
         print_question_start()
         print_system_log("FINALLY, CONFIRM IF THESE SPECIFICATIONS ARE MATCHED WITH YOUR CHOICES.")

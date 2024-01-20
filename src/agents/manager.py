@@ -1,3 +1,4 @@
+from re import M
 from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
@@ -214,6 +215,8 @@ class GameManager(Kani):
 
     # Overriding add_to_history.
     async def add_to_history(self, message: ChatMessage, store_in_raw: bool=True):
+        if message.role == ChatRole.ASSISTANT:
+            message = ChatMessage.assistant(name="Goblin_King", content=message.content)
         self.chat_history.append(message)
         if store_in_raw:
             self.raw_history.append(message)
@@ -373,7 +376,7 @@ class GameManager(Kani):
         self.player_prompts.clear()
         for p, player in self.players.items():
             content = f"name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
-                f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}"
+                f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}, additional_notes={player.additional_notes}"
             self.player_prompts.append(ChatMessage.system(name=f"Player_State", content=content))
 
     # Making the context for exporting data.
@@ -402,7 +405,8 @@ class GameManager(Kani):
                 "goal": player.goal,
                 "traits": deepcopy(player.traits),
                 "flaws": deepcopy(player.flaws),
-                "inventory": deepcopy(player.inventory)
+                "inventory": deepcopy(player.inventory),
+                "additional_notes": deepcopy(player.additional_notes)
             })
         context["players"] = players
 
