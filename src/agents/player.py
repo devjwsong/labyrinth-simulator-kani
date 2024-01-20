@@ -120,7 +120,7 @@ class PlayerKani(Player, Kani):
     def make_player_prompt(self):
         content = f"name={self.name}, kin={self.kin}, persona={self.persona}, goal={self.goal}, " + \
             f"traits={self.traits}, flaws={self.flaws}, inventory={self.inventory}, " + \
-            f"kin_specific_featur={self.guide}"
+            f"additional_notes={self.additional_notes}"
         self.player_prompt = ChatMessage.system(name="Player_State", content=content)
 
     # Overriding get_prompt.
