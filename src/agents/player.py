@@ -1,13 +1,11 @@
 from kani import Kani
-from kani.models import ChatMessage, ChatRole, ToolCall
-from kani.exceptions import MessageTooLong, FunctionCallException
-from kani.internal import ExceptionHandleResult
+from kani.models import ChatMessage, ChatRole
+from kani.exceptions import MessageTooLong
 from constants import RULE_SUMMARY
-from typing import AsyncIterable
 from copy import deepcopy
 
 import logging
-import asyncio
+import warnings
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -176,74 +174,45 @@ class PlayerKani(Player, Kani):
             default_prompt += [self.player_prompt]
 
         if not to_keep:
-            return self.always_included_messages
-        return self.always_included_messages + self.chat_history[-to_keep:]
+            return default_prompt
+        prompt = default_prompt + self.chat_history[-to_keep:]
+        return prompt
 
+    # Overrding chat_round.
+    async def chat_round(self, ai_queries: list[ChatMessage], **kwargs) -> ChatMessage:
+        """Perform a single chat round (user -> model -> user, no functions allowed).
 
-    # Overriding full_round.
-    async def full_round(self, ai_queries: list[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
-        """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
+        This is slightly faster when you are chatting with a kani with no AI functions defined.
 
-        Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
-
-        Use this in an async for loop, like so::
-
-            async for msg in kani.full_round("How's the weather?"):
-                print(msg.content)
-
-        :param query: The content of the user's chat message.
+        :param query: The contents of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
+        :returns: The model's reply.
         """
-        for msg in ai_queries:
-            await self.add_to_history(msg)
-
-        retry = 0
-        is_model_turn = True
+        # warn if the user has functions defined and has not explicitly silenced them in this call
+        if self.functions and "include_functions" not in kwargs:
+            warnings.warn(
+                f"You have defined functions in the body of {type(self).__name__} but chat_round() will not call"
+                " functions. Use full_round() instead.\nIf this is intentional, use chat_round(...,"
+                " include_functions=False) to silence this warning."
+            )
+        kwargs = {**kwargs, "include_functions": False}
+        # do the chat round
         async with self.lock:
-            while is_model_turn:
-                # Setting the player prompt.
-                self.make_player_prompt()
+            self.make_player_prompt()
 
-                # do the model prediction
-                completion = await self.get_model_completion(**kwargs)
-                message = completion.message
-                await self.add_to_history(message)
-                yield message
+            # add the manager's responses into the chat history.
+            for msg in ai_queries:
+                await self.add_to_history(msg)
 
-                # if function call, do it and attempt retry if it's wrong
-                if not message.tool_calls:
-                    return
+            # and get a completion
+            completion = await self.get_model_completion(**kwargs)
+            message = completion.message
+            await self.add_to_history(message)
 
-                # run each tool call in parallel
-                async def _do_tool_call(tc: ToolCall):
-                    try:
-                        return await self.do_function_call(tc.function, tool_call_id=tc.id)
-                    except FunctionCallException as e:
-                        return await self.handle_function_call_exception(tc.function, e, retry, tool_call_id=tc.id)
+            return message
 
-                # and update results after they are completed
-                is_model_turn = False
-                should_retry_call = False
-                n_errs = 0
-                results = await asyncio.gather(*(_do_tool_call(tc) for tc in message.tool_calls))
-                for result in results:
-                    # save the result to the chat history
-                    await self.add_to_history(result.message)
-                    yield result.message
-                    if isinstance(result, ExceptionHandleResult):
-                        is_model_turn = True
-                        n_errs += 1
-                        # retry if any function says so
-                        should_retry_call = should_retry_call or result.should_retry
-                    else:
-                        # allow model to generate response if any function says so
-                        is_model_turn = is_model_turn or result.is_model_turn
-
-                # if we encountered an error, increment the retry counter and allow the model to generate a response
-                if n_errs:
-                    retry += 1
-                    if not should_retry_call:
-                        # disable function calling on the next go
-                        kwargs["include_functions"] = False
-                else:
-                    retry = 0
+    # Overrding chat_round_str.
+    async def chat_round_str(self, ai_queries: list[ChatMessage], **kwargs) -> str:
+        """Like :meth:`chat_round`, but only returns the text content of the message."""
+        msg = await self.chat_round(ai_queries, **kwargs)
+        return msg.text

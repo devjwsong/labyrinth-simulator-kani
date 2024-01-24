@@ -64,7 +64,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         # Setting the name.
         print_question_start()
         print_system_log("WHAT IS YOUR NAME?")
-        name = get_player_input(after_break=True).query
+        name = get_player_input(after_break=True)
 
         # Removing the white space in the name.
         name = name.replace(' ', '-')
@@ -72,7 +72,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         # Setting the goal.
         print_question_start()
         print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
-        goal = get_player_input(after_break=True).query
+        goal = get_player_input(after_break=True)
 
         # Setting the character-specific additional features.
         if kin == 'Dwarf':
@@ -85,7 +85,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
 
             print_question_start()
             print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {job_and_tool['tool']}")
-            item_description = get_player_input(after_break=True).query
+            item_description = get_player_input(after_break=True)
             inventory[job_and_tool['tool']] = item_description
 
         elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
@@ -95,7 +95,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
             print_question_start()
             print_system_log("YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING.")
             default_traits = info['default_traits']
-            reason = get_player_input(after_break=True).query
+            reason = get_player_input(after_break=True)
             if len(reason) > 0:
                 default_traits['Goblin feature'] = reason
             traits.update(default_traits)
@@ -210,13 +210,13 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     # Explaining the current scene.
     start_sent = "GAME START."
     print_logic_start(start_sent)
-    scene_intro = f"CHAPTER: {manager.chapter}\nSCENE: {manager.scene}\n{' '.join(manager.scene_summary)}"
+    scene_intro = f"\nCHAPTER: {manager.chapter}\nSCENE: {manager.scene}\n{' '.join(manager.scene_summary)}"
     print_system_log(scene_intro, after_break=True)
     async def main_logic():
         start_time = time.time()
         notified = 0
-        turn = 0
 
+        ai_queries = [ChatMessage.system(content=f"{start_sent}{scene_intro}")]
         while True:
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
@@ -229,58 +229,23 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 notified += 1
 
             user_queries = []
-            ai_queries = [] if turn > 0 else [ChatMessage.system(content=f"{start_sent}\n{scene_intro}")]
             for p, player in players.items():
                 try:
                     if args.automated_player:
-                        async for msg in player.full_round(
-                            ai_queries,
-                            max_tokens=args.max_tokens,
-                            frequency_penalty=args.frequency_penalty,
-                            presence_penalty=args.presence_penalty,
-                            temperature=args.temperature,
-                            top_p=args.top_p
-                        ):
-                            if msg.role == ChatRole.FUNCTION:
-                                user_queries.append(msg)
-                            else:
-                                user_queries.append(ChatMessage.user(msg.content, name=player.name))
-                            print_player_log(msg.content, player.name, after_break=True)
+                        query = await player.chat_round_str(ai_queries)
+                        user_queries.append(ChatMessage.user(name=player.name, content=query))
+                        print_player_log(query, player.name, after_break=True)
                     else:
-                        while True:
-                            req = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
-                            if req is None: return  # Forcefully terminating the game.
+                        query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
+                        if len(query) > 0:  # Empty input is ignored.
+                            if query == "Abort!":  # Immediate termination.
+                                return
+                            user_queries.append(ChatMessage.user(name=player.name, content=query))
 
-                            if req.query and len(req.query) > 0:  # Empty input is ignored.
-                                user_queries.append(ChatMessage.user(content=req.query.strip(), name=player.name))
-                                break
-                            else:
-                                if req.prop == 'trait':
-                                    if req.value is None:  # This is removing.
-                                        msg = player.remove_trait(req.key)
-                                        user_queries.append(ChatMessage.function(name='remove_trait', content=msg))
-                                    else:  # This is adding.
-                                        msg = player.add_trait(req.key, req.value)
-                                        user_queries.append(ChatMessage.function(name='add_trait', content=msg))
-
-                                if req.prop == 'flaw':
-                                    if req.value is None:  # This is removing.
-                                        msg = player.remove_flaw(req.key)
-                                        user_queries.append(ChatMessage.function(name='remove_flaw', content=msg))
-                                    else:  # This is adding.
-                                        msg = player.add_flaw(req.key, req.value)
-                                        user_queries.append(ChatMessage.function(name='add_flaw', content=msg))
-
-                                if req.prop == 'item':
-                                    if req.value is None:  # This is removing.
-                                        msg = player.remove_item(req.key)
-                                        user_queries.append(ChatMessage.function(name='remove_item', content=msg))
-                                    else:  # This is adding.
-                                        msg = player.add_item(req.key, req.value)
-                                        user_queries.append(ChatMessage.function(name='add_item', content=msg))
                 except TimeoutOccurred:
                     continue
-
+            
+            ai_queries = []
             async for response, role in manager.full_round_str(
                 user_queries,
                 message_formatter=assistant_message_contents_thinking,
@@ -291,9 +256,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 top_p=args.top_p
             ):
                 if role == ChatRole.FUNCTION:
-                    ai_queries.append(response)
+                    ai_queries.append(ChatMessage.system(content=response))
                 else:
-                    ai_queries.append(ChatMessage.user(name="Goblin-King", content=response))
+                    ai_queries.append(ChatMessage.user(name="Goblin_King", content=response))
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
@@ -314,9 +279,8 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
             elif fail:
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print(f"[FAILURE CONDITION] {manager.failure_condition}")
-                break       
+                break
 
-            turn += 1     
         logic_break()
 
     loop.run_until_complete(main_logic())
@@ -402,7 +366,7 @@ if __name__=='__main__':
 
         print_question_start()
         print_system_log("FOR EXPORTING THE CHAT DATA, GIVE YOUR NAME.")
-        owner_name = get_player_input(after_break=True).query
+        owner_name = get_player_input(after_break=True)
 
         file = f"result/{owner_name}-{current_time}.json"
         with open(file, 'w') as f:
