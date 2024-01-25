@@ -882,8 +882,8 @@ class GameManager(Kani):
             msg = f"THERE IS NOTHING IN {table_name}."
             print_system_log(msg, after_break=True)
             return msg
-
-        _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
+        if not self.automated_player:
+            _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
         idx = random.randint(0, len(entries)-1)
         object_name = entries[idx]
 
