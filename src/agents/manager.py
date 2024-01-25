@@ -334,7 +334,9 @@ class GameManager(Kani):
 
         if not to_keep:
             return default_prompt
-        return default_prompt + valid_chat_history[-to_keep:]
+        prompt = default_prompt + valid_chat_history[-to_keep:]
+
+        return prompt
 
     # Making the rule prompt.
     def make_rule_prompt(self, top_n: int=5):
@@ -445,7 +447,7 @@ class GameManager(Kani):
         return completion, messages
 
     # Overriding full_round.
-    async def full_round(self, user_queries: List[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
+    async def full_round(self, queries: List[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
 
         Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
@@ -459,9 +461,9 @@ class GameManager(Kani):
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
         past_history = deepcopy(self.raw_history)
-        current_queries = deepcopy(user_queries)
+        current_queries = deepcopy(queries)
 
-        for msg in user_queries:
+        for msg in queries:
             await self.add_to_history(msg)
 
         retry = 0
@@ -586,18 +588,18 @@ class GameManager(Kani):
     # Overriding full_round_str.
     async def full_round_str(
         self,
-        user_queries: List[ChatMessage],
+        queries: List[ChatMessage],
         message_formatter: Callable[[ChatMessage], str | None] = assistant_message_contents,
         **kwargs,
     ) -> AsyncIterable[tuple[str, ChatRole]]:
         """Like :meth:`full_round`, but each yielded element is a str rather than a ChatMessage.
 
-        :param user_queries: The list of the user's chat messages.
+        :param queries: The list of the user's chat messages.
         :param message_formatter: A function that returns a string to yield for each message. By default, `
             `full_round_str`` yields the content of each assistant message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
-        async for message in self.full_round(user_queries, **kwargs):
+        async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
                 yield text, message.role
 

@@ -176,15 +176,16 @@ class PlayerKani(Player, Kani):
         if not to_keep:
             return default_prompt
         prompt = default_prompt + self.chat_history[-to_keep:]
+
         return prompt
 
     # Overrding chat_round.
-    async def chat_round(self, ai_queries: list[ChatMessage], **kwargs) -> ChatMessage:
+    async def chat_round(self, queries: list[ChatMessage], **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
 
         This is slightly faster when you are chatting with a kani with no AI functions defined.
 
-        :param query: The contents of the user's chat message.
+        :param queries: The list of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         :returns: The model's reply.
         """
@@ -201,7 +202,7 @@ class PlayerKani(Player, Kani):
             self.make_player_prompt()
 
             # add the manager's responses into the chat history.
-            for msg in ai_queries:
+            for msg in queries:
                 await self.add_to_history(msg)
 
             # and get a completion
@@ -212,7 +213,7 @@ class PlayerKani(Player, Kani):
             return message
 
     # Overrding chat_round_str.
-    async def chat_round_str(self, ai_queries: list[ChatMessage], **kwargs) -> str:
+    async def chat_round_str(self, queries: list[ChatMessage], **kwargs) -> str:
         """Like :meth:`chat_round`, but only returns the text content of the message."""
-        msg = await self.chat_round(ai_queries, **kwargs)
+        msg = await self.chat_round(queries, **kwargs)
         return msg.text

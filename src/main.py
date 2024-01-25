@@ -216,7 +216,7 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
         start_time = time.time()
         notified = 0
 
-        ai_queries = [ChatMessage.system(content=f"{start_sent}{scene_intro}")]
+        queries = [ChatMessage.system(content=f"{start_sent}{scene_intro}")]
         while True:
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
@@ -228,26 +228,25 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 print_system_log(f"{hours} hours {minutes} minutes {seconds} seconds have passed from the start of the game.", after_break=True)
                 notified += 1
 
-            user_queries = []
             for p, player in players.items():
                 try:
                     if args.automated_player:
-                        query = await player.chat_round_str(ai_queries)
-                        user_queries.append(ChatMessage.user(name=player.name, content=query))
+                        query = await player.chat_round_str(queries)
+                        queries.append(ChatMessage.user(name=player.name, content=query))
                         print_player_log(query, player.name, after_break=True)
                     else:
                         query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
                         if len(query) > 0:  # Empty input is ignored.
                             if query == "Abort!":  # Immediate termination.
                                 return
-                            user_queries.append(ChatMessage.user(name=player.name, content=query))
+                            queries.append(ChatMessage.user(name=player.name, content=query))
 
                 except TimeoutOccurred:
                     continue
             
-            ai_queries = []
+            queries = queries[-len(players):]
             async for response, role in manager.full_round_str(
-                user_queries,
+                queries,
                 message_formatter=assistant_message_contents_thinking,
                 max_tokens=args.max_tokens,
                 frequency_penalty=args.frequency_penalty,
@@ -256,9 +255,9 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
                 top_p=args.top_p
             ):
                 if role == ChatRole.FUNCTION:
-                    ai_queries.append(ChatMessage.system(content=response))
+                    queries.append(ChatMessage.system(content=response))
                 else:
-                    ai_queries.append(ChatMessage.user(name="Goblin_King", content=response))
+                    queries.append(ChatMessage.user(name="Goblin_King", content=response))
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.

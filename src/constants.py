@@ -15,8 +15,7 @@ ASSISTANT_INSTRUCTION = [
 USER_INSTRUCTION = [
     "You are a human player in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are going to interact with the Goblin King, which works as the game manager, to solve and overcome various puzzles and challenges in the Labyrinth.",
-    "You must strictly follow the game rules and always be aware of the current state of yours and the chat history so far when generating a response or choosing a function to call.",
-    "Make sure to check if the given function parameters exist in the current attributes when you are going to call a function.",
+    "You must strictly follow the game rules and always be aware of the current state of yours and the chat history so far when generating a response.",
     "Other than that, you may improvise anything to make the game more entertaining.",
     "Also, there might be other players who play along with you.",
     "You should cooperate with them and help each other to win the game."
