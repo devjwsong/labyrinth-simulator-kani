@@ -93,8 +93,9 @@ RULE_SUMMARY = [
 
 SCENE_INIT_PROMPT = [
     [   
-        "You are the scene initializer in a fantasy text adventure game.",
-        "You should initialize essential attributes for the game scene given as a JSON object which contains the scene information.",
+        "You are a scene initializer in a fantasy text-based adventure game.",
+        "You are given the game rules to get some help for understanding and initializing the scene.",
+        "You should initialize essential attributes or objects in the game scene with the basic scene information given as a JSON input.",
         "You are also given the game rules for the game to get some help for understanding and initializaing the scene.",
         "You should understand and extract the necessary information to initialize the scene before the game starts.",
         "You should give the output as only another JSON format which can be converted into Python dictionary, so DO NOT PUT ANY STRING RESPONSE WITH IT.",
@@ -190,14 +191,14 @@ EXPENDABLE_CHECK_PROMPT = [
 ]
 
 VALIDATE_SUCCESS_PROMPT = [
-    "This is a fantasy text-based adventure game.",
+    "You are a success detector in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the success condition for the players to win.",
     "You must answer only either 'yes' or 'no'."
 ]
 
 VALIDATE_FAILURE_PROMPT = [
-    "This is a fantasy text-based adventure game.",
+    "You are a failure detector in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
     "You must answer only either 'yes' or 'no'."

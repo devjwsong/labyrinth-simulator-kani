@@ -102,7 +102,7 @@ class GameManager(Kani):
         rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
 
         kani = Kani(self.engine, chat_history=[rule_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the JSON output for initialized scene attributes.\n{scene}")
+        res = await kani.chat_round_str(f"Generate the JSON output for the initialized scene attributes.\nScene: {scene}")
 
         # Finding each key and mapping into the corresponding attribute.
         try:
