@@ -1,6 +1,6 @@
-from re import M
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
+from kani.engines.openai.engine import OpenAIEngine
+from kani.models import ChatMessage, ChatRole, FunctionCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
@@ -25,7 +25,6 @@ from argparse import Namespace
 from copy import deepcopy
 from itertools import chain
 
-import warnings
 import json
 import logging
 import random
@@ -889,7 +888,7 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
-        
+               
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
 
@@ -900,12 +899,12 @@ class GameManager(Kani):
         if is_obtainable:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
-
+            
             system_prompt = ' '.join(GENERATE_ITEM_DESC_PROMPT)
-            kani.system_prompt = system_prompt
-            self.make_scene_prompt()
-            kani.chat_history = deepcopy([self.scene_prompt])
+
+            kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
             item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item: {item_name}.")
+
             print_system_log(f"{item_name}: {item_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])

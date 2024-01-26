@@ -1,6 +1,5 @@
 python src/main.py \
     --seed=0 \
-    --engine_name=openai \
     --model_idx=gpt-4 \
     --rule_injection=full \
     --scene_idx=0 \

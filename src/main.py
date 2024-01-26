@@ -1,5 +1,4 @@
 from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
-from agents.kani_models import generate_engine
 from kani.utils.message_formatters import assistant_message_contents_thinking
 from kani.models import ChatMessage, ChatRole
 from kani.engines.openai import OpenAIEngine
@@ -291,7 +290,6 @@ if __name__=='__main__':
 
     # Arguments for the gameplay.
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
-    parser.add_argument('--engine_name', type=str, required=True, help="The name of the engine for running kani corresponding the language model used.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
@@ -329,7 +327,8 @@ if __name__=='__main__':
 
     # Creating the engine.
     random.seed(args.seed)
-    engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
+    api_key = input("Enter the API key for OpenAI API: ")
+    engine = OpenAIEngine(api_key, model=args.model_idx)
 
     # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
     encoder = None
