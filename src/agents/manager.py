@@ -952,10 +952,9 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction and the success condition.
         system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
-        system_prompt += f"\nSuccess condition: {self.success_condition}"
 
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str("Have the player accomplished the success condition?")
+        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
+        response = await kani.chat_round_str(f"Have the players accomplished the success condition?:\nSuccess condition: {self.success_condition}")
 
         return self.translate_into_binary(response)
     
@@ -966,9 +965,8 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction and the failure condition.
         system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
-        system_prompt += f"\nFailure condition: {self.failure_condition}"
 
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str("Have the player fallen into the failure condition?")
+        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
+        response = await kani.chat_round_str(f"Have the players fallen into the failure condition?:\nFailure condition: {self.failure_condition}")
         
         return self.translate_into_binary(response)

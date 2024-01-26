@@ -190,17 +190,17 @@ EXPENDABLE_CHECK_PROMPT = [
 ]
 
 VALIDATE_SUCCESS_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game.",
-    "You should determine whether the current game state satisfies the success condition of the player.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "This is a fantasy text-based adventure game.",
+    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You should determine whether the current game state satisfies the success condition for the players to win.",
     "You must answer only either 'yes' or 'no'."
 ]
 
 VALIDATE_FAILURE_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game.",
-    "You should determine whether the current game state satisfies the failure condition of the player.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
-    "You must answer only either 'yes' or 'no'. "
+    "This is a fantasy text-based adventure game.",
+    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You should determine whether the current game state satisfies the failure condition for the players to lose.",
+    "You must answer only either 'yes' or 'no'."
 ]
 
 SUMMARIZE_PROMPT = [
