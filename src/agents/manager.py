@@ -654,7 +654,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{npc_name}'.")
 
         # Converting & Fetching information.

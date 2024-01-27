@@ -170,9 +170,9 @@ SCENE_INIT_PROMPT = [
 ]
 
 CREATE_NPC_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game.",
-    "You should generate an NPC information in a dictionary form.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "You are an NPC creator in a fantasy text-based adventure game.",
+    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "You should generate a specification of an NPC in a dictionary form if its name is given.",
     "Each key and corresponding value is as follows:"
 ] + SCENE_INIT_PROMPT[2][3:-1]
 
