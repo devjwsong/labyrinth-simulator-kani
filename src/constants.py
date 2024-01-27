@@ -169,6 +169,12 @@ SCENE_INIT_PROMPT = [
     ]
 ]
 
+SUMMARIZE_PROMPT = [
+    "You are a dialogue summarizer in a fantasy text-based adventure game.",
+    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You should generate the summarization of the given conversation to include the essential information."
+]
+
 CREATE_NPC_PROMPT = [
     "You are an NPC creator in a fantasy text-based adventure game.",
     "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
@@ -202,12 +208,6 @@ VALIDATE_FAILURE_PROMPT = [
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
     "You must answer only either 'yes' or 'no'."
-]
-
-SUMMARIZE_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game.",
-    "You should summarize the given dialogue to include the essential information in the output.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene."
 ]
 
 GENERATE_TRAIT_DESC_PROMPT = [
