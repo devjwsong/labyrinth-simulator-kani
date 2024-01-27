@@ -182,6 +182,12 @@ CREATE_NPC_PROMPT = [
     "Each key and corresponding value is as follows:"
 ] + SCENE_INIT_PROMPT[2][3:-1]
 
+EXPENDABLE_CHECK_PROMPT = [
+    "You are a binary classifier in a fantasy text-based adventure game.",
+    "You should determine whether an item is expendable, which should be removed from the inventory after used.",
+    "You must answer only either 'yes' or 'no'."
+]
+
 OBTAINABLE_CHECK_PROMPT = [
     "You are given a dialogue history in a fantasy text adventure game and an object which is located in the game scene.",
     "You should determine whether a player character can have the object in the inventory.",
@@ -189,22 +195,15 @@ OBTAINABLE_CHECK_PROMPT = [
     "You must answer only either 'yes' or 'no'."
 ]
 
-EXPENDABLE_CHECK_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game and an item in the player's inventory.",
-    "You should determine whether this item is expendable and should be removed after used.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
-    "You must answer only either 'yes' or 'no'."
-]
-
 VALIDATE_SUCCESS_PROMPT = [
-    "You are a success detector in a fantasy text-based adventure game.",
+    "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the success condition for the players to win.",
     "You must answer only either 'yes' or 'no'."
 ]
 
 VALIDATE_FAILURE_PROMPT = [
-    "You are a failure detector in a fantasy text-based adventure game.",
+    "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
     "You must answer only either 'yes' or 'no'."

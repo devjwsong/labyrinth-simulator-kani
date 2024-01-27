@@ -655,7 +655,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
         
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC '{npc_name}'.")
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\nNPC name: '{npc_name}'")
 
         # Converting & Fetching information.
         try:
@@ -775,18 +775,18 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the item {item_name} expendable which should disappear after usage?")
+        kani = Kani(self.engine, system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}")
 
         is_expendable = self.translate_into_binary(res)
         expendable_res = {f"Expendable item detection result for '{item_name}'": is_expendable}
         self.function_intermediate_res.append(expendable_res)
 
         if is_expendable:  # The item is expendable.
-            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT WAS AN EXPENDABLE ITEM."
+            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
             print_system_log(msg, after_break=True)
-            remove_msg = self.remove_item(player_name, item_name)
-            return f"{msg}\n{remove_msg}"
+            player.remove_item(item_name)
+            return msg
 
         # The item is permanent.
         msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}."
@@ -954,7 +954,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
 
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Have the players accomplished the success condition?:\nSuccess condition: {self.success_condition}")
+        response = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}")
 
         return self.translate_into_binary(response)
     
@@ -967,6 +967,6 @@ class GameManager(Kani):
         system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
 
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Have the players fallen into the failure condition?:\nFailure condition: {self.failure_condition}")
+        response = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}")
         
         return self.translate_into_binary(response)
