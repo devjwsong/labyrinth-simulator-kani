@@ -820,7 +820,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the item obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
         obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
@@ -900,7 +900,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the item obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
         obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}

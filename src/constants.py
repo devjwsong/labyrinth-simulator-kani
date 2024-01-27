@@ -3,6 +3,7 @@ PER_PLAYER_TIME = 10
 TOTAL_TIME = 13 * ONE_HOUR
 
 SEP = '||'
+MAX_GAME_TURNS = 20
 
 ASSISTANT_INSTRUCTION = [
     "You are the Goblin King, which works as the game manager, in the text-based adventure game, Jim Henson's Labyrinth.",
