@@ -1,5 +1,4 @@
 from kani import Kani, ai_function, AIParam
-from kani.engines.openai.engine import OpenAIEngine
 from kani.models import ChatMessage, ChatRole, FunctionCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult
@@ -13,11 +12,11 @@ from constants import (
     SCENE_INIT_PROMPT,
     VALIDATE_SUCCESS_PROMPT, 
     VALIDATE_FAILURE_PROMPT, 
-    CREATE_NPC_PROMPT, 
-    OBTAINABLE_CHECK_PROMPT, 
+    CREATE_NPC_PROMPT,
+    OBTAINABLE_CHECK_PROMPT,
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT,
-    GENERATE_ITEM_DESC_PROMPT
+    GENERATE_OBJECT_DESC_PROMPT
 )
 from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
@@ -370,13 +369,17 @@ class GameManager(Kani):
             f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}"
         self.scene_prompt = ChatMessage.system(name="Scene_State", content=content)
 
+    # Making one player prompt.
+    def make_player_prompt(self, player: Player):
+        content = f"name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
+            f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}, additional_notes={player.additional_notes}"
+        return ChatMessage.system(name="Player_State", content=content)
+
     # Making the player prompts.
     def make_player_prompts(self):
         self.player_prompts.clear()
         for p, player in self.players.items():
-            content = f"name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
-                f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}, additional_notes={player.additional_notes}"
-            self.player_prompts.append(ChatMessage.system(name=f"Player_State", content=content))
+            self.player_prompts.append(self.make_player_prompt(player))
 
     # Making the context for exporting data.
     def make_context(self):
@@ -775,7 +778,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=[self.scene_prompt, self.make_player_prompt(player)], system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}")
 
         is_expendable = self.translate_into_binary(res)
@@ -810,24 +813,24 @@ class GameManager(Kani):
             msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
             return msg
+        
+        object_desc = self.environment[object_name]
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
+        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the item obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
         obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
         self.function_intermediate_res.append(obtainable_res)
 
         if is_obtainable:  # The item is obtainble.
-            item_desc = self.environment[object_name]
-
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
-            print_system_log(f"{item_name}: {item_desc}")
+            print_system_log(f"{item_name}: {object_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
 
@@ -838,7 +841,7 @@ class GameManager(Kani):
             print_system_log(msg, after_break=True)
 
             if selected == 0:
-                obtain_msg = self.obtain_item(player, item_name, item_desc)
+                obtain_msg = self.obtain_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the environment.
                 if item_name in player.inventory:
@@ -886,11 +889,18 @@ class GameManager(Kani):
         idx = random.randint(0, len(entries)-1)
         object_name = entries[idx]
 
+        # The default system prompt consists of the instruction to generate the specific description of the object.
+        system_prompt = ' '.join(GENERATE_OBJECT_DESC_PROMPT)
+        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        object_desc = await kani.chat_round_str(f"Generate the plausible description of the object.\nObject name: {object_name}")
+
+        object_desc_res = {f"Generated description of the object '{object_name}'": object_desc}
+        self.function_intermediate_res.append(object_desc_res)
+
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
-               
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the object {object_name} obtainable item?")
+        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Is the item obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
         obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
@@ -899,18 +909,10 @@ class GameManager(Kani):
         if is_obtainable:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
-            
-            system_prompt = ' '.join(GENERATE_ITEM_DESC_PROMPT)
 
-            kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-            item_desc = await kani.chat_round_str(f"Generate the plausible one sentence description of the item: {item_name}.")
-
-            print_system_log(f"{item_name}: {item_desc}")
+            print_system_log(f"{item_name}: {object_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
-
-            item_desc_res = {f"Generated description of the item '{item_name}'": item_desc}
-            self.function_intermediate_res.append(item_desc_res)
 
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
@@ -919,7 +921,7 @@ class GameManager(Kani):
             print_system_log(msg, after_break=True)
 
             if selected == 0:
-                obtain_msg = self.obtain_item(player, item_name, item_desc)
+                obtain_msg = self.obtain_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the random table.
                 if item_name in player.inventory:

@@ -184,15 +184,24 @@ CREATE_NPC_PROMPT = [
 
 EXPENDABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
-    "You should determine whether an item is expendable, which should be removed from the inventory after used.",
+    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "Also you are given the current state of the player character.",
+    "You should determine whether an item is expendable, which should be removed from the inventory after the player uses it.",
     "You must answer only either 'yes' or 'no'."
 ]
 
 OBTAINABLE_CHECK_PROMPT = [
-    "You are given a dialogue history in a fantasy text adventure game and an object which is located in the game scene.",
-    "You should determine whether a player character can have the object in the inventory.",
-    "Note that the user is a game player and the assistant is the game manager which controls the game scene.",
+    "You are a binary classifier in a fantasy text-based adventure game.",
+    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "You should determine whether an object is obtainable so a player character can have it in the inventory.",
     "You must answer only either 'yes' or 'no'."
+]
+
+GENERATE_OBJECT_DESC_PROMPT = [
+    "You are a description generator in a fantasy text-based adventure game.",
+    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "You should generate a specification of an object if its name is given.",
+    "The output should be in one or two sentences."
 ]
 
 VALIDATE_SUCCESS_PROMPT = [
@@ -207,22 +216,4 @@ VALIDATE_FAILURE_PROMPT = [
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
     "You must answer only either 'yes' or 'no'."
-]
-
-GENERATE_TRAIT_DESC_PROMPT = [
-    "You are given the name of a trait and the current state of the game scene or player in a fantasy text adventure game.",
-    "A trait is a personality or an aspect which might be helpful for the player to proceed with the game.",
-    "You should generate the simple description of the given trait which is not contradictory with the current game state."
-]
-
-GENERATE_FLAW_DESC_PROMPT = [
-    "You are given the name of a flaw and the current state of the game scene or player in a fantasy text adventure game.",
-    "A flaw is a personality or an aspect which might be harmful for the player to proceed with the game",
-    "You should generate the simple description of the given flaw which is not contradictory with the current game state."
-]
-
-GENERATE_ITEM_DESC_PROMPT = [
-    "You are given the name of an item and the current state of the game scene or player in a fantasy text adventure game.",
-    "An item is an object which can be stored in the player inventory and might be helpful to proceed with the game.",
-    "You should generate the simple description of the given item which is not contradictory with the current game state."
 ]
