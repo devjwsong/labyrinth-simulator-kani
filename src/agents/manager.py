@@ -689,6 +689,15 @@ class GameManager(Kani):
 
     # Logic for obtaining an item.
     def obtain_item(self, player: Player, item_name: str, item_desc: str):
+        # A sub logic that adds the item.
+        def sub_logic(player, item_name, item_desc):
+            player.add_item(item_name, item_desc)
+            msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
+            print_system_log("PLAYER INVENTORY UPDATED:")
+            print('\n'.join(player.get_inventory(with_number=True)))
+            print_system_log(msg, after_break=True)
+            return msg
+
         if len(player.inventory) >= 6:  # The player inventory is already full.
             print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
             options = [
@@ -702,13 +711,10 @@ class GameManager(Kani):
                 removal_target = list(player.inventory.keys())[selected]
                 remove_msg = self.remove_item(player.name, removal_target)
 
-                player.add_item(item_name, item_desc)
-                msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
-                print_system_log("PLAYER INVENTORY UPDATED:")
-                print('\n'.join(player.get_inventory(with_number=True)))
-                print_system_log(msg, after_break=True)
+                msg = sub_logic(player, item_name, item_desc)
+                msg = f"{remove_msg}\n{msg}"
 
-                return f"{remove_msg}\n{msg}"
+                return msg
             
             # Not taking the found item.
             msg = f"THE PLAYER {player.name} DECIDED NOT TO TAKE THE ITEM {item_name}."
@@ -717,11 +723,7 @@ class GameManager(Kani):
             return msg
 
         # Taking the item since there is still a room in the inventory.
-        player.add_item(item_name, item_desc)
-        msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
-        print_system_log("PLAYER INVENTORY UPDATED:")
-        print('\n'.join(player.get_inventory(with_number=True)))
-        print_system_log(msg, after_break=True)
+        msg = sub_logic(player, item_name, item_desc)
 
         return msg
 
@@ -837,9 +839,6 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}."
-            print_system_log(msg, after_break=True)
-
             if selected == 0:
                 obtain_msg = self.obtain_item(player, item_name, object_desc)
 
@@ -847,9 +846,12 @@ class GameManager(Kani):
                 if item_name in player.inventory:
                     self.environment.pop(object_name)
 
-                return f"{msg}\n{obtain_msg}"
+                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
+                print_system_log(msg, after_break=True)
+
+                return msg
             
-            msg = f"{msg} BUT DECIDED NOT TO TAKE IT."
+            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}, BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
 
             return msg
@@ -917,9 +919,6 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}."
-            print_system_log(msg, after_break=True)
-
             if selected == 0:
                 obtain_msg = self.obtain_item(player, item_name, object_desc)
 
@@ -928,9 +927,12 @@ class GameManager(Kani):
                     entries = entries[:idx] + entries[idx+1:]
                     self.random_tables[table_name] = entries
 
-                return f"{msg}\n{obtain_msg}"
+                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
+                print_system_log(msg, after_break=True)
+
+                return msg
             
-            msg = f"{msg} BUT DECIDED NOT TO TAKE IT."
+            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}, BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
 
             return msg
