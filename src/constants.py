@@ -186,7 +186,7 @@ CREATE_NPC_PROMPT = [
 EXPENDABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "Also you are given the current state of the player character.",
+    "Also you are given the current state of the player character which includes the current inventory.",
     "You should determine whether an item is expendable, which should be removed from the inventory after the player uses it.",
     "You must answer only either 'yes' or 'no'."
 ]
@@ -196,6 +196,20 @@ OBTAINABLE_CHECK_PROMPT = [
     "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "You should determine whether an object is obtainable so a player character can have it in the inventory.",
     "You must answer only either 'yes' or 'no'."
+]
+
+GENERATE_TRAIT_DESC_PROMPT = [
+    "You are a description generator in a fantasy text-based adventure game.",
+    "You are given the current state of the player character which has the information of existing traits.",
+    "You should generate a specification of a trait if it is given.",
+    "The output should be in one or two sentences."
+]
+
+GENERATE_FLAW_DESC_PROMPT = [
+    "You are a description generator in a fantasy text-based adventure game.",
+    "You are given the current state of the player character which has the information of existing flaws.",
+    "You should generate a specification of a flaw if it is given.",
+    "The output should be in one or two sentences."
 ]
 
 GENERATE_OBJECT_DESC_PROMPT = [
