@@ -73,7 +73,8 @@ class GameManager(Kani):
         self.start_idx = 0
         self.turn_count = 0
         self.context_archive = []
-        self.function_intermediate_res = []
+        self.function_arguments = {}
+        self.function_intermediate_res = {}
 
         # Additional attributes for game play.
         self.players = {}
@@ -665,8 +666,7 @@ class GameManager(Kani):
         # Converting & Fetching information.
         try:
             res = json.loads(res)
-            npc_res = {f"Generated information of the NPC '{npc_name}'": res}
-            self.function_intermediate_res.append(npc_res)
+            self.function_intermediate_res[f"Generated information of the NPC '{npc_name}'"] = res
 
             assert isinstance(res['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(res['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
@@ -706,12 +706,11 @@ class GameManager(Kani):
         trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
 
         player.add_trait(trait_name, trait_desc)
-
-        trait_desc_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
-        self.function_intermediate_res.append(trait_desc_res)
+        self.function_intermediate_res[f"Generated description of the trait '{trait_name}'"] = trait_desc
 
         msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
-        print_system_log(f"PLAYER TRAITS UPDATED:\n{'\n'.join(player.get_traits(with_number=True))}", after_break=True)
+        updated_res = '\n'.join(player.get_traits(with_number=True))
+        print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
         return msg
 
@@ -732,12 +731,11 @@ class GameManager(Kani):
         flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
 
         player.add_flaw(flaw_name, flaw_desc)
-
-        flaw_desc_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
-        self.function_intermediate_res.append(flaw_desc_res)
+        self.function_intermediate_res[f"Generated description of the flaw '{flaw_name}'"] = flaw_desc
 
         msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
-        print_system_log(f"PLAYER FLAWS UPDATED:\n{'\n'.join(player.get_flaws(with_number=True))}", after_break=True)
+        updated_res = '\n'.join(player.get_flaws(with_number=True))
+        print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
         return msg
 
@@ -747,7 +745,8 @@ class GameManager(Kani):
         def sub_logic(player, item_name, item_desc):
             player.add_item(item_name, item_desc)
             msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
-            print_system_log(f"PLAYER INVENTORY UPDATED:\n{'\n'.join(player.get_inventory(with_number=True))}", after_break=True)
+            updated_res = '\n'.join(player.get_inventory(with_number=True))
+            print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
             return msg
 
         if len(player.inventory) >= 6:  # The player inventory is already full.
@@ -800,7 +799,8 @@ class GameManager(Kani):
         player.remove_trait(trait_name)
 
         msg = f"THE TRAIT {trait_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
-        print_system_log(f"PLAYER TRAITS UPDATED:\n{'\n'.join(player.get_traits(with_number=True))}", after_break=True)
+        updated_res = '\n'.join(player.get_traits(with_number=True))
+        print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -827,7 +827,8 @@ class GameManager(Kani):
         player.remove_flaw(flaw_name)
 
         msg = f"THE FLAW {flaw_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
-        print_system_log(f"PLAYER FLAWS UPDATED:\n{'\n'.join(player.get_flaws(with_number=True))}", after_break=True)
+        updated_res = '\n'.join(player.get_flaws(with_number=True))
+        print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -858,7 +859,8 @@ class GameManager(Kani):
         self.environment[item_name] = desc
 
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
-        print_system_log(f"PLAYER INVENTORY UPDATED:\n{'\n'.join(player.get_inventory(with_number=True))}", after_break=True)
+        updated_res = '\n'.join(player.get_inventory(with_number=True))
+        print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -888,8 +890,7 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}")
 
         is_expendable = self.translate_into_binary(res)
-        expendable_res = {f"Expendable item detection result for '{item_name}'": is_expendable}
-        self.function_intermediate_res.append(expendable_res)
+        self.function_intermediate_res[f"Expendable item detection result for '{item_name}'"] = is_expendable
 
         if is_expendable:  # The item is expendable.
             msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
@@ -929,8 +930,7 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
-        obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
-        self.function_intermediate_res.append(obtainable_res)
+        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = is_obtainable
 
         if is_obtainable:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
@@ -999,9 +999,7 @@ class GameManager(Kani):
         system_prompt = ' '.join(GENERATE_OBJECT_DESC_PROMPT)
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
         object_desc = await kani.chat_round_str(f"Generate the plausible description of the object.\nObject: {object_name}")
-
-        object_desc_res = {f"Generated description of the object '{object_name}'": object_desc}
-        self.function_intermediate_res.append(object_desc_res)
+        self.function_intermediate_res[f"Generated description of the object '{object_name}'"] = object_desc
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
@@ -1009,8 +1007,7 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
 
         is_obtainable = self.translate_into_binary(res)
-        obtainable_res = {f"Obtainable object detection result for '{object_name}'": is_obtainable}
-        self.function_intermediate_res.append(obtainable_res)
+        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = is_obtainable
 
         if is_obtainable:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
