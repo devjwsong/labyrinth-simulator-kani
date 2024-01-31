@@ -689,14 +689,65 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg
 
-    # Logic for obtaining an item.
-    def obtain_item(self, player: Player, item_name: str, item_desc: str):
+    # Kani's function call for adding a trait to the player.
+    @ai_function
+    async def add_trait(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new trait should be added.")],
+        trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")]
+    ):
+        """
+        Add a new trait to a player if any circumstance necessiates it.
+        """
+        player = self.players[self.name_to_idx[player_name]]
+        
+        # The default system prompt consists of the instruction to generate the specific description of the trait.
+        system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
+        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
+        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
+
+        player.add_trait(trait_name, trait_desc)
+
+        trait_desc_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
+        self.function_intermediate_res.append(trait_desc_res)
+
+        msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        print_system_log(f"PLAYER TRAITS UPDATED:\n{'\n'.join(player.get_traits(with_number=True))}", after_break=True)
+        print_system_log(msg, after_break=True)
+        return msg
+
+    # Kani's function call for adding a flaw to the player.
+    @ai_function
+    async def add_flaw(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new flaw should be added.")],
+        flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")]
+    ):
+        """
+        Add a new flaw to a player if any circumstance necessiates it.
+        """
+        player = self.players[self.name_to_idx[player_name]]
+        
+        # The default system prompt consists of the instruction to generate the specific description of the trait.
+        system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
+        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
+        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
+
+        player.add_flaw(flaw_name, flaw_desc)
+
+        flaw_desc_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
+        self.function_intermediate_res.append(flaw_desc_res)
+
+        msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        print_system_log(f"PLAYER FLAWS UPDATED:\n{'\n'.join(player.get_flaws(with_number=True))}", after_break=True)
+        print_system_log(msg, after_break=True)
+        return msg
+
+    # Logic for adding an item. (Not an AI function!)
+    def add_item(self, player: Player, item_name: str, item_desc: str):
         # A sub logic that adds the item.
         def sub_logic(player, item_name, item_desc):
             player.add_item(item_name, item_desc)
             msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
-            print_system_log("PLAYER INVENTORY UPDATED:")
-            print('\n'.join(player.get_inventory(with_number=True)))
+            print_system_log(f"PLAYER INVENTORY UPDATED:\n{'\n'.join(player.get_inventory(with_number=True))}", after_break=True)
             return msg
 
         if len(player.inventory) >= 6:  # The player inventory is already full.
@@ -727,60 +778,6 @@ class GameManager(Kani):
 
         return msg
 
-    # Kani's function call for adding a trait to the player.
-    @ai_function
-    async def add_trait(self,
-        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new trait should be added.")],
-        trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")]
-    ):
-        """
-        Add a new trait to a player if any circumstance necessiates it.
-        """
-        player = self.players[self.name_to_idx[player_name]]
-        
-        # The default system prompt consists of the instruction to generate the specific description of the trait.
-        system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
-        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
-        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
-
-        player.add_trait(trait_name, trait_desc)
-
-        trait_desc_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
-        self.function_intermediate_res.append(trait_desc_res)
-
-        msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
-        print_system_log("PLAYER TRAITS UPDATED:")
-        print('\n'.join(player.get_traits(with_number=True)))
-        print_system_log(msg, after_break=True)
-        return msg
-
-    # Kani's function call for adding a flaw to the player.
-    @ai_function
-    async def add_flaw(self,
-        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new flaw should be added.")],
-        flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")]
-    ):
-        """
-        Add a new flaw to a player if any circumstance necessiates it.
-        """
-        player = self.players[self.name_to_idx[player_name]]
-        
-        # The default system prompt consists of the instruction to generate the specific description of the trait.
-        system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
-        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
-        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
-
-        player.add_flaw(flaw_name, flaw_desc)
-
-        flaw_desc_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
-        self.function_intermediate_res.append(flaw_desc_res)
-
-        msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
-        print_system_log("PLAYER FLAWS UPDATED:")
-        print('\n'.join(player.get_flaws(with_number=True)))
-        print_system_log(msg, after_break=True)
-        return msg
-
     # Kani's function call for removing a trait from the player.
     @ai_function
     def remove_trait(self,
@@ -803,8 +800,7 @@ class GameManager(Kani):
         player.remove_trait(trait_name)
 
         msg = f"THE TRAIT {trait_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
-        print_system_log("PLAYER TRAITS UPDATED:")
-        print('\n'.join(player.get_traits(with_number=True)))
+        print_system_log(f"PLAYER TRAITS UPDATED:\n{'\n'.join(player.get_traits(with_number=True))}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -831,8 +827,7 @@ class GameManager(Kani):
         player.remove_flaw(flaw_name)
 
         msg = f"THE FLAW {flaw_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
-        print_system_log("PLAYER FLAWS UPDATED:")
-        print('\n'.join(player.get_flaws(with_number=True)))
+        print_system_log(f"PLAYER FLAWS UPDATED:\n{'\n'.join(player.get_flaws(with_number=True))}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -863,8 +858,7 @@ class GameManager(Kani):
         self.environment[item_name] = desc
 
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
-        print_system_log("PLAYER INVENTORY UPDATED:")
-        print('\n'.join(player.get_inventory(with_number=True)))
+        print_system_log(f"PLAYER INVENTORY UPDATED:\n{'\n'.join(player.get_inventory(with_number=True))}", after_break=True)
         print_system_log(msg, after_break=True)
 
         return msg
@@ -950,7 +944,7 @@ class GameManager(Kani):
             player = self.players[player_idx]
 
             if selected == 0:
-                obtain_msg = self.obtain_item(player, item_name, object_desc)
+                obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the environment.
                 if item_name in player.inventory:
@@ -1030,7 +1024,7 @@ class GameManager(Kani):
             player = self.players[player_idx]
 
             if selected == 0:
-                obtain_msg = self.obtain_item(player, item_name, object_desc)
+                obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the random table.
                 if item_name in player.inventory:
