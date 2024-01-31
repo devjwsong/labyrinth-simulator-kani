@@ -524,8 +524,10 @@ class GameManager(Kani):
 
                 context["generated"] = convert_into_natural(func_res.message)
                 
-                # If the generated message is from a function, the intermediate results should be stored.
+                # If the generated message is from a function, the arguments and intermediate results should be stored.
+                context["function_arguments"] = deepcopy(self.function_arguments)
                 context["function_intermediate_results"] = deepcopy(self.function_intermediate_res)
+                self.function_arguments.clear()
                 self.function_intermediate_res.clear()
 
                 self.context_archive.append(context)
@@ -612,6 +614,9 @@ class GameManager(Kani):
     @ai_function
     def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
         """Activate a test if a player is trying to do something with a certain difficulty."""
+
+        self.function_arguments['difficulty'] = difficulty
+
         if not self.automated_player:
             _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
         res = random.randint(1, 6)
@@ -651,6 +656,8 @@ class GameManager(Kani):
         This function must not be called if the NPC already exists in the scene.
         """ 
 
+        self.function_arguments['npc_name'] = npc_name
+       
         # False Positive: The function is called even when the argument is an NPC which already exists.
         if npc_name in self.npcs:
             msg = "UNEXPECTED FUNCTION CALLING: NPC ALREADY EXISTS."
@@ -698,6 +705,10 @@ class GameManager(Kani):
         """
         Add a new trait to a player if any circumstance necessiates it.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['trait_name'] = trait_name
+
         player = self.players[self.name_to_idx[player_name]]
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
@@ -723,6 +734,10 @@ class GameManager(Kani):
         """
         Add a new flaw to a player if any circumstance necessiates it.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['flaw_name'] = flaw_name
+
         player = self.players[self.name_to_idx[player_name]]
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
@@ -787,6 +802,10 @@ class GameManager(Kani):
         Remove a trait if any circumstance necessiates it.
         This function must not be called if the trait does not exist in the current state of the player who triggered this function.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['trait_name'] = trait_name
+
         player = self.players[self.name_to_idx[player_name]]
 
         # False Positive: The function is called even when the argument is a trait which does not exist in the player.
@@ -815,6 +834,10 @@ class GameManager(Kani):
         Remove a flaw if any circumstance necessiates it.
         This function must not be called if the flaw does not exist in the current state of the player who triggered this function.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['flaw_name'] = flaw_name
+
         player = self.players[self.name_to_idx[player_name]]
 
         # False Positive: The function is called even when the argument is a flaw which does not exist in the player.
@@ -843,6 +866,10 @@ class GameManager(Kani):
         Remove an item if the player wants to discard it from the inventory.
         This function must not be called if the item does not exist in the inventory of the player who triggered this function.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['item_name'] = item_name
+
         player = self.players[self.name_to_idx[player_name]]
 
         # False Positive: The function is called even when the argument is an item which does not exist in the inventory.
@@ -875,6 +902,10 @@ class GameManager(Kani):
         Let the player use an item if the player wants to use it from the inventory.
         This function must not be called if the item does not exist in the inventory of the player who triggered this function.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['item_name'] = item_name
+
         player = self.players[self.name_to_idx[player_name]]
 
         # False Positive: The function is called even when the argument is an item which does not exist in the inventory.
@@ -914,6 +945,9 @@ class GameManager(Kani):
         This function must not be called if the object does not exist in the environment.
         If the object name also exists as a random table, ignore this function and call use_random_table function instead.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['object_name'] = object_name
 
         # False Positive: The function is called even when the argument is an object which does not exist in the environment.
         if object_name not in self.environment:
@@ -976,6 +1010,9 @@ class GameManager(Kani):
         This function must not be called if the table does not exist in the random table dictionary.
         If the table name also exists in the environment, ignore use_environment and call this function in priorty.
         """
+
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['table_name'] = table_name
 
         # False Positive: The function is called even when the argument is a table name which does not exist in the random table dictionary.
         if table_name not in self.random_tables:
