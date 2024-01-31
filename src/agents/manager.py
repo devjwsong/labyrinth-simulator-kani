@@ -650,7 +650,7 @@ class GameManager(Kani):
         This function must not be called if the NPC already exists in the scene.
         """ 
 
-        # False Positive: The function is called even if the argument is an NPC which already exists.
+        # False Positive: The function is called even when the argument is an NPC which already exists.
         if npc_name in self.npcs:
             msg = "UNEXPECTED FUNCTION CALLING: NPC ALREADY EXISTS."
             print_system_log(msg, after_break=True)
@@ -731,7 +731,7 @@ class GameManager(Kani):
     @ai_function
     async def add_trait(self,
         player_name: Annotated[str, AIParam(desc="The name of the player charater whose new trait should be added.")],
-        trait: Annotated[str, AIParam(desc="The name of the new trait.")]
+        trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")]
     ):
         """
         Add a new trait to a player if any circumstance necessiates it.
@@ -741,22 +741,24 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
-        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait}")
+        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
 
-        player.add_trait(trait, trait_desc)
+        player.add_trait(trait_name, trait_desc)
 
-        trait_desc_res = {f"Generated description of the trait '{trait}'": trait_desc}
+        trait_desc_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
         self.function_intermediate_res.append(trait_desc_res)
 
-        msg = f"A NEW TRAIT {trait}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        print_system_log("PLAYER TRAITS UPDATED:")
+        print('\n'.join(player.get_traits(with_number=True)))
         print_system_log(msg, after_break=True)
         return msg
 
     # Kani's function call for adding a flaw to the player.
     @ai_function
     async def add_flaw(self,
-        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new trait should be added.")],
-        flaw: Annotated[str, AIParam(desc="The name of the new flaw.")]
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new flaw should be added.")],
+        flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")]
     ):
         """
         Add a new flaw to a player if any circumstance necessiates it.
@@ -766,15 +768,73 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
-        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw}")
+        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
 
-        player.add_flaw(flaw, flaw_desc)
+        player.add_flaw(flaw_name, flaw_desc)
 
-        flaw_desc_res = {f"Generated description of the flaw '{flaw}'": flaw_desc}
+        flaw_desc_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
         self.function_intermediate_res.append(flaw_desc_res)
 
-        msg = f"A NEW FLAW {flaw}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        print_system_log("PLAYER FLAWS UPDATED:")
+        print('\n'.join(player.get_flaws(with_number=True)))
         print_system_log(msg, after_break=True)
+        return msg
+
+    # Kani's function call for removing a trait from the player.
+    @ai_function
+    def remove_trait(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose trait should be removed.")],
+        trait_name: Annotated[str, AIParam(desc="The name of the trait which should be removed from the player.")]
+    ):
+        """
+        Remove a trait if any circumstance necessiates it.
+        This function must not be called if the trait does not exist in the current state of the player who triggered this function.
+        """
+        player = self.players[self.name_to_idx[player_name]]
+
+        # False Positive: The function is called even when the argument is a trait which does not exist in the player.
+        if trait_name not in player.traits:
+            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE TRAIT {trait_name}."
+            print_system_log(msg, after_break=True)
+            return msg
+
+        # Removing the trait from the player.
+        player.remove_trait(trait_name)
+
+        msg = f"THE TRAIT {trait_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
+        print_system_log("PLAYER TRAITS UPDATED:")
+        print('\n'.join(player.get_traits(with_number=True)))
+        print_system_log(msg, after_break=True)
+
+        return msg
+
+    # Kani's function call for removing a flaw from the player.
+    @ai_function
+    def remove_flaw(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose flaw should be removed.")],
+        flaw_name: Annotated[str, AIParam(desc="The name of the flaw which should be removed from the player.")]
+    ):
+        """
+        Remove a flaw if any circumstance necessiates it.
+        This function must not be called if the flaw does not exist in the current state of the player who triggered this function.
+        """
+        player = self.players[self.name_to_idx[player_name]]
+
+        # False Positive: The function is called even when the argument is a flaw which does not exist in the player.
+        if flaw_name not in player.flaws:
+            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE FLAW {flaw_name}."
+            print_system_log(msg, after_break=True)
+            return msg
+
+        # Removing the flaw from the player.
+        player.remove_flaw(flaw_name)
+
+        msg = f"THE FLAW {flaw_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
+        print_system_log("PLAYER FLAWS UPDATED:")
+        print('\n'.join(player.get_flaws(with_number=True)))
+        print_system_log(msg, after_break=True)
+
         return msg
 
     # Kani's function call for removing an item in the player's inventory.
@@ -789,7 +849,7 @@ class GameManager(Kani):
         """
         player = self.players[self.name_to_idx[player_name]]
 
-        # False Positive: The function is called even if the argument is an item which does not exist in the inventory.
+        # False Positive: The function is called even when the argument is an item which does not exist in the inventory.
         if item_name not in player.inventory:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
@@ -821,7 +881,7 @@ class GameManager(Kani):
         """
         player = self.players[self.name_to_idx[player_name]]
 
-        # False Positive: The function is called even if the argument is an item which does not exist in the inventory.
+        # False Positive: The function is called even when the argument is an item which does not exist in the inventory.
         if item_name not in player.inventory:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
@@ -860,7 +920,7 @@ class GameManager(Kani):
         If the object name also exists as a random table, ignore this function and call use_random_table function instead.
         """
 
-        # False Positive: The function is called even if the argument is an object which does not exist in the environment.
+        # False Positive: The function is called even when the argument is an object which does not exist in the environment.
         if object_name not in self.environment:
             msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
@@ -923,7 +983,7 @@ class GameManager(Kani):
         If the table name also exists in the environment, ignore use_environment and call this function in priorty.
         """
 
-        # False Positive: The function is called even if the argument is a table name which does not exist in the random table dictionary.
+        # False Positive: The function is called even when the argument is a table name which does not exist in the random table dictionary.
         if table_name not in self.random_tables:
             msg = f"UNEXPECTED FUNCTION CALLING: THE TABLE {table_name} DOES NOT EXIST IN THE RANDOM TABLE DICTIONARY."
             print_system_log(msg, after_break=True)
@@ -944,7 +1004,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to generate the specific description of the object.
         system_prompt = ' '.join(GENERATE_OBJECT_DESC_PROMPT)
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        object_desc = await kani.chat_round_str(f"Generate the plausible description of the object.\nObject name: {object_name}")
+        object_desc = await kani.chat_round_str(f"Generate the plausible description of the object.\nObject: {object_name}")
 
         object_desc_res = {f"Generated description of the object '{object_name}'": object_desc}
         self.function_intermediate_res.append(object_desc_res)
