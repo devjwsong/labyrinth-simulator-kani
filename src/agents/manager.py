@@ -369,7 +369,8 @@ class GameManager(Kani):
     def make_scene_prompt(self):
         content = f"chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
             f"npcs={self.npcs}, generation_rules={self.generation_rules}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
-            f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}"
+            f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}, " + \
+            f"is_action_scene={self.is_action_scene}"
         self.scene_prompt = ChatMessage.system(name="Scene_State", content=content)
 
     # Making one player prompt.
