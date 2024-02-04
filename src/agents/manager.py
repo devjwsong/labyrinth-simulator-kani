@@ -97,6 +97,20 @@ class GameManager(Kani):
 
             assert self.rule_embs.shape[0] == len(self.game_rules), "The number of rule embeddings should be identical to the length of rule list."
 
+    # Setting the attributes in the scene.
+    def set_scene(self, obj):
+        self.chapter = obj['chapter']
+        self.scene = obj['scene']
+        self.scene_summary = obj['scene_summary']
+        self.npcs = obj['npcs']
+        self.generation_rules = obj['generation_rules']
+        self.success_condition = obj['success_condition']
+        self.failure_condition = obj['failure_condition']
+        self.game_flow = obj['game_flow']
+        self.environment = obj['environment']
+        self.random_tables = obj['random_tables']
+        self.consequences = obj['consequences']
+
     # Initialization of the scene.
     async def init_scene(self, scene: Dict[str, Any]):
         system_prompt = '\n'.join([' '. join(part) for part in SCENE_INIT_PROMPT])
@@ -110,17 +124,11 @@ class GameManager(Kani):
         try:
             res = json.loads(res)
 
-            self.chapter = scene['chapter']
-            self.scene = scene['scene']
-            self.scene_summary = res['scene_summary']
-            self.npcs = res['npcs']
-            self.generation_rules = res['generation_rules']
-            self.success_condition = res['success_condition']
-            self.failure_condition = res['failure_condition']
-            self.game_flow = res['game_flow']
-            self.environment = res['environment']
-            self.random_tables = scene['random_tables']
-            self.consequences = scene['consequences']
+            res['chapter'] = scene['chapter']
+            res['scene'] = scene['scene']
+            res['random_tables'] = scene['random_tables']
+            res['consequences'] = scene['consequences']
+            self.set_scene(res)
 
         except json.decoder.JSONDecodeError as e:
             log.debug(res)
@@ -134,7 +142,7 @@ class GameManager(Kani):
 
     # Getter for NPC in a natural format.
     def get_npc(self, info):
-        return f"Kin: {info['kin']} {SEP} Persona: {' '.join(info['persona'])} {SEP} Goal: {info['goal']} {SEP} Trait: {info['trait']} {SEP} Flaw: {info['flaw']}"
+        return f"Kin: {info['kin']} {SEP} Persona: {', '.join(info['persona'])} {SEP} Goal: {info['goal']} {SEP} Trait: {info['trait']} {SEP} Flaw: {info['flaw']}"
 
     # Getter for NPCs in a (numbered) list format.
     def get_npcs(self, with_number=False):

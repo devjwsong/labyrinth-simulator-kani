@@ -177,7 +177,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         return player
 
 
-def main(manager: GameManager, scene: Dict, args: Namespace):
+def main(manager: GameManager, args: Namespace):
     # Making player characters.
     with open("data/characters.json", 'r') as f:
         character_data = json.load(f)
@@ -191,20 +191,6 @@ def main(manager: GameManager, scene: Dict, args: Namespace):
     manager.name_to_idx = {player.name: idx for idx, player in players.items()}
 
     loop = asyncio.get_event_loop()
-
-    # Initializaing the scene.
-    print_system_log("INITIALIZING THE SCENE...")
-    async def scene_init():
-        try:
-            await manager.init_scene(scene)
-            check_init_types(manager)
-        except:
-            log.error("Scene initialization failed. Try again.")
-            loop.close()
-    loop.run_until_complete(scene_init())
-
-    # DEBUG
-    manager.show_scene()
 
     # Explaining the current scene.
     start_sent = "GAME START."
@@ -301,6 +287,7 @@ if __name__=='__main__':
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
+    parser.add_argument('--init_scene', action='store_true', help="Setting whether to newly initialize the scene or re-use the pre-initialized scene.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
 
@@ -352,14 +339,58 @@ if __name__=='__main__':
         system_prompt=system_prompt
     )
 
-    # Loading the scene file.
-    with open("data/scenes.json", 'r') as f:
-        scenes = json.load(f)
+    init_path = f"initialized/{args.model_idx}-{args.scene_idx}.json"
+    if not args.init_scene and os.path.exists(init_path):  # Loading the pre-initialized scene.
+        with open(init_path, 'r') as f:
+            scene = json.load(f)
+        manager.set_scene(scene)
+    else:  # Initializing the scene.
+        if not args.init_scene:
+            args.init_scene = True
+            print_system_log("YOU SET init_scene=False BUT THERE IS NO PRE-INITIALIZED INFORMATION FOR THIS SCENE. SETTING INITIALIZITION.")
+        if not os.path.isdir("initialized"):
+            os.makedirs("initialized")
 
-    assert args.scene_idx is not None, "The scene index should be provided."
-    assert 0 <= args.scene_idx < len(scenes), "The scene index is not valid."
+        with open("data/scenes.json", 'r') as f:
+            scenes = json.load(f)
 
-    main(manager, scenes[args.scene_idx], args)
+        assert args.scene_idx is not None, "The scene index should be provided."
+        assert 0 <= args.scene_idx < len(scenes), "The scene index is not valid."
+        scene = scenes[args.scene_idx]
+
+        print_system_log("INITIALIZING THE SCENE...")
+
+        loop = asyncio.get_event_loop()
+        async def run():
+            try:
+                await manager.init_scene(scene)
+                check_init_types(manager)
+            except:
+                log.error("Scene initialization failed. Try again.")
+                loop.close()
+        loop.run_until_complete(run())
+
+        # Exporting the scene.
+        scene = {
+            'chapter': manager.chapter,
+            'scene': manager.scene,
+            'scene_summary': manager.scene_summary,
+            'npcs': manager.npcs,
+            'generation_rules': manager.generation_rules,
+            'success_condition': manager.success_condition,
+            'failure_condition': manager.failure_condition,
+            'game_flow': manager.game_flow,
+            'environment': manager.environment,
+            'random_tables': manager.random_tables,
+            'consequences': manager.consequences
+        }
+        with open(init_path, 'w') as f:
+            json.dump(scene, f)
+
+    # DEBUG
+    manager.show_scene()
+
+    main(manager, args)
 
     # Exporting data after finishing the scene.
     if args.export_data:

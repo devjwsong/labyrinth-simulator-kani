@@ -49,7 +49,8 @@ There are a few technical details of the system, which can help you understand h
 | `--rule_injection`   | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`            |
 | `--scene_idx`        | `int`          | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`               |
 | `--num_players`      | `int`          | The number of players.                                       | `1`               |
-| `--export_data`      | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. | *Set by default.* |
+| `--init_scene`       | `store_true`   | Setting whether to newly initialize the scene or re-use the pre-initialized scene. The initialized scene will be stored in `initialized/{MODEL_IDX}-{SCENE_IDX}.json`. It this argument is not set, but there is no initialized file, the scene will be initialized by default. | -                 |
+| `--export_data`      | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results/{YOUR_ID}-{TIME}.json`. | *Set by default.* |
 | `--automated_player` | `'store_true'` | Setting another kanis for the players for simulating the game automatically. | -                 |
 
 <br/>
