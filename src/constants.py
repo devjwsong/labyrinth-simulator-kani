@@ -1,6 +1,8 @@
-ONE_HOUR = 60 * 60
+ONE_MINIUTE = 60
+ONE_HOUR = 60 * ONE_MINIUTE
 PER_PLAYER_TIME = 10
-TOTAL_TIME = 13 * ONE_HOUR
+GAME_TIME_LIMIT = 5 * ONE_MINIUTE  # Originally, the total time limit is 13 hours.
+SYSTEM_TIME_LIMIT = 5 * ONE_MINIUTE + 30  # This is a time limit for when the game cannot be stopped due to the technical problem.
 
 SEP = '||'
 MAX_GAME_TURNS = 20

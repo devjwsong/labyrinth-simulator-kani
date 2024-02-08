@@ -5,7 +5,7 @@ from kani.engines.openai import OpenAIEngine
 from agents.player import Player, PlayerKani
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
-from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, TOTAL_TIME, PER_PLAYER_TIME, ONE_HOUR, MAX_GAME_TURNS
+from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, GAME_TIME_LIMIT, SYSTEM_TIME_LIMIT,  PER_PLAYER_TIME, ONE_HOUR, MAX_GAME_TURNS
 from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
@@ -197,7 +197,7 @@ def main(manager: GameManager, args: Namespace):
     print_logic_start(start_sent)
     scene_intro = f"\nCHAPTER: {manager.chapter}\nSCENE: {manager.scene}\n{' '.join(manager.scene_summary)}"
     print_system_log(scene_intro, after_break=True)
-    async def main_logic():
+    async def game_logic():
         start_time = time.time()
         notified = 0
         turn = 0
@@ -252,7 +252,7 @@ def main(manager: GameManager, args: Namespace):
             succ, fail = False, False
             succ = await manager.validate_success_condition()
             fail = await manager.validate_failure_condition()
-            if elapsed_time >= TOTAL_TIME:
+            if elapsed_time >= GAME_TIME_LIMIT:
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print("[TIME LIMIT REACHED.]")
                 break
@@ -273,6 +273,12 @@ def main(manager: GameManager, args: Namespace):
                 break
 
         logic_break()
+
+    async def main_logic():
+        try:
+            await asyncio.wait_for(game_logic(), SYSTEM_TIME_LIMIT)
+        except:
+            print_system_log("THE GAME GOT STUCK DUE TO UNKNOWN TECHNICAL REASON.")
 
     loop.run_until_complete(main_logic())
     loop.close()
