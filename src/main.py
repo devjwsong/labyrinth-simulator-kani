@@ -216,7 +216,12 @@ def main(manager: GameManager, args: Namespace):
                 print_system_log(f"{hours} hours {minutes} minutes {seconds} seconds have passed from the start of the game.", after_break=True)
                 notified += 1
 
-            for p, player in players.items():
+            # Random shuffling the order of players every turn.
+            player_idxs = list(players.keys())
+            random.shuffle(player_idxs)
+
+            for p in player_idxs:
+                player = players[p]
                 try:
                     if args.automated_player:
                         query = await player.chat_round_str(queries)
@@ -277,7 +282,7 @@ def main(manager: GameManager, args: Namespace):
     async def main_logic():
         try:
             await asyncio.wait_for(game_logic(), SYSTEM_TIME_LIMIT)
-        except:
+        except asyncio.TimeoutError:
             print_system_log("THE GAME GOT STUCK DUE TO UNKNOWN TECHNICAL REASON.")
 
     loop.run_until_complete(main_logic())
