@@ -11,7 +11,8 @@ from constants import (
     RULE_SUMMARY,
     SCENE_INIT_PROMPT,
     VALIDATE_SUCCESS_PROMPT, 
-    VALIDATE_FAILURE_PROMPT, 
+    VALIDATE_FAILURE_PROMPT,
+    DIFFICULTY_PROMPT,
     CREATE_NPC_PROMPT,
     OBTAINABLE_CHECK_PROMPT,
     EXPENDABLE_CHECK_PROMPT, 
@@ -621,19 +622,58 @@ class GameManager(Kani):
 
     # Kani's function call for a dice roll test.
     @ai_function
-    def activate_test(self, difficulty: Annotated[int, AIParam(desc="The difficulty of the task in a range of 2 and 6.")]):
-        """Activate a test if a player is trying to do something with a certain difficulty."""
+    async def activate_test(self, 
+        player_name: Annotated[str, AIParam(desc="The name of the player charater who should do the test.")],
+        initial_difficulty: Annotated[int, AIParam(desc="The initially set difficulty of the task in a range of 2 and 6.")],
+        final_difficulty: Annotated[int, AIParam(desc="The final difficulty which has been reduced by the teamwork of the party and the minimum should still be 2.")]
+    ):
+        """
+        Activate a test if a player is trying to do something with a certain difficulty.
+        Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players.
+        """
 
-        self.function_arguments['difficulty'] = difficulty
+        self.function_arguments['player_name'] = player_name
+        self.function_arguments['initial_difficulty'] = initial_difficulty
+        self.function_arguments['final_difficulty'] = final_difficulty
 
-        if not self.automated_player:
-            _ = input(f"THE TEST DIFFICULTY: {difficulty}: PRESS ANY KEY TO ROLL A DICE.")
-        res = random.randint(1, 6)
+        player = self.players[self.name_to_idx[player_name]]
 
-        if res < difficulty:
-            msg = f"TEST FAILED. THE DICE ROLL RESULT IS: {res}."
+        # The default system prompt consists of the instruction.
+        system_prompt = ' '.join(DIFFICULTY_PROMPT)
+        
+        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)] + self.chat_history, system_prompt=system_prompt)
+        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?")
+
+        if 'easier' not in res and 'harder' not in res:  # The difficulty is not affected.
+            res = 'none'
+            if not self.automated_player:
+                _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL A DICE.")
+            dice_result = random.randint(1, 6)
+
+        elif 'easier' in res:  # The test is improved.
+            res = 'easier'
+            print_system_log("A TRAIT IN THE PLAYER MAKES THE TEST EASIER. YOU ROLL TWO DICES AND TAKE THE LARGER ONE.")
+            if not self.automated_player:
+                _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
+            result1, result2 = random.randint(1, 6), random.randint(1, 6)
+            dice_result = max(result1, result2)
+            print_system_log(f"RESULT 1 ({result1}) vs RESULT 2 ({result2}) => THE PLAYER GOT {dice_result}.")
+
+        elif 'harder' in res:  # The test is hindered.
+            res = 'harder'
+            print_system_log("A FLAW IN THE PLAYER MAKES THE TEST HARDER. YOU ROLL TWO DICES AND TAKE THE SMALLER ONE.")
+            if not self.automated_player:
+                _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
+            result1, result2 = random.randint(1, 6), random.randint(1, 6)
+            dice_result = min(result1, result2)
+            print_system_log(f"RESULT 1 ({result1}) vs RESULT 2 ({result2}) => THE PLAYER GOT {dice_result}.")
+
+        self.function_intermediate_res[f"Improvement/Hinderance of the test due to the player traits/flaws"] = res
+
+        if dice_result < final_difficulty:
+            msg = f"TEST FAILED. THE DICE ROLL RESULT {dice_result} IS SMALLER THAN THE DIFFICULTY {final_difficulty}."
         else:
-            msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT IS: {res}."
+            msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT {dice_result} IS LARGER THAN OR EQUAL TO THE DIFFICULTY {final_difficulty}."
         
         # Updating the new chat message.
         print_system_log(msg, after_break=True)
@@ -1104,7 +1144,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the success condition.
         system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
 
-        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         response = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}")
 
         return self.translate_into_binary(response)
@@ -1117,7 +1157,7 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the failure condition.
         system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
 
-        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
         response = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}")
         
         return self.translate_into_binary(response)

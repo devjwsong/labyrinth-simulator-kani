@@ -66,7 +66,7 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         name = get_player_input(after_break=True)
 
         # Removing the white space in the name.
-        name = name.replace(' ', '-')
+        name = name.replace(' ', '_')
 
         # Setting the goal.
         print_question_start()

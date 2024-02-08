@@ -14,12 +14,12 @@ ASSISTANT_INSTRUCTION = [
 ]
 
 USER_INSTRUCTION = [
-    "You are a human player in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You are going to interact with the Goblin King, which works as the game manager, to solve and overcome various puzzles and challenges in the Labyrinth.",
+    "You are a player character in the text-based adventure game, Jim Henson's Labyrinth.",
+    "You are going to interact with other players and the Goblin King, who works as the game manager, to solve and overcome various challenges in the game.",
     "You must strictly follow the game rules and always be aware of the current state of yours and the chat history so far when generating a response.",
-    "Other than that, you may improvise anything to make the game more entertaining.",
-    "Also, there might be other players who play along with you.",
-    "You should cooperate with them and help each other to win the game."
+    "You may try something creative to solve the challenges, but do not take the game manager's part, such as playing the NPC's line or describing the progress of the game.",
+    "Keep in mind that you are just a player and you should cooperate with your party to clear the scene.",
+    "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
 RULE_SUMMARY = [
@@ -174,6 +174,15 @@ SUMMARIZE_PROMPT = [
     "You are a dialogue summarizer in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should generate the summarization of the given conversation to include the essential information."
+]
+
+DIFFICULTY_PROMPT = [
+    "You are a ternary classifier in a fantasy text-based adventure game.",
+    "You are given the current state of the player character which includes his/her traits and flaws.",
+    "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand what task should be performed.",
+    "You should determine whether the task that the player tries to do becomes easier by one of the traits or becomes harder by one of the flaws.",
+    "If the player's trait or flaw do not have any effect, or both there is an advantage and penalty at the same time, just say 'none'.",
+    "You must answer only among 'easier', 'harder', or 'none'."
 ]
 
 CREATE_NPC_PROMPT = [
