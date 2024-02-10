@@ -298,7 +298,7 @@ if __name__=='__main__':
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
-    parser.add_argument('--init_scene', action='store_true', help="Setting whether to newly initialize the scene or re-use the pre-initialized scene.")
+    parser.add_argument('--reuse_scene', action='store_true', help="Setting whether to reuse previously initialized scene or not.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
 
@@ -351,14 +351,14 @@ if __name__=='__main__':
     )
 
     init_path = f"initialized/{args.model_idx}-{args.scene_idx}.json"
-    if not args.init_scene and os.path.exists(init_path):  # Loading the pre-initialized scene.
+    if args.reuse_scene and os.path.exists(init_path):  # Loading the pre-initialized scene.
         with open(init_path, 'r') as f:
             scene = json.load(f)
         manager.set_scene(scene)
-    else:  # Initializing the scene.
-        if not args.init_scene:
-            args.init_scene = True
-            print_system_log("YOU SET init_scene=False BUT THERE IS NO PRE-INITIALIZED INFORMATION FOR THIS SCENE. SETTING INITIALIZITION.")
+    else:  # Initializing the scene from the beginning.
+        if args.reuse_scene:
+            args.reuse_scene = False
+            print_system_log("YOU SET reuse_scene=True BUT THERE IS NO PRE-INITIALIZED INFORMATION FOR THIS SCENE. STARTING INITIALIZATION.")
         if not os.path.isdir("initialized"):
             os.makedirs("initialized")
 
