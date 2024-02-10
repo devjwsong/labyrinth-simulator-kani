@@ -1,4 +1,4 @@
-from utils import select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
+from utils import log_break, select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
 from kani.utils.message_formatters import assistant_message_contents_thinking
 from kani.models import ChatMessage, ChatRole
 from kani.engines.openai import OpenAIEngine
@@ -24,7 +24,8 @@ log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
-def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
+# Creating a player character.
+def create_player_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
     print_system_log("BEFORE WE GET STARTED, CREATE YOUR CHARACTER TO PLAY THE GAME.")
 
     print_system_log("IN THE LABYRINTH, THERE ARE MULTIPLE KINS TO CHOOSE.")
@@ -177,19 +178,41 @@ def create_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
         return player
 
 
-def main(manager: GameManager, args: Namespace):
-    # Making player characters.
-    with open("data/characters.json", 'r') as f:
-        character_data = json.load(f)
-    players = {}
-    for p in range(args.num_players):
-        print_logic_start(f"CHARACTER {p+1} CREATION")
-        player = create_character(character_data, manager.engine, args.automated_player)
-        players[p+1] = player
-        logic_break()
-    manager.players = players
-    manager.name_to_idx = {player.name: idx for idx, player in players.items()}
+# Loading a player character which was created before.
+def load_player_character(idx:int, data: Dict, engine: OpenAIEngine, automated_player: bool):
+    print_system_log(f"YOU CHOSE TO RE-USE THE FOLLOWING SETTING FOR PLAYER {idx}.", after_break=True)
+    print(data)
 
+    if automated_player:
+        system_prompt = ' '.join(USER_INSTRUCTION)
+        player = PlayerKani(
+            engine=engine,
+            system_prompt=system_prompt,
+            name=data['name'],
+            kin=data['kin'],
+            persona=data['persona'],
+            goal=data['goal'],
+            traits=data['traits'],
+            flaws=data['flaws'],
+            inventory=data['inventory'],
+            additional_notes=data['additional_notes']
+        )
+    else:
+        player = Player(
+            name=data['name'],
+            kin=data['kin'],
+            persona=data['persona'],
+            goal=data['goal'],
+            traits=data['traits'],
+            flaws=data['flaws'],
+            inventory=data['inventory'],
+            additional_notes=data['additional_notes']
+        )
+
+    return player
+
+
+def main(manager: GameManager, args: Namespace):
     loop = asyncio.get_event_loop()
 
     # Explaining the current scene.
@@ -217,7 +240,7 @@ def main(manager: GameManager, args: Namespace):
                 notified += 1
 
             # Random shuffling the order of players every turn.
-            player_idxs = list(players.keys())
+            player_idxs = list(range(len(manager.players)))
             random.shuffle(player_idxs)
 
             for p in player_idxs:
@@ -290,6 +313,13 @@ def main(manager: GameManager, args: Namespace):
 
 # For debugging.
 if __name__=='__main__':
+    print_question_start()
+    print_system_log("BEFORE STARTING THE GAME, GIVE US YOUR USERNAME, WHICH IS USED FOR RECORDING PURPOSE.")
+    owner_name = get_player_input(after_break=True)
+
+    now = datetime.now()
+    execution_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+
     parser = argparse.ArgumentParser()
 
     # Arguments for the gameplay.
@@ -299,6 +329,9 @@ if __name__=='__main__':
     parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
     parser.add_argument('--reuse_scene', action='store_true', help="Setting whether to reuse previously initialized scene or not.")
+    parser.add_argument('--scene_path', type=str, help="The path of the JSON file which has the initialized scene information before.")
+    parser.add_argument('--reuse_players', action='store_true', help="Setting whether to reuse previously created player characters or not.")
+    parser.add_argument('--players_path', type=str, default=None, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
 
@@ -333,6 +366,7 @@ if __name__=='__main__':
     # Creating the engine.
     random.seed(args.seed)
     api_key = input("Enter the API key for OpenAI API: ")
+    log_break()
     engine = OpenAIEngine(api_key, model=args.model_idx)
 
     # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
@@ -350,18 +384,16 @@ if __name__=='__main__':
         system_prompt=system_prompt
     )
 
-    init_path = f"initialized/{args.model_idx}-{args.scene_idx}.json"
-    if args.reuse_scene and os.path.exists(init_path):  # Loading the pre-initialized scene.
-        with open(init_path, 'r') as f:
+    # Initializing the scene.
+    if args.reuse_scene and not os.path.isfile(args.scene_path):
+        print_system_log("YOU SET reuse_scene=True BUT THERE IS NO FILE WHICH STORES THE INITIALIZED SCENE. STARTING INITIALIZATION FROM THE BEGINNING.")
+        args.reuse_scene = False
+    
+    if args.reuse_scene:  # Loading the pre-initialized scene.
+        with open(args.scene_path, 'r') as f:
             scene = json.load(f)
         manager.set_scene(scene)
     else:  # Initializing the scene from the beginning.
-        if args.reuse_scene:
-            args.reuse_scene = False
-            print_system_log("YOU SET reuse_scene=True BUT THERE IS NO PRE-INITIALIZED INFORMATION FOR THIS SCENE. STARTING INITIALIZATION.")
-        if not os.path.isdir("initialized"):
-            os.makedirs("initialized")
-
         with open("data/scenes.json", 'r') as f:
             scenes = json.load(f)
 
@@ -395,12 +427,68 @@ if __name__=='__main__':
             'random_tables': manager.random_tables,
             'consequences': manager.consequences
         }
-        with open(init_path, 'w') as f:
-            json.dump(scene, f)
+
+        print_question_start()
+        print_system_log("DO YOU WANT TO SAVE THIS NEWLY INITIALIZED SCENE?")
+        res = select_options(['Yes', 'No'])
+        if res == 0:
+            if not os.path.isdir("scenes"):
+                os.makedirs("scenes")
+            file_path = f"scenes/{owner_name}-model={args.model_idx}-scene={args.scene_idx}-time={execution_time}.json"
+            with open(file_path, 'w') as f:
+                json.dump(scene, f)
 
     # DEBUG
     manager.show_scene()
+    log_break()
 
+    # Creating the player characters.
+    if args.reuse_players and not os.path.isfile(args.players_path):
+        print_system_log("YOU SET reuse_players=True BUT THERE IS NO FILE WHICH STORES THE PLAYER CHARACTERS. CREATE THE PLAYER CHARACTERS FROM THE START.")
+        args.reuse_players = False
+
+    if args.reuse_players:
+        with open(args.players_path, 'r') as f:
+            character_data = json.load(f)
+    else:
+        with open("data/characters.json", 'r') as f:
+            character_data = json.load(f)
+    
+    # Iterating the player character initialization.
+    players = []
+    for p in range(args.num_players):
+        print_logic_start(f"CHARACTER {p+1} CREATION")
+        player = load_player_character(p+1, character_data[p], manager.engine, args.automated_player) if args.reuse_players \
+            else create_player_character(character_data, manager.engine, args.automated_player)
+        players.append(player)
+        logic_break()
+    manager.players = players
+    manager.name_to_idx = {player.name: idx for idx, player in enumerate(players)}
+
+    if not args.reuse_players:
+        print_question_start()
+        print_system_log("DO YOU WANT TO SAVE THESE NEWLY CREATED PLAYER CHARACTERS?")
+        res = select_options(['Yes', 'No'])
+        if res == 0:
+            if not os.path.isdir('players'):
+                os.makedirs('players')
+            file_path = f"players/{owner_name}-model={args.model_idx}-scene={args.scene_idx}-time={execution_time}.json"
+            player_archive = []
+            for player in manager.players:
+                player_archive.append({
+                    'name': player.name,
+                    'kin': player.kin,
+                    'persona': player.persona,
+                    'goal': player.goal,
+                    'traits': player.traits,
+                    'flaws': player.flaws,
+                    'inventory': player.inventory,
+                    'additional_notes': player.additional_notes
+                })
+            with open(file_path, 'w') as f:
+                json.dump(player_archive, f)
+
+    # The main game logic.
     main(manager, args)
 
     # Exporting data after finishing the scene.
@@ -408,13 +496,6 @@ if __name__=='__main__':
         if not os.path.isdir("result"):
             os.makedirs("result")
 
-        now = datetime.now()
-        current_time = now.strftime("%Y-%m-%d-%H-%M-%S")
-
-        print_question_start()
-        print_system_log("FOR EXPORTING THE CHAT DATA, GIVE YOUR NAME.")
-        owner_name = get_player_input(after_break=True)
-
-        file = f"result/{owner_name}-{current_time}.json"
-        with open(file, 'w') as f:
+        file_path = f"result/{owner_name}-model={args.model_idx}-scene={args.scene_idx}-time={execution_time}.json"
+        with open(file_path, 'w') as f:
             json.dump(manager.context_archive, f)

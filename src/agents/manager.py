@@ -78,7 +78,7 @@ class GameManager(Kani):
         self.function_intermediate_res = {}
 
         # Additional attributes for game play.
-        self.players = {}
+        self.players = []
         self.name_to_idx = {}
         self.automated_player = main_args.automated_player
         self.is_action_scene = False
@@ -391,7 +391,7 @@ class GameManager(Kani):
     # Making the player prompts.
     def make_player_prompts(self):
         self.player_prompts.clear()
-        for p, player in self.players.items():
+        for player in self.players:
             self.player_prompts.append(self.make_player_prompt(player))
 
     # Making the context for exporting data.
@@ -412,7 +412,7 @@ class GameManager(Kani):
             },
         }
         players = []
-        for p, player in self.players.items():
+        for player in self.players:
             players.append({
                 "name": player.name,
                 "kin": player.kin,
