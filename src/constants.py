@@ -5,7 +5,6 @@ GAME_TIME_LIMIT = 5 * ONE_MINIUTE  # Originally, the total time limit is 13 hour
 SYSTEM_TIME_LIMIT = 5 * ONE_MINIUTE + 30  # This is a time limit for when the game cannot be stopped due to the technical problem.
 
 SEP = '||'
-MAX_GAME_TURNS = 20
 
 ASSISTANT_INSTRUCTION = [
     "You are the Goblin King, which works as the game manager, in the text-based adventure game, Jim Henson's Labyrinth.",

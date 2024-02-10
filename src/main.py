@@ -5,7 +5,7 @@ from kani.engines.openai import OpenAIEngine
 from agents.player import Player, PlayerKani
 from agents.manager import GameManager
 from sentence_transformers import SentenceTransformer
-from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, GAME_TIME_LIMIT, SYSTEM_TIME_LIMIT,  PER_PLAYER_TIME, ONE_HOUR, MAX_GAME_TURNS
+from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, GAME_TIME_LIMIT, SYSTEM_TIME_LIMIT,  PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
@@ -223,11 +223,9 @@ def main(manager: GameManager, args: Namespace):
     async def game_logic():
         start_time = time.time()
         notified = 0
-        turn = 0
 
         queries = [ChatMessage.system(content=f"{start_sent}{scene_intro}")]
         while True:
-            turn += 1
 
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
@@ -294,10 +292,6 @@ def main(manager: GameManager, args: Namespace):
             elif fail:
                 print("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print(f"[FAILURE CONDITION] {manager.failure_condition}")
-                break
-
-            if turn == MAX_GAME_TURNS and args.automated_player:
-                print_system_log("THE MAXIMUM NUMBER OF TURNS HAS REACHED. ABORTING THE GAME FOR PREVENTING THE EXECESSIVE USAGE OF API.")
                 break
 
         logic_break()
