@@ -1,7 +1,8 @@
+from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
-from agents.kani_models import generate_engine
 from utils import print_system_log, select_options, check_init_types
-from constants import INSTRUCTION
+from constants import ASSISTANT_INSTRUCTION
+from utils import log_break
 from sentence_transformers import SentenceTransformer
 from typing import Dict
 
@@ -102,14 +103,13 @@ def evaluate_rules(manager: GameManager):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval_name', type=str, required=True, help="The name of the evaluation task.")
-    parser.add_argument('--engine_name', type=str, required=True, help="The name of the engine for running kani corresponding the language model used.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
 
     args = parser.parse_args()
 
-    assert args.eval_name in ['init', 'rules'], "Specify the correct evaluation task name."
+    assert args.eval_name in ['init', 'rules', 'gameplay'], "Specify the correct evaluation task name."
 
     # Setting the default arguments for each evaluation task.
     if args.eval_name == 'init':
@@ -125,7 +125,9 @@ if __name__=='__main__':
     args.clear_raw_logs = False
 
     # Creating the engine.
-    engine = generate_engine(engine_name=args.engine_name, model_idx=args.model_idx)
+    api_key = input("Enter the API key for OpenAI API: ")
+    log_break()
+    engine = OpenAIEngine(api_key, model=args.model_idx)
 
     # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
     encoder = None
@@ -134,7 +136,7 @@ if __name__=='__main__':
         encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
 
     # Initializing the game manager.
-    system_prompt = ' '.join(INSTRUCTION)
+    system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
     manager = GameManager(
         main_args=args,
         encoder=encoder,

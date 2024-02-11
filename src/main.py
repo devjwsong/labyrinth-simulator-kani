@@ -426,9 +426,10 @@ if __name__=='__main__':
         print_system_log("DO YOU WANT TO SAVE THIS NEWLY INITIALIZED SCENE?")
         res = select_options(['Yes', 'No'])
         if res == 0:
-            if not os.path.isdir("scenes"):
-                os.makedirs("scenes")
-            file_path = f"scenes/{owner_name}-model={args.model_idx}-scene={args.scene_idx}-time={execution_time}.json"
+            file_dir = f"scenes/scene={args.scene_idx}"
+            if not os.path.isdir(file_dir):
+                os.makedirs(file_dir)
+            file_path = f"{file_dir}/{owner_name}-model={args.model_idx}-time={execution_time}.json"
             with open(file_path, 'w') as f:
                 json.dump(scene, f)
 
