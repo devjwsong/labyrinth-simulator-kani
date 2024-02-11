@@ -42,19 +42,19 @@ There are a few technical details of the system, which can help you understand h
 
 **Arguments for the gameplay**
 
-| Argument             | Type           | Description                                                  | Default           |
-| -------------------- | -------------- | ------------------------------------------------------------ | ----------------- |
-| `--seed`             | `int`          | The random seed for randomized operations.                   | `0`               |
-| `--model_idx`        | `str`          | The index of the model. Since only `openai` engine is supported for leveraging the function calling feature, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | `gpt-4`           |
-| `--rule_injection`   | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`            |
-| `--scene_idx`        | `int`          | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`               |
-| `--num_players`      | `int`          | The number of players.                                       | `1`               |
-| `--reuse_scene`      | `'store_true'` | Setting whether to reuse previously initialized scene or not. Note that if this argument is set, you should also specify which file you are going to use to load the pre-initialized scene with `--scene_path` argument. | -                 |
-| `--scene_path`       | `str`          | The path of the JSON file which has the initialized scene information before. If the file cannot be found, the system will initialize the scene from the beginning. | -                 |
-| `--reuse_players`    | `store_true`   | Setting whether to reuse previously created player characters or not. Note that if this argument is set, you should also specify which file you are going to use to load the created player characters with `--players_path` argument. | -                 |
-| `--players_path`     | `str`          | The path of the JSON file which has the created player character information before. If the file cannot be found, the system will make you create the new characters from the beginning. | -                 |
-| `--export_data`      | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results/{YOUR_ID}-{TIME}.json`. | *Set by default.* |
-| `--automated_player` | `'store_true'` | Setting another kanis for the players for simulating the game automatically. | -                 |
+| Argument             | Type           | Description                                                  | Default          |
+| -------------------- | -------------- | ------------------------------------------------------------ | ---------------- |
+| `--seed`             | `int`          | The random seed for randomized operations.                   | `0`              |
+| `--model_idx`        | `str`          | The index of the model. Since only `openai` engine is supported for leveraging the function calling feature, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | `gpt-4`          |
+| `--rule_injection`   | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`           |
+| `--scene_idx`        | `int`          | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | `0`              |
+| `--num_players`      | `int`          | The number of players.                                       | `1`              |
+| `--reuse_scene`      | `'store_true'` | Setting whether to reuse previously initialized scene or not. Note that if this argument is set, you should also specify which file you are going to use to load the pre-initialized scene with `--scene_path` argument. | -                |
+| `--scene_path`       | `str`          | The path of the JSON file which has the initialized scene information before. If the file cannot be found, the system will initialize the scene from the beginning. | -                |
+| `--reuse_players`    | `store_true`   | Setting whether to reuse previously created player characters or not. Note that if this argument is set, you should also specify which file you are going to use to load the created player characters with `--players_path` argument. | -                |
+| `--players_path`     | `str`          | The path of the JSON file which has the created player character information before. If the file cannot be found, the system will make you create the new characters from the beginning. | -                |
+| `--export_data`      | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results` directory. | *Set by default* |
+| `--automated_player` | `'store_true'` | Setting another kanis for the players for simulating the game automatically. | -                |
 
 <br/>
 
@@ -74,13 +74,14 @@ There are a few technical details of the system, which can help you understand h
 
 Note that these are only used for the actual interaction during the game. Other tasks, such as initializing a scene, classification-based decisions in the functions, and summarization, will have default decoding parameters. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
 
-| Argument              | Type    | Description                                                  | Default |
-| --------------------- | ------- | ------------------------------------------------------------ | ------- |
-| `--max_tokens`        | `int`   | The maximum number of tokens to generate.                    | -       |
-| `--frequency_penalty` | `float` | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`   |
-| `--presence_penalty`  | `float` | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`   |
-| `--temperature`       | `float` | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`   |
-| `--top_p`             | `float` | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`   |
+| Argument              | Type         | Description                                                  | Default          |
+| --------------------- | ------------ | ------------------------------------------------------------ | ---------------- |
+| `--include_functions` | `store_true` | Setting whether to use function calls or not.                | *Set by default* |
+| `--max_tokens`        | `int`        | The maximum number of tokens to generate.                    | -                |
+| `--frequency_penalty` | `float`      | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`            |
+| `--presence_penalty`  | `float`      | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`            |
+| `--temperature`       | `float`      | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`            |
+| `--top_p`             | `float`      | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`            |
 
 <br/>
 
@@ -127,6 +128,18 @@ For running the evaluation script, run the command below after modifying the arg
 ```shell
 sh exec_evaluate.sh
 ```
+
+<br/>
+
+---
+
+### Where your data are stored
+
+If you agreed on saving the initialized scene, created player characters, or your gameplay data, you can find your data as follows:
+
+- Initialized scene: `scenes/scene={SCENE_IDX}/{USERNAME}-model={MODEL_IDX}-time={EXECUTION_TIME}.json`
+- Created player characters: `players/{USERNAME}-num_players={NUM_PLAYERS}-time={EXECUTION_TIME}.json`
+- Gameplay result: `results/scene={SCENE_IDX}/rule={RULE_INJECTION}/concat={CONCAT_POLICY}/msg_limit={MAX_NUM_MSGS}/summarization={SUMMARIZATION}/summ_period={SUMM_PERIOD}/clear_raw={CLEAR_RAW_LOGS}/functions={INCLUDE_FUNCTIONS}/{USERNAME}-model={MODEL_IDX}-seed={SEED}-time={EXECUTION_TIME}.json`
 
 <br/>
 

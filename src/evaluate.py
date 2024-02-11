@@ -102,56 +102,59 @@ def evaluate_rules(manager: GameManager):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--eval_name', type=str, required=True, help="The name of the evaluation task.")
-    parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
+    parser.add_argument('--eval_task', type=str, required=True, help="The name of the evaluation task.")
+    parser.add_argument('--automated_evaluator', action='store_true', help="Setting whether to use another language model for evaluation.")
+    parser.add_argument('--eval_model_idx', type=str, help="The name of the model which is used for the automatic evaluation.")
+
+    # Arguments for the gameplay evalaution.
+    parser.add_argument('--gameplay_path', type=str, help="The path of the file which has the whole game play data.")
+
+    # Arguments for the scene intialization evaluation.
+    parser.add_argument('--scene_path', type=str, help="The path of the file which has the initialized scene information.")
+
+    # Arguments for the 
+    parser.add_argument('--target_model_idx', type=str, help="The index of the model which should be evaluated.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
-    parser.add_argument('--scene_idx', type=int, help="The index of the scene for the initialization evaluation.")
 
     args = parser.parse_args()
 
-    assert args.eval_name in ['init', 'rules', 'gameplay'], "Specify the correct evaluation task name."
+    assert args.eval_task in ['gameplay', 'scene_init', 'rules'], "Specify the correct evaluation task name."
+    if args.automated_evaluator:
+        assert args.eval_model_idx is not None, "You should specify the model which will be an AI evaluator."
 
-    # Setting the default arguments for each evaluation task.
-    if args.eval_name == 'init':
-        if args.rule_injection is None or args.rule_injection != 'full':
-            print_system_log("THE EVALUATION FOR SCENE INITIALZIATION ALWAYS USES THE FULL RULE INJECTION.")
-            args.rule_injection = 'full'
-    else:
+    # Setting the engine for automated evaluation or evaluation of rule understanding.
+    if args.automated_evalutor or args.eval_task == 'rules':
+        api_key = input("Enter the API key for OpenAI API: ")
+        log_break()
+        engine = OpenAIEngine(api_key, model=args.target_model_idx)
+
+    # Setting & Validting the arguments for each evaluation task.
+    if args.eval_task == 'gameplay':
+        assert args.gameplay_path is not None, "You should specify the gameplay data you want to evaluate."
+    if args.eval_task == 'scene_init':
+        assert args.scene_path is not None, "You should specify the initialized scene data you want to evaluate."
+    if args.eval_task == 'rules':
+        assert args.target_model_idx is not None, "You should specify the model you want to test."
         assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
-    args.concat_policy = 'simple'
-    args.max_turns = None
-    args.summarization = False
-    args.summ_period = None
-    args.clear_raw_logs = False
 
-    # Creating the engine.
-    api_key = input("Enter the API key for OpenAI API: ")
-    log_break()
-    engine = OpenAIEngine(api_key, model=args.model_idx)
+        # Setting the sentence encoder for the rule embedding.
+        encoder = None
+        if args.rule_injection == 'retrieval':
+            device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+            encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
 
-    # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
-    encoder = None
-    if args.rule_injection == 'retrieval':
-        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-        encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
+        args.concat_policy = 'simple'
+        args.max_num_msgs = None
+        args.summarization = False
+        args.summ_period = None
+        args.clear_raw_logs = False
+        args.automated_player = False
 
-    # Initializing the game manager.
-    system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
-    manager = GameManager(
-        main_args=args,
-        encoder=encoder,
-        engine=engine, 
-        system_prompt=system_prompt
-    )
-
-    if args.eval_name == 'init':
-        # Loading the scene file.
-        with open("data/scenes.json", 'r') as f:
-            scenes = json.load(f)
-
-        assert args.scene_idx is not None, "The scene index should be provided."
-        assert 0 <= args.scene_idx < len(scenes), "The scene index is not valid."
-
-        evaluate_init(manager, scenes[args.scene_idx])
-    elif args.eval_name == 'rules':
-        evaluate_rules(manager)
+        # Initializing the target game manager.
+        system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
+        target_manager = GameManager(
+            main_args=args,
+            encoder=encoder,
+            engine=engine, 
+            system_prompt=system_prompt
+        )

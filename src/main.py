@@ -262,6 +262,7 @@ def main(manager: GameManager, args: Namespace):
             async for response, role in manager.full_round_str(
                 queries,
                 message_formatter=assistant_message_contents_thinking,
+                include_functions=args.include_functions,
                 max_tokens=args.max_tokens,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,
@@ -337,6 +338,7 @@ if __name__=='__main__':
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
 
     # Parameters for the response generation.
+    parser.add_argument('--include_functions', action='store_true', help="Setting whether to use function calls or not.")
     parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
     parser.add_argument('--frequency_penalty', type=float, default=0.0, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
     parser.add_argument('--presence_penalty', type=float, default=0.0, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
@@ -467,7 +469,7 @@ if __name__=='__main__':
         if res == 0:
             if not os.path.isdir('players'):
                 os.makedirs('players')
-            file_path = f"players/{owner_name}-model={args.model_idx}-scene={args.scene_idx}-time={execution_time}.json"
+            file_path = f"players/{owner_name}-num_players={args.num_players}-time={execution_time}.json"
             player_archive = []
             for player in manager.players:
                 player_archive.append({
@@ -489,7 +491,7 @@ if __name__=='__main__':
     # Exporting data after finishing the scene.
     if args.export_data:
         file_dir = f"results/scene={args.scene_idx}/rule={args.rule_injection}/concat={args.concat_policy}/" + \
-            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}"
+            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/functions={args.include_functions}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 

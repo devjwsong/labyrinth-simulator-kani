@@ -4,6 +4,7 @@ python src/main.py \
     --rule_injection=full \
     --scene_idx=0 \
     --num_players=1 \
+    --include_functions \
     --export_data \
     --concat_policy=simple \
     --frequency_penalty=0.5 \
