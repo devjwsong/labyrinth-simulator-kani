@@ -489,7 +489,7 @@ if __name__=='__main__':
     # Exporting data after finishing the scene.
     if args.export_data:
         file_dir = f"results/scene={args.scene_idx}/rule={args.rule_injection}/concat={args.concat_policy}/" + \
-            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/clear_raw={args.clear_raw_logs}"
+            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 
