@@ -297,6 +297,11 @@ class GameManager(Kani):
 
     # Overriding get_prompt.
     async def get_prompt(self) -> list[ChatMessage]:
+        # First, setting the additional information.
+        self.make_rule_prompt()
+        self.make_scene_prompt()
+        self.make_player_prompts()
+
         rule_prompt_len = 0
         if self.rule_prompt is not None:
             rule_prompt_len = self.message_token_len(self.rule_prompt)
@@ -364,6 +369,7 @@ class GameManager(Kani):
 
     # Making the rule prompt.
     def make_rule_prompt(self, top_n: int=5):
+        # If this is a full rule injection or none rull injection, return None.
         if self.rule_embs is None:
             return
 
@@ -390,6 +396,9 @@ class GameManager(Kani):
 
     # Making the scene prompt.
     def make_scene_prompt(self):
+        # If there is no scene, return None.
+        if len(self.chapter) == 0 and len(self.scene) == 0: return
+
         content = f"chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
             f"npcs={self.npcs}, generation_rules={self.generation_rules}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
             f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}, " + \
@@ -404,6 +413,9 @@ class GameManager(Kani):
 
     # Making the player prompts.
     def make_player_prompts(self):
+        # If there is no player, return None.
+        if len(self.players) == 0: return
+
         self.player_prompts.clear()
         for player in self.players:
             self.player_prompts.append(self.make_player_prompt(player))
@@ -499,11 +511,6 @@ class GameManager(Kani):
         is_model_turn = True
         async with self.lock:
             while is_model_turn:
-                # Setting additional context prompts.
-                self.make_rule_prompt()
-                self.make_scene_prompt()
-                self.make_player_prompts()
-
                 # Making the context for exporting data.
                 context = self.make_context()
                 context["past_history"] = []
@@ -635,7 +642,7 @@ class GameManager(Kani):
                 yield text, message.role
 
     # Overriding chat_round.
-    async def chat_round(self, query: QueryType, use_scene: bool=False, use_rules: bool=False, use_players: bool=False, **kwargs) -> ChatMessage:
+    async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
 
         This is slightly faster when you are chatting with a kani with no AI functions defined.
@@ -650,33 +657,11 @@ class GameManager(Kani):
             # add the user's chat input to the state
             await self.add_to_history(ChatMessage.user(query))
 
-            if use_scene:
-                self.make_scene_prompt()
-            if use_rules:
-                self.make_rule_prompt()
-            if use_players:
-                self.make_player_prompts()
-
             # and get a completion
             completion, _ = await self.get_model_completion(**kwargs)
             message = completion.message
             await self.add_to_history(message)
             return message
-
-    # Overriding chat_round_str/
-    async def chat_round_str(self, query: QueryType, use_scene: bool=False, use_rules: bool=False, use_players: bool=False, **kwargs) -> str:
-        """Like :meth:`chat_round`, but only returns the text content of the message."""
-        msg = await self.chat_round(query, use_scene, use_rules, use_players, **kwargs)
-        return msg.text
-
-    # A simple answering function.
-    async def answer_single_turn(self, 
-        query: str,
-        use_scene: bool=False,
-        use_rules: bool=False,
-        use_players: bool=False
-    ):
-        return await self.chat_round_str(query, use_scene, use_rules, use_players, include_functions=False)
 
     # Kani's function call for a dice roll test.
     @ai_function
