@@ -321,7 +321,7 @@ if __name__=='__main__':
     # Arguments for the gameplay.
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
-    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
+    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, required=True, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
     parser.add_argument('--reuse_scene', action='store_true', help="Setting whether to reuse previously initialized scene or not.")

@@ -634,7 +634,7 @@ class GameManager(Kani):
             if text := message_formatter(message):
                 yield text, message.role
 
-    # Overriding chat_round: Only used for the rule understanding evaluation.
+    # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
 
@@ -650,38 +650,26 @@ class GameManager(Kani):
             # add the user's chat input to the state
             await self.add_to_history(ChatMessage.user(query))
 
-            self.make_rule_prompt()
-
             # and get a completion
             completion, _ = await self.get_model_completion(**kwargs)
             message = completion.message
             await self.add_to_history(message)
             return message
 
-    # Simple answering function.
     async def answer_single_turn(self, 
-        query: ChatMessage, 
-        use_scene: bool=True, 
-        use_rule: bool=True, 
-        use_players: bool=True, 
-        **kwargs
+        query: str,
+        use_scene: bool=False,
+        use_rules: bool=False,
+        use_players: bool=False
     ):
-        self.chat_history.clear()
-        await self.add_to_history(query)
-
-        # Setting additional context.
         if use_scene:
             self.make_scene_prompt()
-        if use_rule:
+        if use_rules:
             self.make_rule_prompt()
         if use_players:
             self.make_player_prompts()
 
-        completion, _ = await self.get_model_completion(**kwargs)
-        self.chat_history.clear()
-
-        return completion.message.content
-
+        return await self.chat_round_str(query, include_functions=False)
 
     # Kani's function call for a dice roll test.
     @ai_function

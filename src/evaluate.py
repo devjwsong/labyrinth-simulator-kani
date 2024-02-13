@@ -1,8 +1,9 @@
 from kani import Kani
+from kani.models import ChatMessage
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
-from utils import convert_into_class_idx, print_system_log, select_options
-from constants import ASSISTANT_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION
+from utils import convert_into_class_idx, print_question_start, print_system_log, select_options
+from constants import ASSISTANT_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION, RULES_EVALUATOR_INSTRUCTION, RULE_SUMMARY
 from utils import log_break
 from sentence_transformers import SentenceTransformer
 from argparse import Namespace
@@ -12,6 +13,7 @@ import argparse
 import json
 import logging
 import torch
+import numpy as np
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -26,11 +28,11 @@ def evaluate_scene_init(args: Namespace, engine: OpenAIEngine):
     with open("data/scenes.json", 'r') as f:
         original = json.load(f)[scene_idx]
 
-    async def test():
-        # Setting the evaluator model.
-        system_prompt = ' '.join(SCENE_INIT_EVALUATOR_INSTRUCTION)
-        evaluator = Kani(engine=engine, system_prompt=system_prompt)
+    # Setting the evaluator model.
+    system_prompt = ' '.join(SCENE_INIT_EVALUATOR_INSTRUCTION)
+    evaluator = Kani(engine=engine, system_prompt=system_prompt)
 
+    async def test():
         options = [
             "In terms of the content, it is perfectly matched with the original input.",
             "The generated output is somewhat unnatural or contradictory."    
@@ -47,7 +49,7 @@ def evaluate_scene_init(args: Namespace, engine: OpenAIEngine):
     asyncio.run(test())
 
 
-def evaluate_rules(manager: GameManager):
+def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
     # The list of test questions.
     questions = [
         'What is the difference between a test and an action scene?',
@@ -78,33 +80,54 @@ def evaluate_rules(manager: GameManager):
         'What is the difficulty of a test for checking if an NPC leaves the party?'
     ]
 
-    # The list of the user scores.
-    options = [
-        {'score': 1.0, 'description': "Perfectly correct."},
-        {'score': 0.5, 'description': "Partially correct. (e.g. dropping essential information, faking up the false rules...)"},
-        {'score': 0.0, 'description': "Completely wrong."}
-    ]
+    # The list of the evaluation scores.
     scores = []
 
+    # Setting the evaluator model with the full rule injection.
+    rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+    rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
+    system_prompt = ' '.join(RULES_EVALUATOR_INSTRUCTION)
+    evaluator = Kani(engine=engine, system_prompt=system_prompt, chat_history=[rule_prompt])
+
     async def test():
+        options = [
+            "Perfectly correct.",
+            "Partially correct. (e.g. dropping essential information, faking up the false rules...)",
+            "Completely wrong."
+        ]
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+
         for q, question in enumerate(questions):
             query = f"Answer the following question according to the Labyrinth's rules.\n{question}"
-            response = await manager.chat_round_str(query, include_functions=False)
-            print()
+            answer = await target_model.answer_single_turn(query, use_rules=True)
+            print_question_start()
             print(f"QUESTION {q+1}: {question}")
-            print(f"ANSWER: {response}")
+            print(f"ANSWER: {answer}")
+            log_break()
 
-            # Recording the user score.
-            print("Select the score for the given response.")
-            selected = select_options(options)
-            scores.append(selected['score'])
+            # Evaluating the answer.
+            res = await evaluator.chat_round_str(f"What do you think about the answer? Select an option which represents your thought the most.\nQuestion: {question}\nAnswer: {answer}\n\n{options_str}")
+            res = convert_into_class_idx(res, options)
 
-            # Clearing the chat history.
-            manager.chat_history = []
+            if res == 0:
+                scores.append(1.0)
+            elif res == 1:
+                scores.append(0.5)
+            else:
+                scores.append(0.0)
+
+            # Clearing the chat histories for fair evaluations.
+            target_model.chat_history.clear()
+            evaluator.chat_history = evaluator.chat_history[:1]
+
+        assert len(scores) == len(questions), "There is a mismatch between the number of recorded scores and the number of questions."
+        print_system_log("THE RESULT OF RULE UNDERSTANDING EVALUATION:")
+        for s, score in enumerate(scores):
+            print(f"{s+1}. Q: {questions[s]}\n => Score: {score}")
+        print_system_log(f"TOTAL: {np.sum(scores)}")
+        print_system_log(f"AVERAGE: {np.mean(scores)}")
+
     asyncio.run(test())
-
-    # TODO: How to export the export results?
-    return scores
 
 
 if __name__=='__main__':
@@ -120,7 +143,7 @@ if __name__=='__main__':
 
     # Arguments for the 
     parser.add_argument('--target_model_idx', type=str, help="The index of the model which should be evaluated.")
-    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
+    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
 
     args = parser.parse_args()
 
@@ -155,10 +178,11 @@ if __name__=='__main__':
 
         # Initializing the target game manager.
         system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
-        target_manager = GameManager(
+        target_engine = OpenAIEngine(api_key, model=args.target_model_idx)
+        target_model = GameManager(
             main_args=args,
             encoder=encoder,
-            engine=OpenAIEngine(api_key, model=args.target_model_idx), 
+            engine=target_engine, 
             system_prompt=system_prompt
         )
 
@@ -167,7 +191,7 @@ if __name__=='__main__':
         pass
     
     if args.eval_task == 'scene_init':
-        res = evaluate_scene_init(args, engine)
+        evaluate_scene_init(args, engine)
 
     if args.eval_task == 'rules':
-        pass
+        evaluate_rules(args, target_model, engine)
