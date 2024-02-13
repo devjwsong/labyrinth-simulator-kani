@@ -1,10 +1,11 @@
+from kani import Kani
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
-from utils import print_system_log, select_options, check_init_types
-from constants import ASSISTANT_INSTRUCTION
+from utils import convert_into_class_idx, print_system_log, select_options
+from constants import ASSISTANT_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION
 from utils import log_break
 from sentence_transformers import SentenceTransformer
-from typing import Dict
+from argparse import Namespace
 
 import asyncio
 import argparse
@@ -16,27 +17,33 @@ log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
-def evaluate_init(manager: GameManager, scene: Dict):
+# Evaluating the scene quality. Note that this function only evaluate the quality of the generation. (0.8 or 1.0)
+def evaluate_scene_init(args: Namespace, engine: OpenAIEngine):
+    # Loading the initialized scene and original scene input.
+    with open(args.scene_path, 'r') as f:
+        output = json.load(f)
+    scene_idx = int(args.scene_path.split('/')[1].replace('scene=', ''))
+    with open("data/scenes.json", 'r') as f:
+        original = json.load(f)[scene_idx]
+
     async def test():
-        try:
-            await manager.init_scene(scene)
-            check_init_types(manager)
-        except json.decoder.JSONDecodeError:
-            return 0.0
-        except KeyError:
-            return 0.2
-        except AssertionError:
-            return 0.5
-        else:
-            # TODO: How to export the export results?
-            print()
-            manager.show_scene()
-            options = [
-                {'score': 1.0, 'description': "Perfect contents."},
-                {'score': 0.8, 'description': "Suboptimal contents."}
-            ]
-            selected = select_options(options)
-            return selected['score']
+        # Setting the evaluator model.
+        system_prompt = ' '.join(SCENE_INIT_EVALUATOR_INSTRUCTION)
+        evaluator = Kani(engine=engine, system_prompt=system_prompt)
+
+        options = [
+            "In terms of the content, it is perfectly matched with the original input.",
+            "The generated output is somewhat unnatural or contradictory."    
+        ]
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+        res = await evaluator.chat_round_str(f"Comparing the original scene and the generated output, which option is closer to your decision?\nOriginal: {original}\nOutput: {output}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
+
+        if res == 0:  # 1.0: Perfect.
+            print_system_log("THE RESULT OF SCENE INITIALIZATION EVALUATION: 1.0")
+        else:  # 0.8: Suboptimal.
+            print_system_log("THE RESULT OF SCENE INITIALIZATION EVALUATION: 0.8")
+
     asyncio.run(test())
 
 
@@ -103,8 +110,7 @@ def evaluate_rules(manager: GameManager):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval_task', type=str, required=True, help="The name of the evaluation task.")
-    parser.add_argument('--automated_evaluator', action='store_true', help="Setting whether to use another language model for evaluation.")
-    parser.add_argument('--eval_model_idx', type=str, help="The name of the model which is used for the automatic evaluation.")
+    parser.add_argument('--eval_model_idx', type=str, required=True, help="The name of the model which is used for the automatic evaluation.")
 
     # Arguments for the gameplay evalaution.
     parser.add_argument('--gameplay_path', type=str, help="The path of the file which has the whole game play data.")
@@ -114,19 +120,16 @@ if __name__=='__main__':
 
     # Arguments for the 
     parser.add_argument('--target_model_idx', type=str, help="The index of the model which should be evaluated.")
-    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
+    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
 
     args = parser.parse_args()
 
     assert args.eval_task in ['gameplay', 'scene_init', 'rules'], "Specify the correct evaluation task name."
-    if args.automated_evaluator:
-        assert args.eval_model_idx is not None, "You should specify the model which will be an AI evaluator."
 
     # Setting the engine for automated evaluation or evaluation of rule understanding.
-    if args.automated_evalutor or args.eval_task == 'rules':
-        api_key = input("Enter the API key for OpenAI API: ")
-        log_break()
-        engine = OpenAIEngine(api_key, model=args.target_model_idx)
+    api_key = input("Enter the API key for OpenAI API: ")
+    log_break()
+    engine = OpenAIEngine(api_key, model=args.eval_model_idx)
 
     # Setting & Validting the arguments for each evaluation task.
     if args.eval_task == 'gameplay':
@@ -155,6 +158,16 @@ if __name__=='__main__':
         target_manager = GameManager(
             main_args=args,
             encoder=encoder,
-            engine=engine, 
+            engine=OpenAIEngine(api_key, model=args.target_model_idx), 
             system_prompt=system_prompt
         )
+
+    # Evaluation logics.
+    if args.eval_task == 'gameplay':
+        pass
+    
+    if args.eval_task == 'scene_init':
+        res = evaluate_scene_init(args, engine)
+
+    if args.eval_task == 'rules':
+        pass

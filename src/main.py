@@ -1,4 +1,4 @@
-from utils import log_break, select_options, check_init_types, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
+from utils import log_break, select_options, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
 from kani.utils.message_formatters import assistant_message_contents_thinking
 from kani.models import ChatMessage, ChatRole
 from kani.engines.openai import OpenAIEngine
@@ -10,6 +10,7 @@ from typing import Dict
 from argparse import Namespace
 from inputimeout import TimeoutOccurred
 from datetime import datetime
+from pytz import timezone
 
 import argparse
 import json
@@ -312,7 +313,7 @@ if __name__=='__main__':
     print_system_log("BEFORE STARTING THE GAME, GIVE US YOUR USERNAME, WHICH IS USED FOR RECORDING PURPOSE.")
     owner_name = get_player_input(after_break=True)
 
-    now = datetime.now()
+    now = datetime.now(timezone('US/Eastern'))
     execution_time = now.strftime("%Y-%m-%d-%H-%M-%S")
 
     parser = argparse.ArgumentParser()
@@ -320,30 +321,30 @@ if __name__=='__main__':
     # Arguments for the gameplay.
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
-    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
-    parser.add_argument('--scene_idx', type=int, help="The index of the scene to play.")
+    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
+    parser.add_argument('--scene_idx', type=int, required=True, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
     parser.add_argument('--reuse_scene', action='store_true', help="Setting whether to reuse previously initialized scene or not.")
     parser.add_argument('--scene_path', type=str, help="The path of the JSON file which has the initialized scene information before.")
     parser.add_argument('--reuse_players', action='store_true', help="Setting whether to reuse previously created player characters or not.")
-    parser.add_argument('--players_path', type=str, default=None, help="The path of the JSON file which has the created player character information before.")
+    parser.add_argument('--players_path', type=str, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
-    parser.add_argument('--max_num_msgs', type=int, default=None, help="The maximum number of messages to be included.")
+    parser.add_argument('--max_num_msgs', type=int, help="The maximum number of messages to be included.")
     parser.add_argument('--summarization', action='store_true', help="Setting whether to include the summarization or not.")
-    parser.add_argument('--summ_period', type=int, default=None, help="The summarization period in terms of the number of turns.")
+    parser.add_argument('--summ_period', type=int, help="The summarization period in terms of the number of turns.")
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
 
     # Parameters for the response generation.
     parser.add_argument('--include_functions', action='store_true', help="Setting whether to use function calls or not.")
-    parser.add_argument('--max_tokens', type=int, default=None, help="The maximum number of tokens to generate.")
-    parser.add_argument('--frequency_penalty', type=float, default=0.0, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
-    parser.add_argument('--presence_penalty', type=float, default=0.0, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
+    parser.add_argument('--max_tokens', type=int, help="The maximum number of tokens to generate.")
+    parser.add_argument('--frequency_penalty', type=float, default=0.5, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
+    parser.add_argument('--presence_penalty', type=float, default=0.5, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
     parser.add_argument('--temperature', type=float, default=1.0, help="A higher value makes the output more random. (0.0 - 2.0)")
-    parser.add_argument('--top_p', type=float, default=1.0, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
+    parser.add_argument('--top_p', type=float, default=0.8, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
 
     args = parser.parse_args()
 
@@ -403,9 +404,8 @@ if __name__=='__main__':
         async def run():
             try:
                 await manager.init_scene(scene)
-                check_init_types(manager)
             except:
-                log.error("Scene initialization failed. Try again.")
+                log.error("Error occured during the scene initialization. Try again.")
                 loop.close()
         loop.run_until_complete(run())
 

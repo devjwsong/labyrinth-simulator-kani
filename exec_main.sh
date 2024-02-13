@@ -1,12 +1,12 @@
 python src/main.py \
-    --seed=0 \
-    --model_idx=gpt-4 \
+    --seed=SEED \
+    --model_idx=MODEL_IDX \
     --rule_injection=full \
-    --scene_idx=0 \
+    --scene_idx=SCENE_IDX \
     --num_players=1 \
-    --include_functions \
     --export_data \
     --concat_policy=simple \
+    --include_functions \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \
     --temperature=1.0 \
