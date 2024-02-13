@@ -874,10 +874,10 @@ class GameManager(Kani):
                 "Not taking the found item."
             ]
             selected = select_random_options(options) if self.automated_player else select_options(options)
-            if selected == 1:  # Discarding any item from the inventory.
+            if selected == 0:  # Discarding any item from the inventory.
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
                 selected = select_random_options(player.get_inventory) if self.automated_player else select_options(player.get_inventory())
-                removal_target = list(player.inventory.keys())[selected-1]
+                removal_target = list(player.inventory.keys())[selected]
                 remove_msg = self.remove_item(player.name, removal_target)
 
                 msg = sub_logic(player, item_name, item_desc)
@@ -1080,7 +1080,7 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            if selected == 1:
+            if selected == 0:
                 obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the environment.
@@ -1160,7 +1160,7 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            if selected == 1:
+            if selected == 0:
                 obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the random table.
