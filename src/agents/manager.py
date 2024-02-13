@@ -635,7 +635,7 @@ class GameManager(Kani):
                 yield text, message.role
 
     # Overriding chat_round.
-    async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
+    async def chat_round(self, query: QueryType, use_scene: bool=False, use_rules: bool=False, use_players: bool=False, **kwargs) -> ChatMessage:
         """Perform a single chat round (user -> model -> user, no functions allowed).
 
         This is slightly faster when you are chatting with a kani with no AI functions defined.
@@ -650,26 +650,33 @@ class GameManager(Kani):
             # add the user's chat input to the state
             await self.add_to_history(ChatMessage.user(query))
 
+            if use_scene:
+                self.make_scene_prompt()
+            if use_rules:
+                self.make_rule_prompt()
+            if use_players:
+                self.make_player_prompts()
+
             # and get a completion
             completion, _ = await self.get_model_completion(**kwargs)
             message = completion.message
             await self.add_to_history(message)
             return message
 
+    # Overriding chat_round_str/
+    async def chat_round_str(self, query: QueryType, use_scene: bool=False, use_rules: bool=False, use_players: bool=False, **kwargs) -> str:
+        """Like :meth:`chat_round`, but only returns the text content of the message."""
+        msg = await self.chat_round(query, use_scene, use_rules, use_players, **kwargs)
+        return msg.text
+
+    # A simple answering function.
     async def answer_single_turn(self, 
         query: str,
         use_scene: bool=False,
         use_rules: bool=False,
         use_players: bool=False
     ):
-        if use_scene:
-            self.make_scene_prompt()
-        if use_rules:
-            self.make_rule_prompt()
-        if use_players:
-            self.make_player_prompts()
-
-        return await self.chat_round_str(query, include_functions=False)
+        return await self.chat_round_str(query, use_scene, use_rules, use_players, include_functions=False)
 
     # Kani's function call for a dice roll test.
     @ai_function
