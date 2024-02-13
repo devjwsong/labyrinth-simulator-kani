@@ -4,3 +4,4 @@ kani[openai]==0.6.2
 kani[llama]==0.6.2
 sentence-transformers==2.2.2
 inputimeout==1.0.4
+pytz==2024.1

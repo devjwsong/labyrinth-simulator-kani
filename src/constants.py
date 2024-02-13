@@ -104,7 +104,7 @@ SCENE_INIT_PROMPT = [
         "Avoid copying and pasting the contents in the JSON object identically.",
         "Summarize and paraphrase the words creatively.",
         "If you think some attributes are absent in the scene or cannot be made for the current scene, you can leave it as an empty string, dicationary, or list.",
-        "However, you should make sure that they really should be empty.",
+        "However, you should make sure that they really should be empty and even if they are empty, the keys must exist to avoid potential errors.",
         "If an attribute is required, you must not leave it as empty.",
         "And keep the names of the attributes and all data types so that they can be parsed correctly.",
         "The attributes you should consider are as follows."

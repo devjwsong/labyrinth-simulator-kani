@@ -1,5 +1,5 @@
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole, FunctionCall
+from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
@@ -21,7 +21,7 @@ from constants import (
     GENERATE_FLAW_DESC_PROMPT,
     GENERATE_OBJECT_DESC_PROMPT
 )
-from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural
+from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural, check_init_types
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -129,16 +129,21 @@ class GameManager(Kani):
             res['scene'] = scene['scene']
             res['random_tables'] = scene['random_tables']
             res['consequences'] = scene['consequences']
+
+            check_init_types(res)
             self.set_scene(res)
 
-        except json.decoder.JSONDecodeError as e:
+        except json.decoder.JSONDecodeError as e:  # JSON parsing error: This should be noted as 0 for the evaluation.
             log.debug(res)
             log.error(f"{e}: The output format cannot be converted into dict.")
             raise Exception()
-            # TODO: Fixing from the model if there is a JSON parsing error.
-        except KeyError as e:
+        except KeyError as e:  # Missing attributes error: This should be noted as 0.2 for the evaluation.
             log.debug(res)
             log.error(f"{e}: Missing key.")
+            raise Exception()
+        except AssertionError as e:  # Incorrect types error: This should be noted as 0.5 for the evaluation.
+            log.debug(res)
+            log.error(f"{e}: Incorrect data type.")
             raise Exception()
 
     # Getter for NPC in a natural format.
@@ -620,6 +625,55 @@ class GameManager(Kani):
             if text := message_formatter(message):
                 yield text, message.role
 
+    # Overriding chat_round: Only used for the rule understanding evaluation.
+    async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
+        """Perform a single chat round (user -> model -> user, no functions allowed).
+
+        This is slightly faster when you are chatting with a kani with no AI functions defined.
+
+        :param query: The contents of the user's chat message.
+        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
+        :returns: The model's reply.
+        """
+        kwargs = {**kwargs, "include_functions": False}
+        # do the chat round
+        async with self.lock:
+            # add the user's chat input to the state
+            await self.add_to_history(ChatMessage.user(query))
+
+            self.make_rule_prompt()
+
+            # and get a completion
+            completion, _ = await self.get_model_completion(**kwargs)
+            message = completion.message
+            await self.add_to_history(message)
+            return message
+
+    # Simple answering function.
+    async def answer_single_turn(self, 
+        query: ChatMessage, 
+        use_scene: bool=True, 
+        use_rule: bool=True, 
+        use_players: bool=True, 
+        **kwargs
+    ):
+        self.chat_history.clear()
+        await self.add_to_history(query)
+
+        # Setting additional context.
+        if use_scene:
+            self.make_scene_prompt()
+        if use_rule:
+            self.make_rule_prompt()
+        if use_players:
+            self.make_player_prompts()
+
+        completion, _ = await self.get_model_completion(**kwargs)
+        self.chat_history.clear()
+
+        return completion.message.content
+
+
     # Kani's function call for a dice roll test.
     @ai_function
     async def activate_test(self, 
@@ -820,10 +874,10 @@ class GameManager(Kani):
                 "Not taking the found item."
             ]
             selected = select_random_options(options) if self.automated_player else select_options(options)
-            if selected == 0:  # Discarding any item from the inventory.
+            if selected == 1:  # Discarding any item from the inventory.
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
                 selected = select_random_options(player.get_inventory) if self.automated_player else select_options(player.get_inventory())
-                removal_target = list(player.inventory.keys())[selected]
+                removal_target = list(player.inventory.keys())[selected-1]
                 remove_msg = self.remove_item(player.name, removal_target)
 
                 msg = sub_logic(player, item_name, item_desc)
@@ -1026,7 +1080,7 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            if selected == 0:
+            if selected == 1:
                 obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the environment.
@@ -1106,7 +1160,7 @@ class GameManager(Kani):
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
 
-            if selected == 0:
+            if selected == 1:
                 obtain_msg = self.add_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the random table.
