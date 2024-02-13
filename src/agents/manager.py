@@ -21,7 +21,16 @@ from constants import (
     GENERATE_FLAW_DESC_PROMPT,
     GENERATE_OBJECT_DESC_PROMPT
 )
-from utils import print_system_log, remove_punctuation, select_options, select_random_options, find_current_point, convert_into_natural, check_init_types
+from utils import (
+    print_system_log, 
+    remove_punctuation, 
+    select_options, 
+    select_random_options, 
+    find_current_point, 
+    convert_into_natural, 
+    check_init_types, 
+    convert_into_class_idx
+)
 from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
@@ -695,17 +704,18 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction.
         system_prompt = ' '.join(DIFFICULTY_PROMPT)
         
+        options = ["The test becomes easier.", "The test becomes harder.", "There is no change."]
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)] + self.chat_history, system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?")
+        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
 
-        if 'easier' not in res and 'harder' not in res:  # The difficulty is not affected.
-            res = 'none'
+        if res == 2:  # The difficulty is not affected.
             if not self.automated_player:
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL A DICE.")
             dice_result = random.randint(1, 6)
 
-        elif 'easier' in res:  # The test is improved.
-            res = 'easier'
+        elif res == 0:  # The test is improved.
             print_system_log("A TRAIT IN THE PLAYER MAKES THE TEST EASIER. YOU ROLL TWO DICES AND TAKE THE LARGER ONE.")
             if not self.automated_player:
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
@@ -713,8 +723,7 @@ class GameManager(Kani):
             dice_result = max(result1, result2)
             print_system_log(f"RESULT 1 ({result1}) vs RESULT 2 ({result2}) => THE PLAYER GOT {dice_result}.")
 
-        elif 'harder' in res:  # The test is hindered.
-            res = 'harder'
+        elif res == 1:  # The test is hindered.
             print_system_log("A FLAW IN THE PLAYER MAKES THE TEST HARDER. YOU ROLL TWO DICES AND TAKE THE SMALLER ONE.")
             if not self.automated_player:
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
@@ -722,7 +731,7 @@ class GameManager(Kani):
             dice_result = min(result1, result2)
             print_system_log(f"RESULT 1 ({result1}) vs RESULT 2 ({result2}) => THE PLAYER GOT {dice_result}.")
 
-        self.function_intermediate_res[f"Improvement/Hinderance of the test due to the player traits/flaws"] = res
+        self.function_intermediate_res[f"Improvement/Hinderance of the test due to the player traits/flaws"] = options[res]
 
         if dice_result < final_difficulty:
             msg = f"TEST FAILED. THE DICE ROLL RESULT {dice_result} IS SMALLER THAN THE DIFFICULTY {final_difficulty}."
@@ -1020,13 +1029,15 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
         
+        options = ['Expendable', 'Permanent']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=[self.scene_prompt, self.make_player_prompt(player)], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}")
+        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
 
-        is_expendable = self.translate_into_binary(res)
-        self.function_intermediate_res[f"Expendable item detection result for '{item_name}'"] = is_expendable
+        self.function_intermediate_res[f"Expendable item detection result for '{item_name}'"] = options[res]
 
-        if is_expendable:  # The item is expendable.
+        if res == 0:  # The item is expendable.
             msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
             print_system_log(msg, after_break=True)
             player.remove_item(item_name)
@@ -1063,13 +1074,15 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
         
+        options = ['Obtainable', 'Not obtainable']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
 
-        is_obtainable = self.translate_into_binary(res)
-        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = is_obtainable
+        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = options[res]
 
-        if is_obtainable:  # The item is obtainble.
+        if res == 0:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
@@ -1143,13 +1156,15 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
+        options = ['Obtainable', 'Not obtainable']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}")
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
 
-        is_obtainable = self.translate_into_binary(res)
-        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = is_obtainable
+        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = options[res]
 
-        if is_obtainable:  # The item is obtainble.
+        if res == 0:  # The item is obtainable.
             # Removing unnecessary punctuations from the object name.
             item_name = remove_punctuation(object_name)
 
@@ -1183,13 +1198,6 @@ class GameManager(Kani):
 
         return msg
 
-    # Converting the generation result into the binary answer.
-    def translate_into_binary(self, response: str):
-        if 'yes' in response.lower():
-            return True
-        
-        return False
-
     # Validating if the current interaction falls into the success condition.
     async def validate_success_condition(self):
         if len(self.success_condition) == 0:
@@ -1198,10 +1206,13 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the success condition.
         system_prompt = ' '.join(VALIDATE_SUCCESS_PROMPT)
 
+        options = ['Succeeded', 'Not yet']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}")
+        res = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
 
-        return self.translate_into_binary(response)
+        return True if res == 0 else False
     
     # Validating if the current interaction falls into the failure condition.
     async def validate_failure_condition(self):
@@ -1211,7 +1222,10 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction and the failure condition.
         system_prompt = ' '.join(VALIDATE_FAILURE_PROMPT)
 
+        options = ['Failed', 'Not yet']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
-        response = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}")
+        res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}\n\n{options_str}")
+        res = convert_into_class_idx(res, options)
         
-        return self.translate_into_binary(response)
+        return True if res == 0 else False

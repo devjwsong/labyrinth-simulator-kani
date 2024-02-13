@@ -5,6 +5,7 @@ from typing import Any, List
 import logging
 import string
 import random
+import re
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -164,3 +165,16 @@ def convert_into_natural(message: ChatMessage):
             name = f"[SYSTEM] {name}"
     
     return f"{name}: {content}"
+
+
+# Extracting the class index in the output of a classification problem.
+def convert_into_class_idx(res: str, options: list):
+    pattern = r'\d+'
+    matches = re.findall(pattern, res)
+    if matches:
+        index = int(matches[0])
+        if index >= len(options):
+            return select_random_options(options)
+        return index
+    else:
+        return select_random_options(options)

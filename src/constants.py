@@ -23,6 +23,10 @@ USER_INSTRUCTION = [
     "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
+EVALUATOR_INSTRUCTION = [
+
+]
+
 RULE_SUMMARY = [
     [
         "Player characters: Each player has own character.",
@@ -183,7 +187,7 @@ DIFFICULTY_PROMPT = [
     "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand what task should be performed.",
     "You should determine whether the task that the player tries to do becomes easier by one of the traits or becomes harder by one of the flaws.",
     "If the player's trait or flaw do not have any effect, or both there is an advantage and penalty at the same time, just say 'none'.",
-    "You must answer only among 'easier', 'harder', or 'none'."
+    "You must answer only in number."
 ]
 
 CREATE_NPC_PROMPT = [
@@ -198,14 +202,14 @@ EXPENDABLE_CHECK_PROMPT = [
     "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "Also you are given the current state of the player character which includes the current inventory.",
     "You should determine whether an item is expendable, which should be removed from the inventory after the player uses it.",
-    "You must answer only either 'yes' or 'no'."
+    "You must answer only in number."
 ]
 
 OBTAINABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "You should determine whether an object is obtainable so a player character can have it in the inventory.",
-    "You must answer only either 'yes' or 'no'."
+    "You must answer only in number."
 ]
 
 GENERATE_TRAIT_DESC_PROMPT = [
@@ -233,12 +237,12 @@ VALIDATE_SUCCESS_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the success condition for the players to win.",
-    "You must answer only either 'yes' or 'no'."
+    "You must answer only in number."
 ]
 
 VALIDATE_FAILURE_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
-    "You must answer only either 'yes' or 'no'."
+    "You must answer only in number."
 ]
