@@ -2,11 +2,14 @@ from kani import Kani
 from kani.models import ChatMessage
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
+from agents.evaluator import Evaluator
 from utils import convert_into_class_idx, print_question_start, print_system_log, select_options
-from constants import ASSISTANT_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION, RULES_EVALUATOR_INSTRUCTION, RULE_SUMMARY
-from utils import log_break
+from constants import ASSISTANT_INSTRUCTION, GAMEPLAY_EVALUATOR_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION, RULES_EVALUATOR_INSTRUCTION
+from utils import log_break, get_player_input
 from sentence_transformers import SentenceTransformer
 from argparse import Namespace
+from datetime import datetime
+from pytz import timezone
 
 import asyncio
 import argparse
@@ -15,9 +18,22 @@ import logging
 import torch
 import numpy as np
 import random
+import os
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
+
+
+# Exporting the evaluation scores.
+def export_test_result(data: dict, path: str):
+    directory = '/'.join(path.split('/')[:-1])
+
+    # Setting the directory.
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+
+    with open(path, 'w') as f:
+        json.dump(data, f)
 
 
 # Evaluating the scene quality. Note that this function only evaluate the quality of the generation. (0.8 or 1.0)
@@ -31,7 +47,7 @@ def evaluate_scene_init(args: Namespace, engine: OpenAIEngine):
 
     # Setting the evaluator model.
     system_prompt = ' '.join(SCENE_INIT_EVALUATOR_INSTRUCTION)
-    evaluator = Kani(engine=engine, system_prompt=system_prompt)
+    evaluator = Evaluator(engine=engine, system_prompt=system_prompt)
 
     async def test():
         options = [
@@ -43,13 +59,21 @@ def evaluate_scene_init(args: Namespace, engine: OpenAIEngine):
         res = convert_into_class_idx(res, options)
 
         if res == 0:  # 1.0: Perfect.
+            score = 1.0
             print_system_log("THE RESULT OF SCENE INITIALIZATION EVALUATION: 1.0")
         else:  # 0.8: Suboptimal.
+            score = 0.8
             print_system_log("THE RESULT OF SCENE INITIALIZATION EVALUATION: 0.8")
+
+        result = {
+            'scene_quality': {options[res]: score}
+        }
+        export_test_result(result, f"evaluations/{args.scene_path}")
 
     asyncio.run(test())
 
 
+# Evaluating the rule understanding capability of a model.
 def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
     # The list of test questions.
     questions = [
@@ -83,16 +107,16 @@ def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
     random.seed(args.seed)
     random.shuffle(questions)
 
-    # The list of the evaluation scores.
-    scores = []
+    questions = questions[:5]
 
     # Setting the evaluator model with the full rule injection.
-    rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-    rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
     system_prompt = ' '.join(RULES_EVALUATOR_INSTRUCTION)
-    evaluator = Kani(engine=engine, system_prompt=system_prompt, chat_history=[rule_prompt])
+    evaluator = Evaluator(engine=engine, system_prompt=system_prompt)
 
     async def test():
+        result = {}
+        scores = []
+
         options = [
             "Perfectly correct.",
             "Partially correct. (e.g. dropping essential information, faking up the false rules...)",
@@ -102,7 +126,7 @@ def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
 
         for q, question in enumerate(questions):
             query = f"Answer the following question according to the Labyrinth's rules.\n{question}"
-            answer = await target_model.answer_single_turn(query, use_rules=True)
+            answer = await target_model.chat_round_str(query)
             print_question_start()
             print(f"QUESTION {q+1}: {question}")
             print(f"ANSWER: {answer}")
@@ -113,22 +137,37 @@ def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
             res = convert_into_class_idx(res, options)
 
             if res == 0:
-                scores.append(1.0)
+                score = 1.0
             elif res == 1:
-                scores.append(0.5)
+                score = 0.5
             else:
-                scores.append(0.0)
+                score = 0.0
+
+            scores.append({options[res]: score})
 
             # Clearing the chat histories for fair evaluations.
             target_model.chat_history.clear()
-            evaluator.chat_history = evaluator.chat_history[:1]
+            evaluator.chat_history.clear()
 
         assert len(scores) == len(questions), "There is a mismatch between the number of recorded scores and the number of questions."
+
+        result['scores'] = scores
         print_system_log("THE RESULT OF RULE UNDERSTANDING EVALUATION:")
         for s, score in enumerate(scores):
             print(f"{s+1}. Q: {questions[s]}\n => Score: {score}")
-        print_system_log(f"TOTAL: {np.sum(scores)}")
-        print_system_log(f"AVERAGE: {np.mean(scores)}")
+
+        result['total'] = np.sum([v for score in scores for _, v in score.items()])
+        result['average'] = np.mean([v for score in scores for _, v in score.items()])
+        print_system_log(f"TOTAL: {result['total']}")
+        print_system_log(f"AVERAGE: {result['average']}")
+
+        print_question_start()
+        print_system_log("THE USERNAME IS REQUIRED TO EXPORT THE TEST RESULT.")
+        username = get_player_input(after_break=True)
+
+        now = datetime.now(timezone('US/Eastern'))
+        test_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+        export_test_result(result, f"evaluations/rules/rule={args.rule_injection}/{username}-model={args.target_model_idx}-seed={args.seed}-time={test_time}.json")
 
     asyncio.run(test())
 

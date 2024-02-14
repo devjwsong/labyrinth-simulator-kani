@@ -23,6 +23,10 @@ USER_INSTRUCTION = [
     "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
+GAMEPLAY_EVALUATOR_INSTRUCTION = [
+    
+]
+
 SCENE_INIT_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are given two Dict type data, one is the original game scene and the other is the output version from another language model.",
