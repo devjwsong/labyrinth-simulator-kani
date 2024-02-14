@@ -3,13 +3,19 @@ from kani.models import ChatMessage
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
 from agents.evaluator import Evaluator
-from utils import convert_into_class_idx, print_question_start, print_system_log, select_options
-from constants import ASSISTANT_INSTRUCTION, GAMEPLAY_EVALUATOR_INSTRUCTION, SCENE_INIT_EVALUATOR_INSTRUCTION, RULES_EVALUATOR_INSTRUCTION
+from utils import convert_into_class_idx, print_question_start, print_system_log, convert_into_message
+from constants import (
+    ASSISTANT_INSTRUCTION, 
+    HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION,
+    SCENE_INIT_EVALUATOR_INSTRUCTION, 
+    RULES_EVALUATOR_INSTRUCTION,
+)
 from utils import log_break, get_player_input
 from sentence_transformers import SentenceTransformer
 from argparse import Namespace
 from datetime import datetime
 from pytz import timezone
+from tqdm import tqdm
 
 import asyncio
 import argparse
@@ -34,6 +40,69 @@ def export_test_result(data: dict, path: str):
 
     with open(path, 'w') as f:
         json.dump(data, f)
+
+
+# Sublogic for history consistency evaluation.
+async def evaluate_history_consistency(engine: OpenAIEngine, past_history: list[dict], current_queries: list[dict], generated: dict):
+    options = [
+        "It is perfectly relevant to the whole previous interactions.",
+        "It is only relevant to the immediate input queries.",
+        "It totally makes no sense.",
+    ]
+    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+
+    # Setting the evalutor.
+    system_prompt = ' '.join(HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION)
+    evaluator = Evaluator(
+        engine=engine, 
+        system_prompt=system_prompt,
+        chat_history=[convert_into_message(hist) for hist in past_history] + [convert_into_message(query) for query in current_queries]
+    )
+
+    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King relevant to the dialogue so far?\nResponse: {generated['content']}\n\n{options_str}")
+    res = convert_into_class_idx(res, options)
+
+    if res == 0:
+        score = 1.0
+    elif res == 1:
+        score = 0.5
+    else:
+        score = 0.0
+
+    return {'history_consistency': {options[res]: score}}
+
+
+# Evaluating the holistic quality of the gameplay.
+def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
+    # Loading the gameplay data.
+    with open(args.gameplay_path, 'r') as f:
+        game = json.load(f)
+
+    async def test():
+        result = {}
+        turn_scores = []
+
+        for t, turn in enumerate(tqdm(game)):
+            scene_state = turn['scene']
+            player_states = turn['players']
+            past_history = turn['past_history']
+            current_queries = turn['current_queries']
+            generated = turn['generated']
+
+            turn_score = {}
+
+            # Response generation.
+            # 1. History consistency.
+            res = await evaluate_history_consistency(engine, past_history, current_queries, generated)
+            turn_score.update(res)
+
+            turn_scores.append(turn_score)
+
+        result['per_turn'] = turn_scores
+
+        export_test_result(result, f"evaluations/{args.gameplay_path}")
+
+    asyncio.run(test())
 
 
 # Evaluating the scene quality. Note that this function only evaluate the quality of the generation. (0.8 or 1.0)
@@ -232,7 +301,7 @@ if __name__=='__main__':
 
     # Evaluation logics.
     if args.eval_task == 'gameplay':
-        pass
+        evaluate_gameplay(args, engine)
     
     if args.eval_task == 'scene_init':
         evaluate_scene_init(args, engine)

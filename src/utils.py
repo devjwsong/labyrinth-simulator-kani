@@ -157,6 +157,17 @@ def convert_into_dict(message: ChatMessage):
         'content': message.content
     }
 
+# Converting a dictionary into ChatMessage.
+def convert_into_message(obj: dict):
+    if obj['role'] == 'user':
+        return ChatMessage.user(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'assistant':
+        return ChatMessage.assistant(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'function':
+        return ChatMessage.function(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'system':
+        return ChatMessage.system(name=obj['name'], content=obj['content'])
+
 
 # Converting ChatMessage into a natural language message.
 def convert_into_natural(message: ChatMessage):

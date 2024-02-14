@@ -23,18 +23,10 @@ USER_INSTRUCTION = [
     "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
-GAMEPLAY_EVALUATOR_INSTRUCTION = [
+HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You are given the gameplay logs between the players and the Goblin King, which is the game manager in this game.",
-    "You are also given the summarized game rules to improve your understanding of the game.",
-    "Each question is classified into 3 categories: 1) Response generation, 2) Function calling, and 3) Scene termination.",
-    "The questions about response generation ask you whether the response quality from the Goblin King is well-aligned with the given aspect.",
-    "For this category, you are given the game state information, the past chat history, and the current turn which is a target to evaluate.",
-    "The questions about function calling can ask you whether a function is called in correct timing, the arguments are properly set, or the intermediate results in it make sense.",
-    "For this category, you are given the game state information, the past chat history, and the result of the function which is a target to evaluate.",
-    "The questions about scene termination focus on whether the game scene has been ended properly.",
-    "For this category, you are given the game state information and the whole chat log.",
-    "For each question, you are given a list of options that represent the score and its explanation.",
+    "You are given the dialogue between the player characters and Goblin King, which is the game manager, collected during the actual game.",
+    "You should determine whether the generated response of Goblin King is relevant to the dialogue so far semantically.",
     "You must answer only in number."
 ]
 
