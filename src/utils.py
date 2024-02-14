@@ -149,6 +149,15 @@ def find_current_point(chat_history: List[ChatMessage]) -> int:
     return idx
 
 
+# Converting ChatMessage into a dictionary.
+def convert_into_dict(message: ChatMessage):
+    return {
+        'role': message.role.value,
+        'name': message.name,
+        'content': message.content
+    }
+
+
 # Converting ChatMessage into a natural language message.
 def convert_into_natural(message: ChatMessage):
     name, content = message.name, message.content

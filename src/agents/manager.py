@@ -27,6 +27,7 @@ from utils import (
     select_options, 
     select_random_options, 
     find_current_point, 
+    convert_into_dict,
     convert_into_natural, 
     check_init_types, 
     convert_into_class_idx
@@ -515,10 +516,10 @@ class GameManager(Kani):
                 context = self.make_context()
                 context["past_history"] = []
                 for msg in past_history:
-                    context["past_history"].append(convert_into_natural(msg))
+                    context["past_history"].append(convert_into_dict(msg))
                 context["current_queries"] = []
                 for msg in current_queries:
-                    context["current_queries"].append(convert_into_natural(msg))
+                    context["current_queries"].append(convert_into_dict(msg))
 
                 # do the model prediction
                 completion, messages = await self.get_model_completion(**kwargs)
@@ -535,7 +536,7 @@ class GameManager(Kani):
 
                 # if function call, do it and attempt retry if it's wrong
                 if not message.function_call:
-                    context["generated"] = convert_into_natural(message)
+                    context["generated"] = convert_into_dict(message)
                     self.context_archive.append(context)
                     break
 
@@ -553,7 +554,7 @@ class GameManager(Kani):
                 else:
                     retry = 0
 
-                context["generated"] = convert_into_natural(func_res.message)
+                context["generated"] = convert_into_dict(func_res.message)
                 
                 # If the generated message is from a function, the arguments and intermediate results should be stored.
                 context["function_arguments"] = deepcopy(self.function_arguments)

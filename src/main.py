@@ -324,9 +324,7 @@ if __name__=='__main__':
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
     parser.add_argument('--scene_idx', type=int, required=True, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
-    parser.add_argument('--reuse_scene', action='store_true', help="Setting whether to reuse previously initialized scene or not.")
     parser.add_argument('--scene_path', type=str, help="The path of the JSON file which has the initialized scene information before.")
-    parser.add_argument('--reuse_players', action='store_true', help="Setting whether to reuse previously created player characters or not.")
     parser.add_argument('--players_path', type=str, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
@@ -381,12 +379,9 @@ if __name__=='__main__':
         system_prompt=system_prompt
     )
 
-    # Initializing the scene.
-    if args.reuse_scene and not os.path.isfile(args.scene_path):
-        print_system_log("YOU SET reuse_scene=True BUT THERE IS NO FILE WHICH STORES THE INITIALIZED SCENE. STARTING INITIALIZATION FROM THE BEGINNING.")
-        args.reuse_scene = False
-    
-    if args.reuse_scene:  # Loading the pre-initialized scene.
+    # Initializing the scene.    
+    if args.scene_path is not None and os.path.isfile(args.scene_path):  # Loading the pre-initialized scene.
+        print_system_log("YOU SPECIFIED THE PATH TO AN INITIALIZED SCENE. LOADING...")
         with open(args.scene_path, 'r') as f:
             scene = json.load(f)
         manager.set_scene(scene)
@@ -440,29 +435,28 @@ if __name__=='__main__':
     log_break()
 
     # Creating the player characters.
-    if args.reuse_players and not os.path.isfile(args.players_path):
-        print_system_log("YOU SET reuse_players=True BUT THERE IS NO FILE WHICH STORES THE PLAYER CHARACTERS. CREATE THE PLAYER CHARACTERS FROM THE START.")
-        args.reuse_players = False
-
-    if args.reuse_players:
+    if args.players_path is not None and os.path.isfile(args.players_path):
+        print_system_log("YOU SPECIFIED THE PATH TO THE PRE-DEFINED PLAYER CHARACTERS. LOADING...")
         with open(args.players_path, 'r') as f:
             character_data = json.load(f)
+        reuse_players = True
     else:
         with open("data/characters.json", 'r') as f:
             character_data = json.load(f)
+        reuse_players = False
     
     # Iterating the player character initialization.
     players = []
     for p in range(args.num_players):
         print_logic_start(f"CHARACTER {p+1} CREATION")
-        player = load_player_character(p+1, character_data[p], manager.engine, args.automated_player) if args.reuse_players \
+        player = load_player_character(p+1, character_data[p], manager.engine, args.automated_player) if reuse_players \
             else create_player_character(character_data, manager.engine, args.automated_player)
         players.append(player)
         logic_break()
     manager.players = players
     manager.name_to_idx = {player.name: idx for idx, player in enumerate(players)}
 
-    if not args.reuse_players:
+    if not reuse_players:
         print_question_start()
         print_system_log("DO YOU WANT TO SAVE THESE NEWLY CREATED PLAYER CHARACTERS?")
         res = select_options(['Yes', 'No'])
