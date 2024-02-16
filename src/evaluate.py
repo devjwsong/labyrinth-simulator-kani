@@ -7,6 +7,7 @@ from utils import convert_into_class_idx, print_question_start, print_system_log
 from constants import (
     ASSISTANT_INSTRUCTION, 
     HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION,
+    STATE_CONSISTENCY_EVALUATOR_INSTRUCTION,
     SCENE_INIT_EVALUATOR_INSTRUCTION, 
     RULES_EVALUATOR_INSTRUCTION,
 )
@@ -72,6 +73,49 @@ async def evaluate_history_consistency(engine: OpenAIEngine, past_history: list[
     return {'history_consistency': {options[res]: score}}
 
 
+# Sublogic for state consistency evaluation.
+async def evaluate_state_consistency(engine: OpenAIEngine, scene: dict, players: list, generated: dict):
+    options = [
+        "Perfectly consistent with the current scene and the status of players.",
+        "Partially consistent with the current game state. (e.g. Consistent with only either the scene or the players.)",
+        "Completely inconsistent."
+    ]
+    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+
+    # Setting the evaluator.
+    content = f"chapter={scene['chapter']}, scene={scene['scene']}, scene_summary={scene['scene_summary']}, " + \
+        f"npcs={scene['npcs']}, generation_rules={scene['generation_rules']}, success_condition={scene['success_condition']}, failure_condition={scene['failure_condition']}, " + \
+        f"game_flow={scene['game_flow']}, environement={scene['environment']}, random_tables={scene['random_tables']}, consequences={scene['consequences']}, " + \
+        f"is_action_scene={scene['is_action_scene']}"
+    scene_prompt = ChatMessage.system(name="Scene_State", content=content)
+
+    player_prompts = []
+    for player in players:
+        content = f"name={player['name']}, kin={player['kin']}, persona={player['persona']}, goal={player['goal']}, " + \
+            f"traits={player['traits']}, flaws={player['flaws']}, inventory={player['inventory']}, additional_notes={player['additional_notes']}"
+        player_prompt = ChatMessage.system(name="Player_State", content=content)
+        player_prompts.append(player_prompt)
+    
+    
+    system_prompt = ' '.join(STATE_CONSISTENCY_EVALUATOR_INSTRUCTION)
+    evaluator = Evaluator(
+        engine=engine, 
+        system_prompt=system_prompt,
+        chat_history=[scene_prompt] + player_prompts
+    )
+
+    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King consistent with the current scene and players' status?\nResponse: {generated['content']}\n\n{options_str}")
+    res = convert_into_class_idx(res, options)
+
+    if res == 0:
+        score = 1.0
+    elif res == 1:
+        score = 0.5
+    else:
+        score = 0.0
+
+    return {'state_consistency': {options[res]: score}}
+
 # Evaluating the holistic quality of the gameplay.
 def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
     # Loading the gameplay data.
@@ -92,9 +136,14 @@ def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
             turn_score = {}
 
             # Response generation.
-            # 1. History consistency.
-            res = await evaluate_history_consistency(engine, past_history, current_queries, generated)
-            turn_score.update(res)
+            if generated['role'] == 'assistant':
+                # 1. History consistency.
+                res = await evaluate_history_consistency(engine, past_history, current_queries, generated)
+                turn_score.update(res)
+
+                # 2. State consistency.
+                res = await evaluate_state_consistency(engine, scene_state, player_states, generated)
+                turn_score.update(res)
 
             turn_scores.append(turn_score)
 
