@@ -39,6 +39,12 @@ STATE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
     "You must answer only in number."
 ]
 
+RULE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
+    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
+    "You should determine whether the generate response of Goblin King, which is the game manager, correctly obeys the game rules.",
+    "You must answer only in number."
+]
+
 SCENE_INIT_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are given two Dict type data, one is the original game scene and the other is the output version from another language model.",
