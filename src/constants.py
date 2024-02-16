@@ -41,7 +41,13 @@ STATE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
 
 RULE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You should determine whether the generate response of Goblin King, which is the game manager, correctly obeys the game rules.",
+    "You should determine whether the generated response of Goblin King, which is the game manager, correctly obeys the game rules.",
+    "You must answer only in number."
+]
+
+INTEREST_EVALUATOR_INSTRUCTION = [
+    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
+    "You should determine whether the generated response of Goblin King, which is the game manager, is funny and entertaining considering this is a game.",
     "You must answer only in number."
 ]
 

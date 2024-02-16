@@ -9,6 +9,7 @@ from constants import (
     HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION,
     STATE_CONSISTENCY_EVALUATOR_INSTRUCTION,
     RULE_CONSISTENCY_EVALUATOR_INSTRUCTION,
+    INTEREST_EVALUATOR_INSTRUCTION,
     SCENE_INIT_EVALUATOR_INSTRUCTION, 
     RULES_EVALUATOR_INSTRUCTION,
 )
@@ -143,6 +144,31 @@ async def evaluate_rule_consistency(engine: OpenAIEngine, generated: dict):
     return {'rule_consistency': {options[res]: score}}
 
 
+# Sublogic for interest evaluation.
+async def evaluate_interest(engine: OpenAIEngine, generated: dict):
+    options = [
+        "Interesting and entertaining!",
+        "Boring and bland..."
+    ]
+    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+
+    system_prompt = ' '.join(INTEREST_EVALUATOR_INSTRUCTION)
+    evaluator = Evaluator(
+        engine=engine, 
+        system_prompt=system_prompt
+    )
+
+    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King interesting?\nResponse: {generated['content']}\n\n{options_str}")
+    res = convert_into_class_idx(res, options)
+
+    if res == 0:
+        score = 1.0
+    elif res == 1:
+        score = 0.0
+
+    return {'interest': {options[res]: score}}
+
+
 # Evaluating the holistic quality of the gameplay.
 def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
     # Loading the gameplay data.
@@ -174,6 +200,10 @@ def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
 
                 # 3. Rule consistency.
                 res = await evaluate_rule_consistency(engine, generated)
+                turn_score.update(res)
+
+                # 4. Interest.
+                res = await evaluate_interest(engine, generated)
                 turn_score.update(res)
 
             turn_scores.append(turn_score)
