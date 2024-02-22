@@ -2,9 +2,10 @@ python src/main.py \
     --seed=SEED \
     --model_idx=MODEL_IDX \
     --rule_injection=full \
-    --num_players=1 \
     --scene_path=SCENE_PATH \
+    --players_path=PLAYERS_PATH \
     --export_data \
+    --num_ai_players=0 \
     --concat_policy=simple \
     --include_functions \
     --frequency_penalty=0.5 \

@@ -5,7 +5,7 @@ from kani.internal import FunctionCallResult
 from kani.utils.message_formatters import assistant_message_contents
 from kani.engines.base import BaseCompletion
 from sentence_transformers import SentenceTransformer, util
-from agents.player import Player
+from agents.player import Player, PlayerKani
 from constants import (
     SEP,
     RULE_SUMMARY,
@@ -88,7 +88,6 @@ class GameManager(Kani):
         # Additional attributes for game play.
         self.players = []
         self.name_to_idx = {}
-        self.automated_player = main_args.automated_player
         self.is_action_scene = False
 
         # Pre-buidling the rule prompt or embeddings.
@@ -653,13 +652,13 @@ class GameManager(Kani):
         res = convert_into_class_idx(res, options)
 
         if res == 2:  # The difficulty is not affected.
-            if not self.automated_player:
+            if not isinstance(player, PlayerKani):
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL A DICE.")
             dice_result = random.randint(1, 6)
 
         elif res == 0:  # The test is improved.
             print_system_log("A TRAIT IN THE PLAYER MAKES THE TEST EASIER. YOU ROLL TWO DICES AND TAKE THE LARGER ONE.")
-            if not self.automated_player:
+            if not isinstance(player, PlayerKani):
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
             result1, result2 = random.randint(1, 6), random.randint(1, 6)
             dice_result = max(result1, result2)
@@ -667,7 +666,7 @@ class GameManager(Kani):
 
         elif res == 1:  # The test is hindered.
             print_system_log("A FLAW IN THE PLAYER MAKES THE TEST HARDER. YOU ROLL TWO DICES AND TAKE THE SMALLER ONE.")
-            if not self.automated_player:
+            if not isinstance(player, PlayerKani):
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
             result1, result2 = random.randint(1, 6), random.randint(1, 6)
             dice_result = min(result1, result2)
@@ -841,10 +840,10 @@ class GameManager(Kani):
                 "Discarding one item from the inventory.",
                 "Not taking the found item."
             ]
-            selected = select_random_options(options) if self.automated_player else select_options(options)
+            selected = select_random_options(options) if isinstance(player, PlayerKani) else select_options(options)
             if selected == 0:  # Discarding any item from the inventory.
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                selected = select_random_options(player.get_inventory) if self.automated_player else select_options(player.get_inventory())
+                selected = select_random_options(player.get_inventory) if isinstance(player, PlayerKani) else select_options(player.get_inventory())
                 removal_target = list(player.inventory.keys())[selected]
                 remove_msg = self.remove_item(player.name, removal_target)
 
@@ -1045,7 +1044,7 @@ class GameManager(Kani):
 
             print_system_log(f"{item_name}: {object_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
+            selected = select_random_options(['Yes', 'No']) if isinstance(player, PlayerKani) else select_options(['Yes', 'No'])
 
             player_idx = self.name_to_idx[player_name]
             player = self.players[player_idx]
@@ -1090,6 +1089,8 @@ class GameManager(Kani):
             print_system_log(msg, after_break=True)
             return msg
 
+        player_idx = self.name_to_idx[player_name]
+        player = self.players[player_idx]
         entries = self.random_tables[table_name]
 
         # If the table entries are empty.
@@ -1097,7 +1098,7 @@ class GameManager(Kani):
             msg = f"THERE IS NOTHING IN {table_name}."
             print_system_log(msg, after_break=True)
             return msg
-        if not self.automated_player:
+        if not isinstance(player, PlayerKani):
             _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
         idx = random.randint(0, len(entries)-1)
         object_name = entries[idx]
@@ -1126,10 +1127,7 @@ class GameManager(Kani):
 
             print_system_log(f"{item_name}: {object_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            selected = select_random_options(['Yes', 'No']) if self.automated_player else select_options(['Yes', 'No'])
-
-            player_idx = self.name_to_idx[player_name]
-            player = self.players[player_idx]
+            selected = select_random_options(['Yes', 'No']) if isinstance(player, PlayerKani) else select_options(['Yes', 'No'])
 
             if selected == 0:
                 obtain_msg = self.add_item(player, item_name, object_desc)

@@ -25,165 +25,8 @@ log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
 
 
-# Creating a player character.
-def create_player_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
-    print_system_log("BEFORE WE GET STARTED, CREATE YOUR CHARACTER TO PLAY THE GAME.")
-
-    print_system_log("IN THE LABYRINTH, THERE ARE MULTIPLE KINS TO CHOOSE.")
-    print_system_log("EACH KIN HAS UNIQUE PERSONA AND EVERY CHARACTER HAS TRAITS AND FLAWS WHICH MIGHT AFFECT YOUR GAMEPLAY.")
-    print_system_log("EACH CHARACTER CAN SELECT ONE TRAIT AND ONE FLAW, BUT THE NUMBER OF TRAITS/FLAWS MIGHT VARY DEPENDING ON YOUR KIN.", after_break=True)
-    while True:
-        # Showing the list of kins.
-        print_system_log("SELECT THE KIN TO SEE MORE DETAIL.")
-        kins = list(data['kins'].keys())
-        selected = select_options(kins)
-        kin = kins[selected]
-        info = data['kins'][kin]
-        persona = info['persona']
-        guide = info['guide']
-        additional_notes = info['additional_notes'] if 'additional_notes' in info else []
-
-        # Showing the details of the selected kin.
-        print_system_log("INFORMATION ON THE SELECTED KIN IS...")
-        print(f"Kin: {kin}")
-        for s, sent in enumerate(persona):
-            print(f"({s+1}) {sent}")
-        print(' '.join(guide))
-
-        # Confirming the kin.
-        print_question_start()
-        print_system_log(f"ARE YOU GOING TO GO WITH {kin}?")
-        selected = select_options(['Yes', 'No'])
-        if selected == 1:
-            print_system_log("GOING BACK TO THE LIST...")
-            continue
-
-        traits = {}
-        flaws = {}
-        inventory = {}
-
-        # Setting the name.
-        print_question_start()
-        print_system_log("WHAT IS YOUR NAME?")
-        name = get_player_input(after_break=True)
-
-        # Removing the white space in the name.
-        name = name.replace(' ', '_')
-
-        # Setting the goal.
-        print_question_start()
-        print_system_log("WHAT IS YOUR GOAL? WHY DID YOU COME TO THE LABYRINTH TO CHALLENGE THE GOBLIN KING?")
-        goal = get_player_input(after_break=True)
-
-        # Setting the character-specific additional features.
-        if kin == 'Dwarf':
-            print_question_start()
-            print_system_log("YOU'VE SELECTED DWARF. SELECT YOUR JOB.")
-            jobs_and_tools = info['tables']['jobs_and_tools']
-            selected = select_options(jobs_and_tools)
-            job_and_tool = jobs_and_tools[selected]
-            traits['Job'] = f"My job is {job_and_tool['job']} and I can use my {job_and_tool['tool']} professionally."
-
-            print_question_start()
-            print_system_log(f"GIVE MORE DETAILS ON YOUR TOOL: {job_and_tool['tool']}")
-            item_description = get_player_input(after_break=True)
-            inventory[job_and_tool['tool']] = item_description
-
-        elif kin == 'Firey' or kin == 'Knight of Yore' or kin == 'Worm':
-            traits.update(info['default_traits'])
-
-        elif kin == 'Goblin':
-            print_question_start()
-            print_system_log("YOU'VE SELECTED GOBLIN. SPECIFY WHY YOU ARE AGAINST THE GOBLIN KING.")
-            default_traits = info['default_traits']
-            reason = get_player_input(after_break=True)
-            if len(reason) > 0:
-                default_traits['Goblin feature'] = reason
-            traits.update(default_traits)
-
-        elif kin == 'Horned Beast':
-            print_question_start()
-            print_system_log("YOU'VE SELECTED HORNED BEAST. SELECT ONE OBJECT TYPE YOU CAN CONTROL.")
-            objects = info['tables']['objects']
-            selected = select_options(objects)
-            traits['Control object'] = f"I can control an object of type {objects[selected]}."
-            flaws.update(info['default_flaws'])
-
-        # Picking up a trait.
-        print_question_start()
-        print_system_log("NOW, SELECT ONE TRAIT FROM THE GIVEN LIST.")
-        cands = data['traits']
-        selected = select_options(cands)
-        traits[cands[selected]['trait']] = cands[selected]['description']
-        if kin == 'Human':
-            extra_cands = [entry for entry in data['traits'] if entry['trait'] not in traits]
-            print_question_start()
-            print_system_log("YOU'VE SELECTED HUMAN. YOU CAN PICK ONE MORE EXTRA TRAIT.")
-            selected = select_options(extra_cands)
-            traits[extra_cands[selected]['trait']] = extra_cands[selected]['description']
-            
-        # Picking up a flaw.
-        print_question_start()
-        print_system_log("NEXT, SELECT ONE FLAW FROM THE GIVEN LIST.")
-        filtered_flaws = []
-        for entry in data['flaws']:
-            included = True
-            if 'restriction' in entry:
-                for trait in traits:
-                    if trait.startswith(entry['restriction']):
-                        included = False
-                        break
-            if included:
-                filtered_flaws.append(entry)
-        selected = select_options(filtered_flaws)
-        flaws[filtered_flaws[selected]['flaw']] = filtered_flaws[selected]['description']
-
-        # Finally setting the player instance.
-        if automated_player:
-            system_prompt = ' '.join(USER_INSTRUCTION)
-            player = PlayerKani(
-                engine=engine,
-                system_prompt=system_prompt,
-                name=name,
-                kin=kin,
-                persona=persona,
-                goal=goal,
-                traits=traits,
-                flaws=flaws,
-                inventory=inventory,
-                additional_notes=additional_notes
-            )
-        else:
-            player = Player(
-                name=name,
-                kin=kin,
-                persona=persona,
-                goal=goal,
-                traits=traits,
-                flaws=flaws,
-                inventory=inventory,
-                additional_notes=additional_notes
-            )
-        print_question_start()
-        print_system_log("FINALLY, CONFIRM IF THESE SPECIFICATIONS ARE MATCHED WITH YOUR CHOICES.")
-        player.show_info()
-
-        print_question_start()
-        print_system_log("ARE THEY CORRECT?")
-        selected = select_options(['Yes', 'No'])
-        if selected == 1:
-            print_system_log("GOING BACK TO THE LIST...", after_break=True)
-            continue
-
-        print_system_log("THE PLAYER CHARACTER HAS BEEN CREATED SUCCESSFULLY.")
-        return player
-
-
 # Loading a player character which was created before.
-def load_player_character(idx:int, data: Dict, engine: OpenAIEngine, automated_player: bool):
-    print_system_log(f"YOU CHOSE TO RE-USE THE FOLLOWING SETTING FOR PLAYER {idx}.", after_break=True)
-    print(data)
-
+def load_player_character(data: Dict, engine: OpenAIEngine, automated_player: bool):
     if automated_player:
         system_prompt = ' '.join(USER_INSTRUCTION)
         player = PlayerKani(
@@ -245,7 +88,7 @@ def main(manager: GameManager, args: Namespace):
             for p in player_idxs:
                 player = players[p]
                 try:
-                    if args.automated_player:
+                    if isinstance(player, PlayerKani):
                         query = await player.chat_round_str(queries)
                         queries.append(ChatMessage.user(name=player.name, content=query))
                         print_player_log(query, player.name, after_break=True)
@@ -322,11 +165,10 @@ if __name__=='__main__':
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
-    parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
     parser.add_argument('--scene_path', type=str, required=True, help="The path of the JSON file which has the initialized scene information before.")
-    parser.add_argument('--players_path', type=str, help="The path of the JSON file which has the created player character information before.")
+    parser.add_argument('--players_path', type=str, required=True, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
-    parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
+    parser.add_argument('--num_ai_players', type=int, default=0, help="The number of AI players to simulate.")
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
@@ -387,50 +229,34 @@ if __name__=='__main__':
     manager.show_scene()
     log_break()
 
-    # Creating the player characters.
-    if args.players_path is not None and os.path.isfile(args.players_path):
-        print_system_log("YOU SPECIFIED THE PATH TO THE PRE-DEFINED PLAYER CHARACTERS. LOADING...")
-        with open(args.players_path, 'r') as f:
-            character_data = json.load(f)
-        reuse_players = True
-    else:
-        with open("data/characters.json", 'r') as f:
-            character_data = json.load(f)
-        reuse_players = False
+    # Setting the players.
+    print_system_log("LOADING THE CREATED PLAYER INFORMATION...")
+    with open(args.players_path, 'r') as f:
+        player_data = json.load(f)
+    assert args.num_ai_players <= len(player_data), f"The number of AI players cannot exceed the total number of players: {len(player_data)}."
     
-    # Iterating the player character initialization.
+    # Iterating the player character instantiation.
     players = []
-    for p in range(args.num_players):
-        print_logic_start(f"CHARACTER {p+1} CREATION")
-        player = load_player_character(p+1, character_data[p], manager.engine, args.automated_player) if reuse_players \
-            else create_player_character(character_data, manager.engine, args.automated_player)
+    num_left = len(player_data) - args.num_ai_players
+    for p, data in enumerate(player_data):
+        print_logic_start(f"CHARACTER {p+1} INFORMATION")
+        print(data)
+        
+        automated_player = True
+        if num_left > 0:
+            print_system_log(f"WOULD YOU LIKE TO PLAY AS THIS CHARACTER? (THE NUMBER OF AVAILABLE HUMAN PLAYERS: {num_left})")
+            selected = select_options(['Yes', 'No'])
+            if selected == 0:
+                automated_player = False
+                num_left -= 1
+        else:
+            print_system_log(f"THE AVAILABLE NUMBER OF HUMAN PLAYERS IS 0. INITIALIZING THIS CHARACTER INTO AN AI...")
+
+        player = load_player_character(data, manager.engine, automated_player)
         players.append(player)
         logic_break()
     manager.players = players
     manager.name_to_idx = {player.name: idx for idx, player in enumerate(players)}
-
-    if not reuse_players:
-        print_question_start()
-        print_system_log("DO YOU WANT TO SAVE THESE NEWLY CREATED PLAYER CHARACTERS?")
-        res = select_options(['Yes', 'No'])
-        if res == 0:
-            if not os.path.isdir('players'):
-                os.makedirs('players')
-            file_path = f"players/{owner_name}-num_players={args.num_players}-time={execution_time}.json"
-            player_archive = []
-            for player in manager.players:
-                player_archive.append({
-                    'name': player.name,
-                    'kin': player.kin,
-                    'persona': player.persona,
-                    'goal': player.goal,
-                    'traits': player.traits,
-                    'flaws': player.flaws,
-                    'inventory': player.inventory,
-                    'additional_notes': player.additional_notes
-                })
-            with open(file_path, 'w') as f:
-                json.dump(player_archive, f)
 
     # The main game logic.
     main(manager, args)
