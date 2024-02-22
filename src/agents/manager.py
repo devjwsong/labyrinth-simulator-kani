@@ -81,14 +81,12 @@ class GameManager(Kani):
         self.raw_history = []
         self.start_idx = 0
         self.turn_count = 0
-        self.context_archive = []
-        self.function_arguments = {}
-        self.function_intermediate_res = {}
 
         # Additional attributes for game play.
         self.players = []
         self.name_to_idx = {}
         self.is_action_scene = False
+        self.gameplay_logs = []
 
         # Pre-buidling the rule prompt or embeddings.
         self.game_rules = []
@@ -476,7 +474,10 @@ class GameManager(Kani):
         is_model_turn = True
         async with self.lock:
             while is_model_turn:
-                # Making the context for exporting data.
+                # do the model prediction
+                completion, messages = await self.get_model_completion(**kwargs)
+
+                # Recording the process before response generation.
                 context = self.make_context()
                 context["past_history"] = []
                 for msg in past_history:
@@ -484,28 +485,25 @@ class GameManager(Kani):
                 context["current_queries"] = []
                 for msg in current_queries:
                     context["current_queries"].append(convert_into_dict(msg))
-
-                # do the model prediction
-                completion, messages = await self.get_model_completion(**kwargs)
                 context["actual_prompt"] = []
                 for msg in messages:
                     context["actual_prompt"].append(convert_into_natural(msg))
 
                 message = completion.message
-                if message.content is not None:  # Ignoring pending function calling.
+                yield message
+
+                if not message.function_call:  # Ignoring pending function calling.
                     if message.role == ChatRole.ASSISTANT:
                         message = ChatMessage.assistant(name="Goblin_King", content=message.content)
                     await self.add_to_history(message)
-                yield message
 
-                # if function call, do it and attempt retry if it's wrong
-                if not message.function_call:
                     context["generated"] = convert_into_dict(message)
-                    self.context_archive.append(context)
+                    self.gameplay_logs.append(context)
                     break
 
+                # if function call, do it and attempt retry if it's wrong
                 try:
-                    func_res = await self.do_function_call(message.function_call)
+                    func_res, arguments, intermediate_res = await self.do_function_call(message.function_call)
                     is_model_turn = func_res.is_model_turn
                 except FunctionCallException as e:
                     should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
@@ -518,15 +516,17 @@ class GameManager(Kani):
                 else:
                     retry = 0
 
-                context["generated"] = convert_into_dict(func_res.message)
-                
-                # If the generated message is from a function, the arguments and intermediate results should be stored.
-                context["function_arguments"] = deepcopy(self.function_arguments)
-                context["function_intermediate_results"] = deepcopy(self.function_intermediate_res)
-                self.function_arguments.clear()
-                self.function_intermediate_res.clear()
+                # Adding the function result in the chat history.
+                await self.add_to_history(func_res.message)
 
-                self.context_archive.append(context)
+                # Recording the function execution specifications.
+                context["generated"] = convert_into_dict(func_res.message)
+                if arguments is not None:
+                    context["function_arguments"] = deepcopy(arguments)
+                if intermediate_res is not None:
+                    context["function_intermediate_results"] = deepcopy(intermediate_res)
+
+                self.gameplay_logs.append(context)
                 current_queries.append(func_res.message)
 
             # Increasing the turn count. If the summarization period has been reached, adding the summary.
@@ -566,7 +566,7 @@ class GameManager(Kani):
             raise NoSuchFunction(call.name)
         # call it
         try:
-            result = await f(**call.kwargs)
+            result, arguments, intermediate_res = await f(**call.kwargs)
             result_str = str(result)
             log.debug(f"{f.name} responded with data: {result_str!r}")
         except Exception as e:
@@ -583,10 +583,7 @@ class GameManager(Kani):
                 msg = self._auto_truncate_message(msg, max_len=f.auto_truncate)
                 log.debug(f"Auto truncate returned {self.message_token_len(msg)} tokens.")
 
-        # Adding the function result in the chat history.
-        await self.add_to_history(msg)
-
-        return FunctionCallResult(is_model_turn=f.after == ChatRole.ASSISTANT, message=msg)
+        return FunctionCallResult(is_model_turn=f.after == ChatRole.ASSISTANT, message=msg), arguments, intermediate_res
 
     # Overriding full_round_str.
     async def full_round_str(
@@ -639,6 +636,7 @@ class GameManager(Kani):
         Activate a test if a player is trying to do something with a certain difficulty.
         Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players.
         """
+        arguments = {'player_name': player_name, 'initial_difficulty': initial_difficulty, 'final_difficulty': final_difficulty}
 
         player = self.players[self.name_to_idx[player_name]]
 
@@ -650,6 +648,8 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)] + self.chat_history, system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
         res = convert_into_class_idx(res, options)
+
+        intermediate_res = {f"Improvement/Hinderance of the test due to the player traits/flaws": options[res]}
 
         if res == 2:  # The difficulty is not affected.
             if not isinstance(player, PlayerKani):
@@ -676,47 +676,45 @@ class GameManager(Kani):
             msg = f"TEST FAILED. THE DICE ROLL RESULT {dice_result} IS SMALLER THAN THE DIFFICULTY {final_difficulty}."
         else:
             msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT {dice_result} IS LARGER THAN OR EQUAL TO THE DIFFICULTY {final_difficulty}."
-        
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['initial_difficulty'] = initial_difficulty
-        self.function_arguments['final_difficulty'] = final_difficulty
-        self.function_intermediate_res[f"Improvement/Hinderance of the test due to the player traits/flaws"] = options[res]
 
         # Updating the new chat message.
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
+            
 
     # Kani's function call for starting an action scene.
     @ai_function
     def activate_action_scene(self):
         """Activate an action scene if this is a circumstance that players should take actions in a tight time limit."""
+        arguments, intermediate_res = None, None
 
         # False Positive: The function is called even when the action scene has already been activated.
         if self.is_action_scene:
             msg = "UNEXPECTED FUNCTION CALLING: THE ACTION SCENE HAS ALREADY BEEN ACTIVATED."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, intermediate_res
 
         self.is_action_scene = True
         msg = "ACTION SCENE ACTIVATED."
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
 
     # Kani's function call for ending an action scene.
     @ai_function
     def terminate_action_scene(self):
         """Terminate the current ongoing action scene if the urgent circumstance has been finished now."""
+        arguments, intermediate_res = None, None
 
         # False Positive: The function is called even when the action scene has not been activated before.
         if not self.is_action_scene:
             msg = "UNEXPECTED FUNCTION CALLING: THE ACTION SCENE HAS NOT BEEN ACTIVATED YET."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, intermediate_res
 
         self.is_action_scene = False
         msg = "ACTION SCENE TERMINATED."
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
@@ -725,12 +723,13 @@ class GameManager(Kani):
         Create an NPC if the NPC requested by a user does not exist in the scene yet.
         This function must not be called if the NPC already exists in the scene.
         """ 
+        arguments = {'npc_name': npc_name}
 
         # False Positive: The function is called even when the argument is an NPC which already exists.
         if npc_name in self.npcs:
             msg = "UNEXPECTED FUNCTION CALLING: NPC ALREADY EXISTS."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
@@ -750,6 +749,8 @@ class GameManager(Kani):
 
             self.npcs[npc_name] = res
 
+            intermediate_res = {f"Generated information of the NPC '{npc_name}'": res}
+
         except json.decoder.JSONDecodeError as e:
             log.debug(res)
             log.error(f"{e}: The output format cannot be converted into dict.")
@@ -759,12 +760,9 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
-        self.function_arguments['npc_name'] = npc_name
-        self.function_intermediate_res[f"Generated information of the NPC '{npc_name}'"] = res
-
         msg = f"NPC {npc_name} CREATED."
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
 
     # Kani's function call for adding a trait to the player.
     @ai_function
@@ -775,6 +773,7 @@ class GameManager(Kani):
         """
         Add a new trait to a player if any circumstance necessiates it.
         """
+        arguments = {'player_name': player_name, 'trait_name': trait_name}
 
         player = self.players[self.name_to_idx[player_name]]
         
@@ -783,17 +782,15 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
         trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
 
+        intermediate_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
+
         player.add_trait(trait_name, trait_desc)
-        
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['trait_name'] = trait_name
-        self.function_intermediate_res[f"Generated description of the trait '{trait_name}'"] = trait_desc
 
         msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_traits(with_number=True))
         print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res 
 
     # Kani's function call for adding a flaw to the player.
     @ai_function
@@ -804,6 +801,7 @@ class GameManager(Kani):
         """
         Add a new flaw to a player if any circumstance necessiates it.
         """
+        arguments = {'player_name': player_name, 'flaw_name': flaw_name}
 
         player = self.players[self.name_to_idx[player_name]]
         
@@ -812,17 +810,15 @@ class GameManager(Kani):
         kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
         flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
 
-        player.add_flaw(flaw_name, flaw_desc)
+        intermediate_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
 
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['flaw_name'] = flaw_name
-        self.function_intermediate_res[f"Generated description of the flaw '{flaw_name}'"] = flaw_desc
+        player.add_flaw(flaw_name, flaw_desc)
 
         msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_flaws(with_number=True))
         print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
 
     # Logic for adding an item. (Not an AI function!)
     def add_item(self, player: Player, item_name: str, item_desc: str):
@@ -872,6 +868,7 @@ class GameManager(Kani):
         Remove a trait if any circumstance necessiates it.
         This function must not be called if the trait does not exist in the current state of the player who triggered this function.
         """
+        arguments = {'player_name': player_name, 'trait_name': trait_name}
 
         player = self.players[self.name_to_idx[player_name]]
 
@@ -879,20 +876,17 @@ class GameManager(Kani):
         if trait_name not in player.traits:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE TRAIT {trait_name}."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         # Removing the trait from the player.
         player.remove_trait(trait_name)
-
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['trait_name'] = trait_name
 
         msg = f"THE TRAIT {trait_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_traits(with_number=True))
         print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
-        return msg
+        return msg, arguments, None
 
     # Kani's function call for removing a flaw from the player.
     @ai_function
@@ -904,6 +898,7 @@ class GameManager(Kani):
         Remove a flaw if any circumstance necessiates it.
         This function must not be called if the flaw does not exist in the current state of the player who triggered this function.
         """
+        arguments = {'player_name': player_name, 'flaw_name': flaw_name}
 
         player = self.players[self.name_to_idx[player_name]]
 
@@ -911,20 +906,17 @@ class GameManager(Kani):
         if flaw_name not in player.flaws:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         # Removing the flaw from the player.
         player.remove_flaw(flaw_name)
-
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['flaw_name'] = flaw_name
 
         msg = f"THE FLAW {flaw_name} HAS BEEN REMOVED FROM THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_flaws(with_number=True))
         print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
-        return msg
+        return msg, arguments, None
 
     # Kani's function call for removing an item in the player's inventory.
     @ai_function
@@ -936,6 +928,7 @@ class GameManager(Kani):
         Remove an item if the player wants to discard it from the inventory.
         This function must not be called if the item does not exist in the inventory of the player who triggered this function.
         """
+        arguments = {'player_name': player_name, 'item_name': item_name}
 
         player = self.players[self.name_to_idx[player_name]]
 
@@ -943,7 +936,7 @@ class GameManager(Kani):
         if item_name not in player.inventory:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         # Removing the item from the inventory.
         desc = player.inventory[item_name]
@@ -952,15 +945,12 @@ class GameManager(Kani):
         # Discarded item is placed in the environment.
         self.environment[item_name] = desc
 
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['item_name'] = item_name
-
         msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
         updated_res = '\n'.join(player.get_inventory(with_number=True))
         print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
 
-        return msg
+        return msg, arguments, None
 
     # Kani's function call for using an item.
     @ai_function
@@ -972,6 +962,7 @@ class GameManager(Kani):
         Let the player use an item if the player wants to use it from the inventory.
         This function must not be called if the item does not exist in the inventory of the player who triggered this function.
         """
+        arguments = {'player_name': player_name, 'item_name': item_name}
 
         player = self.players[self.name_to_idx[player_name]]
 
@@ -979,7 +970,7 @@ class GameManager(Kani):
         if item_name not in player.inventory:
             msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
@@ -990,20 +981,18 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
+        intermediate_res = {f"Expendable item detection result for '{item_name}'": options[res]}
+
         if res == 0:  # The item is expendable.
             msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
             print_system_log(msg, after_break=True)
             player.remove_item(item_name)
-            return msg
-
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['item_name'] = item_name
-        self.function_intermediate_res[f"Expendable item detection result for '{item_name}'"] = options[res]
+            return msg, arguments, intermediate_res
 
         # The item is permanent.
         msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}."
         print_system_log(msg, after_break=True)
-        return msg
+        return msg, arguments, intermediate_res
 
     # Kani's function call for getting access to an object in the environment.
     @ai_function
@@ -1017,11 +1006,13 @@ class GameManager(Kani):
         If the object name also exists as a random table, ignore this function and call use_random_table function instead.
         """
 
+        arguments = {'player_name': player_name, 'object_name': object_name}
+
         # False Positive: The function is called even when the argument is an object which does not exist in the environment.
         if object_name not in self.environment:
             msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
         
         object_desc = self.environment[object_name]
 
@@ -1034,9 +1025,7 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['object_name'] = object_name
-        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = options[res]
+        intermediate_res = {f"Obtainable object detection result for '{object_name}'": options[res]}
 
         if res == 0:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
@@ -1059,17 +1048,17 @@ class GameManager(Kani):
                 msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
                 print_system_log(msg, after_break=True)
 
-                return msg
+                return msg, arguments, intermediate_res
             
             msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}, BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
 
-            return msg
+            return msg, arguments, intermediate_res
 
         msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
         print_system_log(msg, after_break=True)
 
-        return msg
+        return msg, arguments, intermediate_res
 
     # Kani's function call for getting access to the random table.
     @ai_function
@@ -1082,12 +1071,13 @@ class GameManager(Kani):
         This function must not be called if the table does not exist in the random table dictionary.
         If the table name also exists in the environment, ignore use_environment and call this function in priorty.
         """
+        arguments = {'player_name': player_name, 'table_name': table_name}
 
         # False Positive: The function is called even when the argument is a table name which does not exist in the random table dictionary.
         if table_name not in self.random_tables:
             msg = f"UNEXPECTED FUNCTION CALLING: THE TABLE {table_name} DOES NOT EXIST IN THE RANDOM TABLE DICTIONARY."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
 
         player_idx = self.name_to_idx[player_name]
         player = self.players[player_idx]
@@ -1097,7 +1087,7 @@ class GameManager(Kani):
         if len(entries) == 0:
             msg = f"THERE IS NOTHING IN {table_name}."
             print_system_log(msg, after_break=True)
-            return msg
+            return msg, arguments, None
         if not isinstance(player, PlayerKani):
             _ = input(f"THE RANDOM TABLE ACCESS: PRESS ANY KEY TO ROLL A DICE.")
         idx = random.randint(0, len(entries)-1)
@@ -1116,10 +1106,10 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
-        self.function_arguments['player_name'] = player_name
-        self.function_arguments['table_name'] = table_name
-        self.function_intermediate_res[f"Generated description of the object '{object_name}'"] = object_desc
-        self.function_intermediate_res[f"Obtainable object detection result for '{object_name}'"] = options[res]
+        intermediate_res = {
+            f"Generated description of the object '{object_name}'": object_desc,
+            f"Obtainable object detection result for '{object_name}'": options[res]
+        }
 
         if res == 0:  # The item is obtainable.
             # Removing unnecessary punctuations from the object name.
@@ -1140,17 +1130,17 @@ class GameManager(Kani):
                 msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
                 print_system_log(msg, after_break=True)
 
-                return msg
+                return msg, arguments, intermediate_res
             
             msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}, BUT DECIDED NOT TO TAKE IT."
             print_system_log(msg, after_break=True)
 
-            return msg
+            return msg, arguments, intermediate_res
 
         msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
         print_system_log(msg, after_break=True)
 
-        return msg
+        return msg, arguments, intermediate_res
 
     # Validating if the current interaction falls into the success condition.
     async def validate_success_condition(self):

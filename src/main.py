@@ -270,4 +270,4 @@ if __name__=='__main__':
 
         file_path = f"{file_dir}/{owner_name}-model={args.model_idx}-seed={args.seed}-time={execution_time}.json"
         with open(file_path, 'w') as f:
-            json.dump(manager.context_archive, f)
+            json.dump(manager.gameplay_logs, f)
