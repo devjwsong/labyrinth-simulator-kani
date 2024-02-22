@@ -39,16 +39,24 @@ There are a few technical details of the system, which can help you understand h
 
 ### Arguments
 
+**Arguments for the scene initialization**
+
+| Argument      | Type  | Description                                                  | Default               |
+| ------------- | ----- | ------------------------------------------------------------ | --------------------- |
+| `--model_idx` | `str` | The index of the model.                                      | *YOU SHOULD SPECIFY.* |
+| `--scene_idx` | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | *YOU SHOULD SPECIFY.* |
+
+<br/>
+
 **Arguments for the gameplay**
 
 | Argument             | Type           | Description                                                  | Default               |
 | -------------------- | -------------- | ------------------------------------------------------------ | --------------------- |
 | `--seed`             | `int`          | The random seed for randomized operations.                   | *YOU SHOULD SPECIFY.* |
 | `--model_idx`        | `str`          | The index of the model. Since only `openai` engine is supported for leveraging the function calling feature, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | *YOU SHOULD SPECIFY.* |
-| `--rule_injection`   | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`                |
-| `--scene_idx`        | `int`          | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | *YOU SHOULD SPECIFY.* |
+| `--rule_injection`   | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. For this, you just erase `--rule_injection` from `exec_main.sh`. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`                |
 | `--num_players`      | `int`          | The number of players.                                       | `1`                   |
-| `--scene_path`       | `str`          | The path of the JSON file which has the initialized scene information before. If the file cannot be found, the system will initialize the scene from the beginning. | -                     |
+| `--scene_path`       | `str`          | The path of the JSON file which has the initialized scene information before. | *YOU SHOULD SPECIFY.* |
 | `--players_path`     | `str`          | The path of the JSON file which has the created player character information before. If the file cannot be found, the system will make you create the new characters from the beginning. | -                     |
 | `--export_data`      | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results` directory. | *Set by default.*     |
 | `--automated_player` | `'store_true'` | Setting another kanis for the players for simulating the game automatically. | -                     |
@@ -110,11 +118,23 @@ These are for using the separate evaluation script to test each individual model
 
    <br/>
 
-2. Modify the arguments in `exec_main.sh` to run a game scene with your preferences.
+2. First, you should initialize the scene you want to play. Set the arguments in `exec_init_scene.sh` to run the initialization.
 
    <br/>
 
-3. Enjoy the game!
+3. Execute `exec_init_scene.sh`. After initialization, the scene will be stored at: `scenes/scene={SCENE_IDX}/{USERNAME}-model={MODEL_IDX}-time={EXECUTION_TIME}.json`.
+
+   ```shell
+   sh exec_init_scene.sh
+   ```
+
+   <br/>
+
+4. Then modify the arguments in `exec_main.sh` to run a game scene with your preferences. Make sure to set `--scene_path` with your initialized scene generated in the previous step.
+
+   <br/>
+
+5. Enjoy the game!
 
    ```shell
    sh exec_main.sh
@@ -136,7 +156,6 @@ sh exec_evaluate.sh
 
 If you agreed on saving the initialized scene, created player characters, or your gameplay data, you can find your data as follows:
 
-- Initialized scene: `scenes/scene={SCENE_IDX}/{USERNAME}-model={MODEL_IDX}-time={EXECUTION_TIME}.json`
 - Created player characters: `players/{USERNAME}-num_players={NUM_PLAYERS}-time={EXECUTION_TIME}.json`
 - Gameplay result: `results/scene={SCENE_IDX}/rule={RULE_INJECTION}/concat={CONCAT_POLICY}/msg_limit={MAX_NUM_MSGS}/summarization={SUMMARIZATION}/summ_period={SUMM_PERIOD}/clear_raw={CLEAR_RAW_LOGS}/functions={INCLUDE_FUNCTIONS}/{USERNAME}-model={MODEL_IDX}-seed={SEED}-time={EXECUTION_TIME}.json`
 

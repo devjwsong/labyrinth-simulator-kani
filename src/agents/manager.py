@@ -9,7 +9,6 @@ from agents.player import Player
 from constants import (
     SEP,
     RULE_SUMMARY,
-    SCENE_INIT_PROMPT,
     VALIDATE_SUCCESS_PROMPT, 
     VALIDATE_FAILURE_PROMPT,
     DIFFICULTY_PROMPT,
@@ -29,10 +28,9 @@ from utils import (
     find_current_point, 
     convert_into_dict,
     convert_into_natural, 
-    check_init_types, 
     convert_into_class_idx
 )
-from typing import Any, List, Dict, AsyncIterable, Annotated, Tuple, Callable
+from typing import AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
 from itertools import chain
@@ -49,21 +47,21 @@ message_log = logging.getLogger("kani.messages")
 
 # The whole game manager class.
 class GameManager(Kani):
-    def __init__(self, main_args: Namespace, encoder: SentenceTransformer, *args, **kwargs):
+    def __init__(self, scene: dict, main_args: Namespace, encoder: SentenceTransformer, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
-        self.chapter = ""
-        self.scene = ""
-        self.scene_summary = []
-        self.npcs = {}
-        self.generation_rules = []
-        self.success_condition = ""
-        self.failure_condition = ""
-        self.game_flow = []
-        self.environment = {}
-        self.random_tables = {}
-        self.consequences = ""
+        self.chapter = scene['chapter']
+        self.scene = scene['scene']
+        self.scene_summary = scene['scene_summary']
+        self.npcs = scene['npcs']
+        self.generation_rules = scene['generation_rules']
+        self.success_condition = scene['success_condition']
+        self.failure_condition = scene['failure_condition']
+        self.game_flow = scene['game_flow']
+        self.environment = scene['environment']
+        self.random_tables = scene['random_tables']
+        self.consequences = scene['consequences']
 
         # Additional arguments for prompt design policy.
         self.concat_policy = main_args.concat_policy
@@ -121,40 +119,6 @@ class GameManager(Kani):
         self.environment = obj['environment']
         self.random_tables = obj['random_tables']
         self.consequences = obj['consequences']
-
-    # Initialization of the scene.
-    async def init_scene(self, scene: Dict[str, Any]):
-        system_prompt = '\n'.join([' '. join(part) for part in SCENE_INIT_PROMPT])
-        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-        rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
-
-        kani = Kani(self.engine, chat_history=[rule_prompt], system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the JSON output for the initialized scene attributes.\nScene: {scene}")
-
-        # Finding each key and mapping into the corresponding attribute.
-        try:
-            res = json.loads(res)
-
-            res['chapter'] = scene['chapter']
-            res['scene'] = scene['scene']
-            res['random_tables'] = scene['random_tables']
-            res['consequences'] = scene['consequences']
-
-            check_init_types(res)
-            self.set_scene(res)
-
-        except json.decoder.JSONDecodeError as e:  # JSON parsing error: This should be noted as 0 for the evaluation.
-            log.debug(res)
-            log.error(f"{e}: The output format cannot be converted into dict.")
-            raise Exception()
-        except KeyError as e:  # Missing attributes error: This should be noted as 0.2 for the evaluation.
-            log.debug(res)
-            log.error(f"{e}: Missing key.")
-            raise Exception()
-        except AssertionError as e:  # Incorrect types error: This should be noted as 0.5 for the evaluation.
-            log.debug(res)
-            log.error(f"{e}: Incorrect data type.")
-            raise Exception()
 
     # Getter for NPC in a natural format.
     def get_npc(self, info):
@@ -287,7 +251,7 @@ class GameManager(Kani):
         return valid_chat_history
 
     # Summarizing the given dialogue history.
-    async def summarize_history(self, input_history: List[ChatMessage]) -> ChatMessage:
+    async def summarize_history(self, input_history: list[ChatMessage]) -> ChatMessage:
         # The default system prompt for the instruction.
         system_prompt = ' '.join(SUMMARIZE_PROMPT)
         
@@ -456,7 +420,7 @@ class GameManager(Kani):
         return context
 
     # Overriding get_model_completion.
-    async def get_model_completion(self, include_functions: bool = True, **kwargs) -> Tuple[BaseCompletion, List[ChatMessage]]:
+    async def get_model_completion(self, include_functions: bool = True, **kwargs) -> Tuple[BaseCompletion, list[ChatMessage]]:
         """Get the model's completion with the current chat state.
 
         Compared to :meth:`chat_round` and :meth:`full_round`, this lower-level method does not save the model's reply
@@ -490,7 +454,7 @@ class GameManager(Kani):
         return completion, messages
 
     # Overriding full_round.
-    async def full_round(self, queries: List[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
+    async def full_round(self, queries: list[ChatMessage], **kwargs) -> AsyncIterable[ChatMessage]:
         """Perform a full chat round (user -> model [-> function -> model -> ...] -> user).
 
         Yields each of the model's ChatMessages. A ChatMessage must have at least one of (content, function_call).
@@ -628,7 +592,7 @@ class GameManager(Kani):
     # Overriding full_round_str.
     async def full_round_str(
         self,
-        queries: List[ChatMessage],
+        queries: list[ChatMessage],
         message_formatter: Callable[[ChatMessage], str | None] = assistant_message_contents,
         **kwargs,
     ) -> AsyncIterable[tuple[str, ChatRole]]:

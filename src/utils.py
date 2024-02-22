@@ -95,43 +95,6 @@ def remove_punctuation(word: str):
     return word
 
 
-# Checking the types of attributes for initialization.
-def check_init_types(scene: dict):
-    assert isinstance(scene['scene_summary'], list), "THE SCENE SUMMARY IS NOT THE LIST TYPE."
-    assert len(scene['scene_summary']) > 0, "THE SCENE SUMMARY MUST NOT BE EMPTY."
-
-    # The NPCs.
-    assert isinstance(scene['npcs'], dict), "THE NPCS ATTRIBUTE IS NOT THE DICT TYPE."
-    if len(scene['npcs']) > 0:
-        for name, info in scene['npcs'].items():
-            assert isinstance(name, str), "THE NAME OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info, dict), "THE NPC INFORMATION IS NOT THE DICT TYPE."
-            assert isinstance(info['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
-            assert isinstance(info['goal'], str), "THE GOAL OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
-
-    # The generation rules.
-    assert isinstance(scene['generation_rules'], list), "THE LIST OF GENERATION RULES IS NOT THE LIST TYPE."
-
-    # The success condition.
-    assert isinstance(scene['success_condition'], str), "THE SUCCESS CONDITION IS NOT THE STRING TYPE."
-
-    # The failure condition.
-    assert isinstance(scene['failure_condition'], str), "THE FAILURE CONDITION IS NOT THE STRING TYPE."
-
-    # The game flow rules.
-    assert isinstance(scene['game_flow'], list), "THE LIST OF GAME FLOW RULES IS NOT THE LIST TYPE."
-
-    # The environment.
-    assert isinstance(scene['environment'], dict), "THE LIST OF ENVIRONMENT SPECIFICATIONS IS NOT THE DICT TYPE."
-    if len(scene['environment']) > 0:
-        for name, desc in scene['environment'].items():
-            assert isinstance(name, str), "THE NAME OF AN OBJECT IS NOT THE STRING TYPE."
-            assert isinstance(desc, str), "THE OBJECT DESCRIPTION IS NOT THE STRING TYPE."
-
-
 # Finding the valid current queries.
 def find_current_point(chat_history: List[ChatMessage]) -> int:
     if chat_history[-1].role == ChatRole.USER:

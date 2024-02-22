@@ -2,8 +2,8 @@ python src/main.py \
     --seed=SEED \
     --model_idx=MODEL_IDX \
     --rule_injection=full \
-    --scene_idx=SCENE_IDX \
     --num_players=1 \
+    --scene_path=SCENE_PATH \
     --export_data \
     --concat_policy=simple \
     --include_functions \

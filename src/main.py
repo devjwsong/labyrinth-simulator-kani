@@ -322,9 +322,8 @@ if __name__=='__main__':
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
     parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
-    parser.add_argument('--scene_idx', type=int, required=True, help="The index of the scene to play.")
     parser.add_argument('--num_players', type=int, default=1, help="The number of players.")
-    parser.add_argument('--scene_path', type=str, help="The path of the JSON file which has the initialized scene information before.")
+    parser.add_argument('--scene_path', type=str, required=True, help="The path of the JSON file which has the initialized scene information before.")
     parser.add_argument('--players_path', type=str, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--automated_player', action='store_true', help="Setting another kanis for the players for simulating the game automatically.")
@@ -371,64 +370,18 @@ if __name__=='__main__':
         encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
 
     # Initializing the game manager.
+    print_system_log("LOADING THE SCENE...")
+    with open(args.scene_path, 'r') as f:
+        scene = json.load(f)
+
     system_prompt = ' '.join(ASSISTANT_INSTRUCTION)
     manager = GameManager(
+        scene=scene,
         main_args=args,
         encoder=encoder,
         engine=engine, 
         system_prompt=system_prompt
     )
-
-    # Initializing the scene.    
-    if args.scene_path is not None and os.path.isfile(args.scene_path):  # Loading the pre-initialized scene.
-        print_system_log("YOU SPECIFIED THE PATH TO AN INITIALIZED SCENE. LOADING...")
-        with open(args.scene_path, 'r') as f:
-            scene = json.load(f)
-        manager.set_scene(scene)
-    else:  # Initializing the scene from the beginning.
-        with open("data/scenes.json", 'r') as f:
-            scenes = json.load(f)
-
-        assert args.scene_idx is not None, "The scene index should be provided."
-        assert 0 <= args.scene_idx < len(scenes), "The scene index is not valid."
-        scene = scenes[args.scene_idx]
-
-        print_system_log("INITIALIZING THE SCENE...")
-
-        loop = asyncio.get_event_loop()
-        async def run():
-            try:
-                await manager.init_scene(scene)
-            except:
-                log.error("Error occured during the scene initialization. Try again.")
-                loop.close()
-        loop.run_until_complete(run())
-
-        # Exporting the scene.
-        scene = {
-            'chapter': manager.chapter,
-            'scene': manager.scene,
-            'scene_summary': manager.scene_summary,
-            'npcs': manager.npcs,
-            'generation_rules': manager.generation_rules,
-            'success_condition': manager.success_condition,
-            'failure_condition': manager.failure_condition,
-            'game_flow': manager.game_flow,
-            'environment': manager.environment,
-            'random_tables': manager.random_tables,
-            'consequences': manager.consequences
-        }
-
-        print_question_start()
-        print_system_log("DO YOU WANT TO SAVE THIS NEWLY INITIALIZED SCENE?")
-        res = select_options(['Yes', 'No'])
-        if res == 0:
-            file_dir = f"scenes/scene={args.scene_idx}"
-            if not os.path.isdir(file_dir):
-                os.makedirs(file_dir)
-            file_path = f"{file_dir}/{owner_name}-model={args.model_idx}-time={execution_time}.json"
-            with open(file_path, 'w') as f:
-                json.dump(scene, f)
 
     # DEBUG
     manager.show_scene()
@@ -484,7 +437,7 @@ if __name__=='__main__':
 
     # Exporting data after finishing the scene.
     if args.export_data:
-        file_dir = f"results/scene={args.scene_idx}/rule={args.rule_injection}/concat={args.concat_policy}/" + \
+        file_dir = f"results/{args.scene_path.split('/')[1]}/rule={args.rule_injection}/concat={args.concat_policy}/" + \
             f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/functions={args.include_functions}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
