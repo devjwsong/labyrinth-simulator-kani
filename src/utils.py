@@ -176,21 +176,21 @@ def convert_into_natural(message: ChatMessage):
         if name is None:
             name = "[Game Manager]"
         else:
-            name = f"[Game Manager] {name.replace('_', ' ')}"
+            name = f"[Game Manager] {name.replace('_', ' ')}:"
     if message.role == ChatRole.USER:
         if name is None:
             name = "[Player]"
         else:
-            name = f"[Player] {name.replace('_', ' ')}"
+            name = f"[Player] {name.replace('_', ' ')}:"
     if message.role == ChatRole.FUNCTION:
         name = f"[Function] {name}"
     if message.role == ChatRole.SYSTEM:
         if name is None:
             name = "[SYSTEM]"
         else:
-            name = f"[SYSTEM] {name}"
+            name = f"[SYSTEM] {name}:"
     
-    return f"{name}: {content}"
+    return f"{name} {content}"
 
 
 # Extracting the class index in the output of a classification problem.
