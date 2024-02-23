@@ -124,19 +124,31 @@ def main(manager: GameManager, args: Namespace):
             succ = await manager.validate_success_condition()
             fail = await manager.validate_failure_condition()
             if elapsed_time >= GAME_TIME_LIMIT:
-                print("PLAYER LOST! ENDING THE CURRENT SCENE.")
-                print("[TIME LIMIT REACHED.]")
+                print_system_log("PLAYER LOST! ENDING THE CURRENT SCENE.")
+                print_system_log("TIME LIMIT REACHED.")
+                manager.gameplay_logs.append({
+                    'game_result': 'timeout',
+                    'condition': 'The players failed to beat the game in the time limit.'
+                })
                 break
 
             if succ and fail:
-                print("CONTRADICTORY VALIDATION BETWEEN SUCCESS AND FAILURE. KEEPING THE GAME SCENE MORE.")
+                print_system_log("CONTRADICTORY VALIDATION BETWEEN SUCCESS AND FAILURE. KEEPING THE GAME SCENE MORE.")
             elif succ:
-                print("PLAYER WON! ENDING THE CURRENT SCENE.")
-                print(f"[SUCCESS CONDITION] {manager.success_condition}")
+                print_system_log("PLAYER WON! ENDING THE CURRENT SCENE.")
+                print_system_log(f"SUCCESS CONDITION: {manager.success_condition}")
+                manager.gameplay_logs.append({
+                    'game_result': 'success',
+                    'condition': manager.success_condition
+                })
                 break
             elif fail:
-                print("PLAYER LOST! ENDING THE CURRENT SCENE.")
-                print(f"[FAILURE CONDITION] {manager.failure_condition}")
+                print_system_log("PLAYER LOST! ENDING THE CURRENT SCENE.")
+                print_system_log(f"FAILURE CONDITION: {manager.failure_condition}")
+                manager.gameplay_logs.append({
+                    'game_result': 'failure',
+                    'condition': manager.failure_condition
+                })
                 break
 
         logic_break()
@@ -146,6 +158,10 @@ def main(manager: GameManager, args: Namespace):
             await asyncio.wait_for(game_logic(), SYSTEM_TIME_LIMIT)
         except asyncio.TimeoutError:
             print_system_log("THE GAME GOT STUCK DUE TO UNKNOWN TECHNICAL REASON.")
+            manager.gameplay_logs.append({
+                'game_result': 'unexpected',
+                'condition': "The game stuck due to an unexpected behavior."
+            })
 
     loop.run_until_complete(main_logic())
     loop.close()
