@@ -493,8 +493,7 @@ class GameManager(Kani):
                 yield message
 
                 if not message.function_call:  # Ignoring pending function calling.
-                    if message.role == ChatRole.ASSISTANT:
-                        message = ChatMessage.assistant(name="Goblin_King", content=message.content)
+                    message = ChatMessage.assistant(name="Goblin_King", content=message.content)
                     await self.add_to_history(message)
 
                     context["generated"] = convert_into_dict(message)
@@ -517,17 +516,18 @@ class GameManager(Kani):
                     retry = 0
 
                 # Adding the function result in the chat history.
-                await self.add_to_history(func_res.message)
+                message = func_res.message
+                await self.add_to_history(message)
 
                 # Recording the function execution specifications.
-                context["generated"] = convert_into_dict(func_res.message)
+                context["generated"] = convert_into_dict(message)
                 if arguments is not None:
                     context["function_arguments"] = deepcopy(arguments)
                 if intermediate_res is not None:
                     context["function_intermediate_results"] = deepcopy(intermediate_res)
 
                 self.gameplay_logs.append(context)
-                current_queries.append(func_res.message)
+                current_queries.append(message)
 
             # Increasing the turn count. If the summarization period has been reached, adding the summary.
             self.turn_count += 1
@@ -601,7 +601,7 @@ class GameManager(Kani):
         """
         async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
-                yield text, message.role
+                yield text, message.role, message.function_call
 
     # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:

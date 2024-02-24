@@ -68,9 +68,9 @@ def main(manager: GameManager, args: Namespace):
         start_time = time.time()
         notified = 0
 
-        queries = [ChatMessage.system(content=f"{start_sent}{scene_intro}")]
+        player_queries = [[ChatMessage.system(content=f"{start_sent}{scene_intro}")] for _ in range(len(manager.players))]
+        manager_queries = []
         while True:
-
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
 
@@ -89,22 +89,32 @@ def main(manager: GameManager, args: Namespace):
                 player = players[p]
                 try:
                     if isinstance(player, PlayerKani):
-                        query = await player.chat_round_str(queries)
-                        queries.append(ChatMessage.user(name=player.name, content=query))
-                        print_player_log(query, player.name, after_break=True)
+                        player_query = await player.chat_round_str(player_queries[p])
+                        print_player_log(player_query, player.name, after_break=True)
+
                     else:
-                        query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
-                        if len(query) > 0:  # Empty input is ignored.
-                            if query == "Abort!":  # Immediate termination.
+                        player_query = get_player_input(name=player.name, per_player_time=per_player_time, after_break=True)
+                        if len(player_query) > 0:  # Empty input is ignored.
+                            if player_query == "Abort!":  # Immediate termination.
+                                print_system_log("THE GAME WAS ABORTED BY THE USER REQUEST.")
+                                manager.gameplay_logs.append({
+                                    'game_result': 'aborted',
+                                    'condition': "The user intentionally stopped the game."
+                                })
                                 return
-                            queries.append(ChatMessage.user(name=player.name, content=query))
+
+                    for pp in player_idxs:
+                        if pp != p: 
+                            player_queries[pp].append(ChatMessage.user(name=player.name, content=player_query))
+                        else:
+                            player_queries[pp] = []
+                    manager_queries.append(ChatMessage.user(name=player.name, content=player_query))
 
                 except TimeoutOccurred:
                     continue
             
-            queries = queries[-len(players):]
-            async for response, role in manager.full_round_str(
-                queries,
+            async for response, role, is_function_call in manager.full_round_str(
+                manager_queries,
                 message_formatter=assistant_message_contents_thinking,
                 include_functions=args.include_functions,
                 max_tokens=args.max_tokens,
@@ -113,14 +123,13 @@ def main(manager: GameManager, args: Namespace):
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                if role == ChatRole.FUNCTION:
-                    queries.append(ChatMessage.system(content=response))
-                else:
-                    queries.append(ChatMessage.user(name="Goblin_King", content=response))
+                if not is_function_call:
+                    for p in range(len(manager.players)):
+                        player_queries[p].append(ChatMessage.user(name="Goblin_King", content=response))
+                    manager_queries = []
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
-            succ, fail = False, False
             succ = await manager.validate_success_condition()
             fail = await manager.validate_failure_condition()
             if elapsed_time >= GAME_TIME_LIMIT:

@@ -114,11 +114,16 @@ def find_current_point(chat_history: List[ChatMessage]) -> int:
 
 # Converting ChatMessage into a dictionary.
 def convert_into_dict(message: ChatMessage):
-    return {
+    res = {
         'role': message.role.value,
         'name': message.name,
-        'content': message.content
+        'content': message.content,
     }
+
+    if message.role == ChatRole.ASSISTANT:
+        res['is_function_call'] = True if message.function_call else False
+    
+    return res
 
 # Converting a dictionary into ChatMessage.
 def convert_into_message(obj: dict):

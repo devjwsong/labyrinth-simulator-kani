@@ -208,6 +208,7 @@ class PlayerKani(Player, Kani):
             # and get a completion
             completion = await self.get_model_completion(**kwargs)
             message = completion.message
+            message = ChatMessage.assistant(name=self.name, content=message.content)
             await self.add_to_history(message)
 
             return message
