@@ -1,7 +1,7 @@
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType
+from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType, ToolCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
-from kani.internal import FunctionCallResult
+from kani.internal import FunctionCallResult, ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
 from kani.engines.base import BaseCompletion
 from sentence_transformers import SentenceTransformer, util
@@ -40,6 +40,7 @@ import logging
 import random
 import numpy as np
 import torch
+import asyncio
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -464,21 +465,23 @@ class GameManager(Kani):
         :param query: The content of the user's chat message.
         :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
         """
-        past_history = deepcopy(self.raw_history)
-        current_queries = deepcopy(queries)
-
-        for msg in queries:
-            await self.add_to_history(msg)
 
         retry = 0
         is_model_turn = True
         async with self.lock:
+            for msg in queries:
+                await self.add_to_history(msg)
+            
             while is_model_turn:
                 # do the model prediction
                 completion, messages = await self.get_model_completion(**kwargs)
 
-                # Recording the process before response generation.
+                # Recording the current state.
                 context = self.make_context()
+                idx = find_current_point(self.raw_history)
+                past_history = self.raw_history[:idx]
+                current_queries = self.raw_history[idx:]
+
                 context["past_history"] = []
                 for msg in past_history:
                     context["past_history"].append(convert_into_dict(msg))
@@ -490,44 +493,59 @@ class GameManager(Kani):
                     context["actual_prompt"].append(convert_into_natural(msg))
 
                 message = completion.message
+                message = ChatMessage.assistant(name="Goblin_King", content=message.content, tool_calls=message.tool_calls)
                 yield message
+                await self.add_to_history(message)
+                context["generated"] = convert_into_dict(message)
 
-                if not message.function_call:  # Ignoring pending function calling.
-                    message = ChatMessage.assistant(name="Goblin_King", content=message.content)
-                    await self.add_to_history(message)
-
-                    context["generated"] = convert_into_dict(message)
+                if not message.tool_calls:  # If there is no function call, this is the end of a turn.
                     self.gameplay_logs.append(context)
-                    break
+                    return
 
-                # if function call, do it and attempt retry if it's wrong
-                try:
-                    func_res, arguments, intermediate_res = await self.do_function_call(message.function_call)
-                    is_model_turn = func_res.is_model_turn
-                except FunctionCallException as e:
-                    should_retry = await self.handle_function_call_exception(message.function_call, e, retry)
-                    # retry if we have retry attempts left
+                # run each tool call in parallel
+                async def _do_tool_call(tc: ToolCall):
+                    try:
+                        return await self.do_function_call(tc.function, tool_call_id=tc.id)
+                    except FunctionCallException as e:
+                        return await self.handle_function_call_exception(tc.function, e, retry, tool_call_id=tc.id)
+
+                # If this is a tool call, run the functions and gather the results.
+                context['function_calls'] = []
+                is_model_turn = False
+                should_retry_call = False
+                n_errs = 0
+                results = await asyncio.gather(*(_do_tool_call(tc) for tc in message.tool_calls))
+                for result, arguments, intermediate_res in results:
+                    # save the result to the chat history
+                    await self.add_to_history(result.message)
+                    yield result.message
+
+                    # Recording the function execution specifications.
+                    context['function_calls'].append({
+                        'result': convert_into_dict(result.message),
+                        'arguments': deepcopy(arguments),
+                        'intermediate_results': deepcopy(intermediate_res)
+                    })
+                    
+                    if isinstance(result, ExceptionHandleResult):
+                        is_model_turn = True
+                        n_errs += 1
+                        # retry if any function says so
+                        should_retry_call = should_retry_call or result.should_retry
+                    else:
+                        # allow model to generate response if any function says so
+                        is_model_turn = is_model_turn or result.is_model_turn
+
+                # if we encountered an error, increment the retry counter and allow the model to generate a response
+                if n_errs:
                     retry += 1
-                    if not should_retry:
+                    if not should_retry_call:
                         # disable function calling on the next go
-                        kwargs = {**kwargs, "include_functions": False}
-                    continue
+                        kwargs["include_functions"] = False
                 else:
                     retry = 0
 
-                # Adding the function result in the chat history.
-                message = func_res.message
-                await self.add_to_history(message)
-
-                # Recording the function execution specifications.
-                context["generated"] = convert_into_dict(message)
-                if arguments is not None:
-                    context["function_arguments"] = deepcopy(arguments)
-                if intermediate_res is not None:
-                    context["function_intermediate_results"] = deepcopy(intermediate_res)
-
                 self.gameplay_logs.append(context)
-                current_queries.append(message)
 
             # Increasing the turn count. If the summarization period has been reached, adding the summary.
             self.turn_count += 1
@@ -546,7 +564,7 @@ class GameManager(Kani):
                 self.turn_count = 0
 
     # Overriding do_function_call.
-    async def do_function_call(self, call: FunctionCall) -> FunctionCallResult:
+    async def do_function_call(self, call: FunctionCall, tool_call_id: str = None) -> FunctionCallResult:
         """Resolve a single function call.
 
         By default, any exception raised from this method will be an instance of a :class:`.FunctionCallException`.
@@ -571,7 +589,7 @@ class GameManager(Kani):
             log.debug(f"{f.name} responded with data: {result_str!r}")
         except Exception as e:
             raise WrappedCallException(f.auto_retry, e) from e
-        msg = ChatMessage.function(f.name, result_str)
+        msg = ChatMessage.function(f.name, result_str, tool_call_id=tool_call_id)
         # if we are auto truncating, check and see if we need to
         if f.auto_truncate is not None:
             message_len = self.message_token_len(msg)
@@ -601,7 +619,7 @@ class GameManager(Kani):
         """
         async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
-                yield text, message.role, message.function_call
+                yield text, message.tool_calls
 
     # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
@@ -645,7 +663,11 @@ class GameManager(Kani):
         
         options = ["The test becomes easier.", "The test becomes harder.", "There is no change."]
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)] + self.chat_history, system_prompt=system_prompt)
+        kani = Kani(
+            self.engine, 
+            chat_history=[self.make_player_prompt(player)] + [msg for msg in self.raw_history if msg.tool_calls is None and msg.role != ChatRole.FUNCTION], 
+            system_prompt=system_prompt
+        )
         res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
@@ -1008,6 +1030,9 @@ class GameManager(Kani):
 
         arguments = {'player_name': player_name, 'object_name': object_name}
 
+        player_idx = self.name_to_idx[player_name]
+        player = self.players[player_idx]
+
         # False Positive: The function is called even when the argument is an object which does not exist in the environment.
         if object_name not in self.environment:
             msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
@@ -1034,9 +1059,6 @@ class GameManager(Kani):
             print_system_log(f"{item_name}: {object_desc}")
             print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
             selected = select_random_options(['Yes', 'No']) if isinstance(player, PlayerKani) else select_options(['Yes', 'No'])
-
-            player_idx = self.name_to_idx[player_name]
-            player = self.players[player_idx]
 
             if selected == 0:
                 obtain_msg = self.add_item(player, item_name, object_desc)
