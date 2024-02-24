@@ -196,7 +196,7 @@ if __name__=='__main__':
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
-    parser.add_argument('--max_num_msgs', type=int, help="The maximum number of messages to be included.")
+    parser.add_argument('--max_num_msgs', type=int, help="The maximum number of messages to be included in the prompt as chat history.")
     parser.add_argument('--summarization', action='store_true', help="Setting whether to include the summarization or not.")
     parser.add_argument('--summ_period', type=int, help="The summarization period in terms of the number of turns.")
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
