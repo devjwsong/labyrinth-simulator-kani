@@ -113,7 +113,7 @@ def main(manager: GameManager, args: Namespace):
                 except TimeoutOccurred:
                     continue
             
-            async for response, tool_calls in manager.full_round_str(
+            async for response in manager.full_round_str(
                 manager_queries,
                 message_formatter=assistant_message_contents_thinking,
                 include_functions=args.include_functions,
@@ -123,10 +123,9 @@ def main(manager: GameManager, args: Namespace):
                 temperature=args.temperature,
                 top_p=args.top_p
             ):
-                if not tool_calls:
-                    for p in range(len(manager.players)):
-                        player_queries[p].append(ChatMessage.user(name="Goblin_King", content=response))
-                    manager_queries = []
+                for p in range(len(manager.players)):
+                    player_queries[p].append(ChatMessage.user(name="Goblin_King", content=response))
+                manager_queries = []
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.

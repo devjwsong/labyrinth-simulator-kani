@@ -493,10 +493,11 @@ class GameManager(Kani):
                     context["actual_prompt"].append(convert_into_natural(msg))
 
                 message = completion.message
-                message = ChatMessage.assistant(name="Goblin_King", content=message.content, tool_calls=message.tool_calls)
+                normal_message = ChatMessage.assistant(name="Goblin_King", content=message.content, tool_calls=message.tool_calls)
                 yield message
-                await self.add_to_history(message)
-                context["generated"] = convert_into_dict(message)
+                if message.content is not None:  # An empty function call will be ignored.
+                    await self.add_to_history(normal_message)
+                context["generated"] = convert_into_dict(normal_message)
 
                 if not message.tool_calls:  # If there is no function call, this is the end of a turn.
                     self.gameplay_logs.append(context)
@@ -516,8 +517,9 @@ class GameManager(Kani):
                 n_errs = 0
                 results = await asyncio.gather(*(_do_tool_call(tc) for tc in message.tool_calls))
                 for result, arguments, intermediate_res in results:
-                    # save the result to the chat history
-                    await self.add_to_history(result.message)
+                    # save the result to the chat history as a system message.
+                    system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
+                    await self.add_to_history(system_message)
                     yield result.message
 
                     # Recording the function execution specifications.
@@ -619,7 +621,7 @@ class GameManager(Kani):
         """
         async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
-                yield text, message.tool_calls
+                yield text
 
     # Overriding chat_round.
     async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
@@ -665,7 +667,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(
             self.engine, 
-            chat_history=[self.make_player_prompt(player)] + [msg for msg in self.raw_history if msg.tool_calls is None and msg.role != ChatRole.FUNCTION], 
+            chat_history=[self.make_player_prompt(player)] + self.raw_history, 
             system_prompt=system_prompt
         )
         res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
