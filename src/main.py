@@ -1,10 +1,9 @@
 from utils import log_break, select_options, print_logic_start, print_question_start, print_system_log, print_player_log, print_manager_log, get_player_input, logic_break
 from kani.utils.message_formatters import assistant_message_contents_thinking
-from kani.models import ChatMessage, ChatRole
+from kani.models import ChatMessage
 from kani.engines.openai import OpenAIEngine
 from agents.player import Player, PlayerKani
 from agents.manager import GameManager
-from sentence_transformers import SentenceTransformer
 from constants import ASSISTANT_INSTRUCTION, USER_INSTRUCTION, GAME_TIME_LIMIT, SYSTEM_TIME_LIMIT,  PER_PLAYER_TIME, ONE_HOUR
 from typing import Dict
 from argparse import Namespace
@@ -229,12 +228,6 @@ if __name__=='__main__':
     log_break()
     engine = OpenAIEngine(api_key, model=args.model_idx)
 
-    # Intializing the sentence encoder if the concatenation policy is retrieval or the rule injection policy is retrieval.
-    encoder = None
-    if args.concat_policy == 'retrieval' or args.rule_injection == 'retrieval':
-        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-        encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
-
     # Initializing the game manager.
     print_system_log("LOADING THE SCENE...")
     with open(args.scene_path, 'r') as f:
@@ -244,7 +237,6 @@ if __name__=='__main__':
     manager = GameManager(
         scene=scene,
         main_args=args,
-        encoder=encoder,
         engine=engine, 
         system_prompt=system_prompt
     )

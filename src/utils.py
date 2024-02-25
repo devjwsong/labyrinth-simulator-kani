@@ -112,8 +112,6 @@ def convert_into_dict(message: ChatMessage):
         'name': message.name,
         'content': message.content,
     }
-    if message.role == ChatRole.ASSISTANT:
-        res['is_function_call'] = True if message.tool_calls else False
     return res
 
 # Converting a dictionary into ChatMessage.

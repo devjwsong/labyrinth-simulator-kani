@@ -4,7 +4,6 @@ from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunctio
 from kani.internal import FunctionCallResult, ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
 from kani.engines.base import BaseCompletion
-from sentence_transformers import SentenceTransformer, util
 from agents.player import Player, PlayerKani
 from constants import (
     SEP,
@@ -34,6 +33,8 @@ from typing import AsyncIterable, Annotated, Tuple, Callable
 from argparse import Namespace
 from copy import deepcopy
 from itertools import chain
+from sentence_transformers import SentenceTransformer, util
+from sklearn.metrics.pairwise import cosine_similarity
 
 import json
 import logging
@@ -48,7 +49,7 @@ message_log = logging.getLogger("kani.messages")
 
 # The whole game manager class.
 class GameManager(Kani):
-    def __init__(self, scene: dict, main_args: Namespace, encoder: SentenceTransformer, *args, **kwargs):
+    def __init__(self, scene: dict, main_args: Namespace, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Attributes which should be initialized before the game.
@@ -77,11 +78,16 @@ class GameManager(Kani):
         self.player_prompts = []
 
         # Additional attributes for enabling the prompt policies.
-        self.encoder = encoder
-        self.sent_embs = np.empty((0, encoder.get_sentence_embedding_dimension())) if self.concat_policy == 'retrieval' else None
+        self.encoder = None
+        if main_args.concat_policy == 'retrieval' or main_args.rule_injection == 'retrieval':
+            device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+            self.encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
+        self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension())) if self.concat_policy == 'retrieval' else None
         self.raw_history = []
         self.start_idx = 0
         self.turn_count = 0
+        self.retrieved_messages = None
+        self.retrieved_rules = None
 
         # Additional attributes for game play.
         self.players = []
@@ -97,10 +103,7 @@ class GameManager(Kani):
             self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
         elif main_args.rule_injection == 'retrieval':
             self.game_rules = list(chain.from_iterable(RULE_SUMMARY))
-            self.rule_embs = np.empty((0, encoder.get_sentence_embedding_dimension()))
-            for sent in self.game_rules:
-                emb = self.encoder.encode(sent)
-                self.rule_embs = np.concatenate((self.rule_embs, np.expand_dims(emb, axis=0)))
+            self.rule_embs = self.encoder.encode(self.game_rules).astype('float64')
 
             assert self.rule_embs.shape[0] == len(self.game_rules), "The number of rule embeddings should be identical to the length of rule list."
 
@@ -198,7 +201,7 @@ class GameManager(Kani):
     # Encoding the chat message into a sentence embedding.
     def encode_message(self, message: ChatMessage):
         content = convert_into_natural(message)
-        return self.encoder.encode(content)
+        return self.encoder.encode(content).astype('float64')
 
     # Overriding add_to_history.
     async def add_to_history(self, message: ChatMessage, store_in_raw: bool=True):
@@ -240,11 +243,16 @@ class GameManager(Kani):
         # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        valid_chat_history = [self.chat_history[:cur][idx] for idx in idxs]
-        valid_chat_history += self.chat_history[cur:]
+        retrieved, scores = [self.chat_history[:cur][idx] for idx in idxs], [scores[idx] for idx in idxs]
+        valid_chat_history = retrieved + self.chat_history[cur:]
 
         # Checking the length of the valid chat logs.
         assert len(valid_chat_history) == self.max_num_msgs, "The numbers of sampled chat logs and the maximum number of turns are different."
+        assert len(retrieved) == top_n, "The number of retrieved messages is not same as the pre-defined top n."
+        assert len(retrieved) == len(scores), "The retrieved messages are not matched with the calculated scores."
+
+        # Since this function only works when concat_policy=retrieval, the retrieved messages are also exported.
+        self.retrieved_messages = [(retrieved[i], scores[i].item()) for i in range(len(scores))]
 
         return valid_chat_history
 
@@ -341,18 +349,22 @@ class GameManager(Kani):
         if self.sent_embs is not None:
             query_embs = self.sent_embs[cur:]  # (Q, d)
         else:
-            query_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension()))
             queries = self.chat_history[cur:]
-            for query in queries:
-                emb = self.encode_message(query)
-                query_embs = np.concatenate((query_embs, np.expand_dims(emb, axis=0)))
+            queries = [convert_into_natural(message) for message in queries]
+            query_embs = self.encoder.encode(queries).astype('float64')  # (Q, d)
         cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
 
         # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        valid_rules = [self.game_rules[idx] for idx in idxs]
+        valid_rules, scores = [self.game_rules[idx] for idx in idxs], [scores[idx] for idx in idxs]
+
+        assert len(valid_rules) == top_n, "The number of retrieved rules is not same as the pre-defined top_n."
+        assert len(valid_rules) == len(scores), "The retrieved rules are not matched with the calculated scores."
+
+        # Since this function only works when rule_injection=retrieval, the retrieved rules are also exported.
+        self.retrieved_rules = [(valid_rules[i], scores[i].item()) for i in range(len(scores))]
 
         rule_content = '\n'.join(valid_rules)
         self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
@@ -491,13 +503,23 @@ class GameManager(Kani):
                 context["actual_prompt"] = []
                 for msg in messages:
                     context["actual_prompt"].append(convert_into_natural(msg))
+                if self.retrieved_messages is not None:
+                    context["retrieved_messages"] = []
+                    for msg, score in self.retrieved_messages:
+                        context["retrieved_messages"].append([convert_into_natural(msg), score])
+                    self.retrieved_messages = None
+                if self.retrieved_rules is not None:
+                    context["retrieved_rules"] = []
+                    for rule, score in self.retrieved_rules:
+                        context["retrieved_rules"].append([rule, score])
+                    self.retrieved_rules = None
 
                 message = completion.message
-                normal_message = ChatMessage.assistant(name="Goblin_King", content=message.content, tool_calls=message.tool_calls)
+                normal_message = ChatMessage.assistant(name="Goblin_King", content=message.content)
                 yield message
                 if message.content is not None:  # An empty function call will be ignored.
                     await self.add_to_history(normal_message)
-                context["generated"] = convert_into_dict(normal_message)
+                    context["generated"] = convert_into_dict(normal_message)
 
                 if not message.tool_calls:  # If there is no function call, this is the end of a turn.
                     self.gameplay_logs.append(context)
