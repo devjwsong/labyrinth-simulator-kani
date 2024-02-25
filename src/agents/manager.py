@@ -719,9 +719,9 @@ class GameManager(Kani):
             print_system_log(f"RESULT 1 ({result1}) vs RESULT 2 ({result2}) => THE PLAYER GOT {dice_result}.")
 
         if dice_result < final_difficulty:
-            msg = f"TEST FAILED. THE DICE ROLL RESULT {dice_result} IS SMALLER THAN THE DIFFICULTY {final_difficulty}."
+            msg = f"{player_name} HAS FAILED THE TEST. THE DICE ROLL RESULT {dice_result} IS SMALLER THAN THE DIFFICULTY {final_difficulty}."
         else:
-            msg = f"TEST SUCCEEDED. THE DICE ROLL RESULT {dice_result} IS LARGER THAN OR EQUAL TO THE DIFFICULTY {final_difficulty}."
+            msg = f"{player_name} HAS SUCCEEDED THE TEST. THE DICE ROLL RESULT {dice_result} IS LARGER THAN OR EQUAL TO THE DIFFICULTY {final_difficulty}."
 
         # Updating the new chat message.
         print_system_log(msg, after_break=True)
