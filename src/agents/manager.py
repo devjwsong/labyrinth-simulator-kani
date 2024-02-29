@@ -34,7 +34,6 @@ from argparse import Namespace
 from copy import deepcopy
 from itertools import chain
 from sentence_transformers import SentenceTransformer, util
-from sklearn.metrics.pairwise import cosine_similarity
 
 import json
 import logging
@@ -680,6 +679,12 @@ class GameManager(Kani):
         """
         arguments = {'player_name': player_name, 'initial_difficulty': initial_difficulty, 'final_difficulty': final_difficulty}
 
+        # Wrong argument: player_name does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
         player = self.players[self.name_to_idx[player_name]]
 
         # The default system prompt consists of the instruction.
@@ -731,14 +736,11 @@ class GameManager(Kani):
     # Kani's function call for starting an action scene.
     @ai_function
     def activate_action_scene(self):
-        """Activate an action scene if this is a circumstance that players should take actions in a tight time limit."""
+        """
+        Activate an action scene if this is a circumstance that players should take actions in a tight time limit. 
+        Do not call this function if action_scene is set True already.
+        """
         arguments, intermediate_res = None, None
-
-        # False Positive: The function is called even when the action scene has already been activated.
-        if self.is_action_scene:
-            msg = "UNEXPECTED FUNCTION CALLING: THE ACTION SCENE HAS ALREADY BEEN ACTIVATED."
-            print_system_log(msg, after_break=True)
-            return msg, arguments, intermediate_res
 
         self.is_action_scene = True
         msg = "ACTION SCENE ACTIVATED."
@@ -748,14 +750,11 @@ class GameManager(Kani):
     # Kani's function call for ending an action scene.
     @ai_function
     def terminate_action_scene(self):
-        """Terminate the current ongoing action scene if the urgent circumstance has been finished now."""
+        """
+        Terminate the current ongoing action scene if the urgent circumstance has been finished now. 
+        Do not call this function if action_scene is set False already.
+        """
         arguments, intermediate_res = None, None
-
-        # False Positive: The function is called even when the action scene has not been activated before.
-        if not self.is_action_scene:
-            msg = "UNEXPECTED FUNCTION CALLING: THE ACTION SCENE HAS NOT BEEN ACTIVATED YET."
-            print_system_log(msg, after_break=True)
-            return msg, arguments, intermediate_res
 
         self.is_action_scene = False
         msg = "ACTION SCENE TERMINATED."
@@ -766,14 +765,14 @@ class GameManager(Kani):
     @ai_function
     async def create_npc(self, npc_name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
         """
-        Create an NPC if the NPC requested by a user does not exist in the scene yet.
-        This function must not be called if the NPC already exists in the scene.
+        Create an NPC if the NPC requested by a user does not exist in the scene yet. 
+        Do not call this function if the NPC already exists in the scene.
         """ 
         arguments = {'npc_name': npc_name}
 
-        # False Positive: The function is called even when the argument is an NPC which already exists.
+        # Wrong activation: The NPC already exists.
         if npc_name in self.npcs:
-            msg = "UNEXPECTED FUNCTION CALLING: NPC ALREADY EXISTS."
+            msg = f"NPC {npc_name} ALREADY EXISTS."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
@@ -817,11 +816,24 @@ class GameManager(Kani):
         trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")]
     ):
         """
-        Add a new trait to a player if any circumstance necessiates it.
+        Add a new trait to a player if any circumstance necessiates it. 
+        Do not call this function if the trait already exists.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
+        
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
 
         player = self.players[self.name_to_idx[player_name]]
+
+        # Wrong activation: The trait already exists.
+        if trait_name in player.traits:
+            msg = f"THE PLAYER {player_name} ALREADY HAS THE TRAIT {trait_name}."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
@@ -845,11 +857,24 @@ class GameManager(Kani):
         flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")]
     ):
         """
-        Add a new flaw to a player if any circumstance necessiates it.
+        Add a new flaw to a player if any circumstance necessiates it. 
+        Do not call this function if the flaw already exists.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name}
 
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
         player = self.players[self.name_to_idx[player_name]]
+
+        # Wrong activation: The flaw already exists.
+        if flaw_name in player.flaws:
+            msg = f"THE PLAYER {player_name} ALREADY HAS THE TRAIT {flaw_name}."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
