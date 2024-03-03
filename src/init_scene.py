@@ -1,5 +1,14 @@
 from utils import print_question_start, print_system_log, get_player_input, log_break
-from constants import SCENE_INIT_PROMPT, RULE_SUMMARY
+from constants import (
+    SCENE_INIT_PROMPT,
+    RULE_SUMMARY,
+    SCENE_SUMMARY_DETAILS,
+    NPC_DETAILS,
+    SUCCESS_CONDITION_DETAILS,
+    FAILURE_CONDITION_DETAILS,
+    GAME_FLOW_DETAILS,
+    ENVIRONMENT_DETAILS
+)
 from kani import Kani
 from kani.engines.openai import OpenAIEngine
 from kani.models import ChatMessage
@@ -12,6 +21,8 @@ import json
 import asyncio
 import logging
 import os
+import ast
+import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -73,36 +84,68 @@ async def init_scene(args: Namespace, agent: Kani):
     scene = scenes[args.scene_idx]
 
     print_system_log("INITIALIZING THE SCENE...")
-    raw_res = await agent.chat_round_str(f"Generate the JSON output for the initialized scene attributes.\nScene: {scene}", 
-        response_format={ "type": "json_object" }
-    )
-
-    # Finding each key and mapping into the corresponding attribute.
     try:
-        result = json.loads(raw_res)
+        result = {}
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+        }
+
+        # Generating the scene summary.
+        res = await agent.chat_round_str(f"{' '.join(SCENE_SUMMARY_DETAILS)}\nScene: {scene}", **generation_params)
+        print(res)
+        result['scene_summary'] = ast.literal_eval(res)
+        # time.sleep(20)
+
+        # Generating the NPCs.
+        res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\nScene: {scene}", **generation_params)
+        print(res)
+        result['npcs'] = json.loads(res)
+        # time.sleep(20)
+        
+        # Generating the success condition.
+        res = await agent.chat_round_str(f"{' '.join(SUCCESS_CONDITION_DETAILS)}\nScene: {scene}")
+        print(res)
+        result['success_condition'] = res
+        # time.sleep(20)
+
+        # Generating the failure condition.
+        res = await agent.chat_round_str(f"{' '.join(FAILURE_CONDITION_DETAILS)}\nScene: {scene}")
+        print(res)
+        result['failure_condition'] = res
+        # time.sleep(20)
+
+        # Generating the game flow.
+        res = await agent.chat_round_str(f"{' '.join(GAME_FLOW_DETAILS)}\nScene: {scene}", **generation_params)
+        print(res)
+        result['game_flow'] = ast.literal_eval(res)
+        # time.sleep(20)
+
+        # Generating the environment.
+        res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\nScene: {scene}", **generation_params)
+        print(res)
+        result['environment'] = json.loads(res)
+        # time.sleep(20)
 
         result['chapter'] = scene['chapter']
         result['scene'] = scene['scene']
-        result['random_tables'] = scene['random_tables']
         result['consequences'] = scene['consequences']
 
         # Checking the data types generated.
         check_init_types(result)
 
-        await engine.client.close()
+        await agent.engine.close()
 
         return result
 
     except json.decoder.JSONDecodeError as e:  # JSON parsing error: This should be noted as 0 for the evaluation.
-        log.debug(raw_res)
         log.error(f"{e}: The output format cannot be converted into dict.")
         raise Exception()
     except KeyError as e:  # Missing attributes error: This should be noted as 0.2 for the evaluation.
-        log.debug(result)
         log.error(f"{e}: Missing key.")
         raise Exception()
     except AssertionError as e:  # Incorrect types error: This should be noted as 0.5 for the evaluation.
-        log.debug(result)
         log.error(f"{e}: Incorrect data type.")
         raise Exception()
 
@@ -127,7 +170,7 @@ if __name__=='__main__':
     log_break()
     engine = OpenAIEngine(api_key, model=args.model_idx)
 
-    system_prompt = '\n'.join([' '. join(part) for part in SCENE_INIT_PROMPT])
+    system_prompt = ' '.join(SCENE_INIT_PROMPT)
     rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])  # For scene initialization, we only use the direct injection of rules.
     rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
     agent = Kani(engine, chat_history=[rule_prompt], system_prompt=system_prompt)

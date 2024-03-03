@@ -141,89 +141,91 @@ RULE_SUMMARY = [
 ]
 
 SCENE_INIT_PROMPT = [
-    [   
-        "You are a scene initializer in a fantasy text-based adventure game.",
-        "You are given the game rules to get some help for understanding and initializing the scene.",
-        "You should initialize essential attributes or objects in the game scene with the basic scene information given as a JSON input.",
-        "You are also given the game rules for the game to get some help for understanding and initializaing the scene.",
-        "You should understand and extract the necessary information to initialize the scene before the game starts.",
-        "You should give the output as only another JSON format which can be converted into Python dictionary, so DO NOT PUT ANY STRING RESPONSE WITH IT.",
-        "Avoid copying and pasting the contents in the JSON object identically.",
-        "Summarize and paraphrase the words creatively.",
-        "If you think some attributes are absent in the scene or cannot be made for the current scene, you can leave it as an empty string, dicationary, or list.",
-        "However, you should make sure that they really should be empty and even if they are empty, the keys must exist to avoid potential errors.",
-        "If an attribute is required, you must not leave it as empty.",
-        "And keep the names of the attributes and all data types so that they can be parsed correctly.",
-        "The attributes you should consider are as follows."
-    ],
-    [
-        "1. scene_summary: Referring to 'chapter_description', 'description' and 'locations' in the scene, make creative summarizations for the current scene.",
-        "This is a list of strings."
-        "4-5 sentences will be enough.",
-        "Note that the scene summary must not have any hints or clues.",
-        "This should be only a pure description of the current scene in the perspective of the players.",
-        "This is required."
-    ],
-    [
-        "2. npcs: Generate the properties of the NPCs which are needed in the current scene.",
-        "This is a dictionary.",
-        "Each key is an NPC's name and value is another dictionary, which has the NPC's following properties.",
-        "a) kin: This is one word that describes the kin of the NPC.",
-        "b) persona: The persona is a list of strings that contains the basic characteristics of the NPC.",
-        "One string represents one characterstic.",
-        "c) goal: The goal is a string that explains the objective of the NPC's behaviors or utterances during the game.",
-        "d) trait: This is a string that specifies one trait of the NPC which might be helpful for the players' tests if it joins the party.",
-        "The string should be in the form or 'trait - its description'.",
-        "e) flaw: This is a string that specifies one flaw of the NPC which might be helpful for the players' tests if it joins the party.",
-        "Unlike the trait, the flaw should be chosen from these following options.",
-        "Blunt - I leave the party if the group is talking to too many people.",
-        "Coward - I leave the party if things get too scary.",
-        "Forgetful - I leave the party if I have a chance to get turned around.",
-        "Naive - I leave the party if I see someone doing something underhanded.",
-        "Proud - I leave the party if my pride is damaged.",
-        "Selfish - I leave the party if I see an opportunity for personal gain.",
-        "Try not to be make each property inconsistent or contradictory to each other.",
-        "The NPCs should be generated are listed in 'locations' in the input.",
-        "You should read carefully 'locations', 'notes' and 'random_tables' to generate each NPC's specifications",
-        "When you should retrieve the properties from 'random_tables' for generating NPCs, follow these instructions.",
-        "First, find a random table which defines the property of the NPC.",
-        "Second, find the number of entries from the table, which might be mentioned in 'notes' or 'locations'.",
-        "If there is no special indication of the number of entries to be sampled, you can determine it.",
-        "Then randomly retrieve the entries from the table and set them into 'persona', 'goal', or 'trait' considering which attribute is the most suitable one.",
-        "After that you can remove the table from 'random_tables'."
-    ],
-    [
-        "3. success_condition: This is a string which specifies when the players win the current game.",
-        "The winning is a situation where the players cleared the current scene so that can move on the next scene, or achieved something which might be beneficial to the party.",
-        "This is required."
-    ],
-    [
-        "4. failure_condition: This is a string which specifies when the players lose the current game.",
-        "The losing is a situation where the players got killed, have been trapped in somewhere which cannot be escaped from, or got a huge disadvantage which makes the party unable to proceed anymore."
-    ],
-    [
-        "5. game_flow: The game flow is for specifying how the curreng game should actually go.", 
-        "This is a list of strings.",
-        "Each string is a sentence for one step or flow.",
-        "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
-        "The Goblin King might improvise something if it is necessary to make the game more entertaining unless it highly violates the game rules or generation rules.",
-        "The essential information for this can be fetched from 'locations' and 'notes'.",
-        "Read carefully and extract the rules from them if you think the rules should be kept for maintaining the game flow intended."
-    ],
-    [
-        "6. environment: This should contain the remaining necessary environmental objects after making NPCs and game flow rules from 'locations'.",
-        "This is a dictionary.",
-        "Each key is the name of the object which is a word."
-        "Each value is a string of description of the corresponding key object.",
-        "You may improvise the description if there is nothing specified in the scene input.",
-        "Make sure to include the objects in 'locations' when setting the environment and read carefully 'notes' and 'random_tables' not to miss the essential contents.",
-        "When you should retrieve the objects from 'random_tables' for setting , follow these instructions.",
-        "First, find a random table which defines the content of the object.",
-        "Second, find the number of entries from the table, which might be mentioned in 'notes' or 'locations'.",
-        "If there is no special indication of the number of entries to be sampled, you can determine it.",
-        "Then randomly retrieve the entries from the table and set them into the environment as the keys.",
-        "After that you can remove the original object in 'locations'."
-    ]
+    "You are a scene initializer in a fantasy text-based adventure game.",
+    "You should generate the required content in a game scene while strictly following the form of the output if it is specified.",
+    "You will also be given the game rules to get some help for understanding the game.",
+    "The scene input will be given as a JSON object.",
+    "Avoid just copying and pasting the contents in the input identically."
+]
+
+SCENE_SUMMARY_DETAILS = [
+    "Generate a creative summarization of the given game scene.",
+    "This should be a list of strings which can be parsed as a Python list without an error and 4-5 sentences would be enough.",
+    "You should refer to 'chapter_description', 'description' and 'locations' to generate the output."
+    "Note that the scene summary must not have any hints or clues.",
+    "This should be only a pure description of the current scene from the perspective of the players."
+]
+
+NPC_DETAILS = [
+    "Generate the NPCs which are needed in the given game scene.",
+    "This is should be a JSON object which can be parsed as a Python dictionary.",
+    "Each key is an NPC's name and value is another dictionary, which has the NPC's following properties.",
+    "a) kin: This is one word that describes the kin of the NPC.",
+    "b) persona: The persona is a list of strings that contains the basic characteristics of the NPC.",
+    "One string represents one characteristic.",
+    "c) goal: The goal is a string that explains the objective of the NPC's behaviors or utterances during the game.",
+    "d) trait: This is a string that specifies one trait of the NPC which might be helpful for the players' tests if it joins the party.",
+    "The string should be in the form or 'trait - its description'.",
+    "e) flaw: This is a string that specifies one flaw of the NPC which might be helpful for the players' tests if it joins the party.",
+    "Unlike the trait, the flaw should be chosen from these following options.",
+    "Blunt - I leave the party if the group is talking to too many people.",
+    "Coward - I leave the party if things get too scary.",
+    "Forgetful - I leave the party if I have a chance to get turned around.",
+    "Naive - I leave the party if I see someone doing something underhanded.",
+    "Proud - I leave the party if my pride is damaged.",
+    "Selfish - I leave the party if I see an opportunity for personal gain.",
+    "Try not to make each property inconsistent or contradictory to each other.",
+    "The NPCs should be generated are listed in 'locations' in the input.",
+    "You should read carefully 'locations', 'notes' and 'random_tables' to generate each NPC's specifications",
+    "When you should retrieve the properties from 'random_tables' for generating NPCs, follow these instructions.",
+    "First, find the random tables which define the properties of the NPC.",
+    "Second, find the number of entries which should be retrieved from each table, which might be mentioned in 'notes' or 'locations'.",
+    "If there is no special indication of the number of entries to be sampled, you may determine it.",
+    "Then randomly retrieve the entries from each table and set them into the NPC's 'persona', 'goal', or 'trait' considering which attribute is the most suitable one.",
+    "Make sure to include the sampled properties into the NPC's specifications.",
+    "If there is no need for any NPCs in this scene, just give an empty dictionary."
+]
+
+SUCCESS_CONDITION_DETAILS = [
+    "Generate the success condition of the given game scene.",
+    "This is a string and one sentence would be enough.",
+    "The winning is a situation where the players cleared the current scene so that can move on to the next scene, or achieve something which might be beneficial to the party."
+]
+
+FAILURE_CONDITION_DETAILS = [
+    "Generate the failure condition of the given game scene.",
+    "This is a string and one sentence would be enough.",
+    "The losing is a situation where the players got killed, have been trapped in somewhere which cannot be escaped from, or got a huge disadvantage which makes the party unable to proceed anymore.",
+    "If you think there is no specific losing situation for the players, give an empty string."
+]
+
+GAME_FLOW_DETAILS = [
+    "Generate the desired game flow of the given game scene.",
+    "The game flow is for specifying how the current game should actually go.", 
+    "This should be a list of strings which can be parsed as a Python list without an error and 4-5 sentences would be enough.",
+    "Each string is a sentence for one step or flow.",
+    "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
+    "You might improvise something if it is necessary to make the game more entertaining unless it highly violates the game rules.",
+    "The essential information for this can be fetched from 'locations' and 'notes'.",
+    "Read carefully and extract the rules from them considering which conditions should be kept for maintaining the game flow intended."
+]
+
+ENVIRONMENT_DETAILS = [
+    "Generate the environmental objects in the given game scene.",
+    "This should include the necessary objects or locations which are mentioned in 'locations'.",
+    "This is should be a JSON object which can be parsed as a Python dictionary.",
+    "Each key is the name of the object which is a word."
+    "Each value is a string of description of the corresponding key object.",
+    "You may improvise the description if there is nothing specified in the scene input.",
+    "Read carefully 'locations', 'notes' and 'random_tables' not to miss the essential contents to set the environment.",
+    "When you should retrieve the objects from 'random_tables' for setting an object in the scene, follow these instructions.",
+    "First, find the random tables which define the contents of an object.",
+    "Second, find the number of entries which should be retrieved from each table, which might be mentioned in 'notes' or 'locations'.",
+    "If there is no special indication of the number of entries to be sampled, you may determine it.",
+    "Then randomly retrieve the entries from each table and set them into the environment as another objects having each own key.",
+    "Not to mention, after setting each key, you should generate its value according to it.",
+    "Lastly, you can remove the original object in 'locations'.",
+    "Make sure to include the sampled objects in the dictionary."
 ]
 
 SUMMARIZE_PROMPT = [
@@ -247,7 +249,7 @@ CREATE_NPC_PROMPT = [
     "You should generate the specifications of a new NPC in a dictionary form if its name is given.",
     "Make sure that the generated specifications have no contradiction with other objects or NPCs in the current scene.",
     "Each key and corresponding value is as follows:"
-] + SCENE_INIT_PROMPT[2][3:-2]
+] + NPC_DETAILS[3:-8]
 
 EXPENDABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
