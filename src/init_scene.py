@@ -7,7 +7,8 @@ from constants import (
     SUCCESS_CONDITION_DETAILS,
     FAILURE_CONDITION_DETAILS,
     GAME_FLOW_DETAILS,
-    ENVIRONMENT_DETAILS
+    ENVIRONMENT_DETAILS,
+    RANDOM_TABLE_DETAILS
 )
 from kani import Kani
 from kani.engines.openai import OpenAIEngine
@@ -26,6 +27,7 @@ import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
+WAITING_TIME = 30  # Waiting time for avoiding the rate limit exceeding.
 
 
 # Checking the types of attributes for initialization.
@@ -35,15 +37,14 @@ def check_init_types(scene: dict):
 
     # The NPCs.
     assert isinstance(scene['npcs'], dict), "THE NPCS ATTRIBUTE IS NOT THE DICT TYPE."
-    if len(scene['npcs']) > 0:
-        for name, info in scene['npcs'].items():
-            assert isinstance(name, str), "THE NAME OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info, dict), "THE NPC INFORMATION IS NOT THE DICT TYPE."
-            assert isinstance(info['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
-            assert isinstance(info['goal'], str), "THE GOAL OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
-            assert isinstance(info['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
+    for name, info in scene['npcs'].items():
+        assert isinstance(name, str), "THE NAME OF AN NPC IS NOT THE STRING TYPE."
+        assert isinstance(info, dict), "THE NPC INFORMATION IS NOT THE DICT TYPE."
+        assert isinstance(info['kin'], str), "THE KIN OF AN NPC IS NOT THE STRING TYPE."
+        assert isinstance(info['persona'], list), "THE PERSONA OF AN NPC IS NOT THE LIST TYPE."
+        assert isinstance(info['goal'], str), "THE GOAL OF AN NPC IS NOT THE STRING TYPE."
+        assert isinstance(info['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
+        assert isinstance(info['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
 
     # The success condition.
     assert isinstance(scene['success_condition'], str), "THE SUCCESS CONDITION IS NOT THE STRING TYPE."
@@ -56,10 +57,17 @@ def check_init_types(scene: dict):
 
     # The environment.
     assert isinstance(scene['environment'], dict), "THE LIST OF ENVIRONMENT SPECIFICATIONS IS NOT THE DICT TYPE."
-    if len(scene['environment']) > 0:
-        for name, desc in scene['environment'].items():
-            assert isinstance(name, str), "THE NAME OF AN OBJECT IS NOT THE STRING TYPE."
-            assert isinstance(desc, str), "THE OBJECT DESCRIPTION IS NOT THE STRING TYPE."
+    for name, desc in scene['environment'].items():
+        assert isinstance(name, str), "THE NAME OF AN OBJECT IS NOT THE STRING TYPE."
+        assert isinstance(desc, str), "THE OBJECT DESCRIPTION IS NOT THE STRING TYPE."
+
+    # The random tables.
+    assert isinstance(scene['random_tables'], dict), "THE LIST OF RANDOM TABLES IS NOT THE DICT TYPE."
+    for name, table in scene['random_tables'].items():
+        assert isinstance(name, str), "THE NAME OF A TABLE IS NOT THE STRING TYPE."
+        assert isinstance(table, list), "THE TABLE IS NOT THE LIST TYPE."
+        for entry in table:
+            assert isinstance(entry, str), "AN ENTRY IN A TABLE IS NOT STRING TYPE."
 
 
 # Exporting the initialized result.
@@ -96,37 +104,42 @@ async def init_scene(args: Namespace, agent: Kani):
         res = await agent.chat_round_str(f"{' '.join(SCENE_SUMMARY_DETAILS)}\nScene: {scene}", **generation_params)
         print(res)
         result['scene_summary'] = ast.literal_eval(res)
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
 
         # Generating the NPCs.
-        res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\nScene: {scene}", **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
         print(res)
         result['npcs'] = json.loads(res)
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
         
         # Generating the success condition.
         res = await agent.chat_round_str(f"{' '.join(SUCCESS_CONDITION_DETAILS)}\nScene: {scene}")
         print(res)
         result['success_condition'] = res
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
 
         # Generating the failure condition.
         res = await agent.chat_round_str(f"{' '.join(FAILURE_CONDITION_DETAILS)}\nScene: {scene}")
         print(res)
         result['failure_condition'] = res
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
 
         # Generating the game flow.
         res = await agent.chat_round_str(f"{' '.join(GAME_FLOW_DETAILS)}\nScene: {scene}", **generation_params)
         print(res)
         result['game_flow'] = ast.literal_eval(res)
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
 
         # Generating the environment.
-        res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\nScene: {scene}", **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
         print(res)
         result['environment'] = json.loads(res)
-        # time.sleep(20)
+        time.sleep(WAITING_TIME)
+
+        # Generating the random tables.
+        res = await agent.chat_round_str(f"{' '.join(RANDOM_TABLE_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
+        print(res)
+        result['random_tables'] = json.loads(res)
 
         result['chapter'] = scene['chapter']
         result['scene'] = scene['scene']

@@ -228,6 +228,15 @@ ENVIRONMENT_DETAILS = [
     "Make sure to include the sampled objects in the dictionary."
 ]
 
+RANDOM_TABLE_DETAILS = [
+    "Generate the random tables in the given game scene.",
+    "This should be a JSON object which can be parsed as a Python dictionary.",
+    "Also, this should be identical to 'random_tables' in the input after removing the tables which have been used for setting NPCs and environment.",
+    "You should remove the table as a whole if any of the entries were sampled from the previous generations for NPCs or environmental objects and if it is not likely to use these tables again during the actual game.",
+    "In other words, you should make sure to keep the tables which have not been used yet, or might be needed later even if they have been used.",
+    "The structure of the output must be identical to the original 'random_tables' in the input, which has a table name string as a key and a list of strings as the entries of each table."
+]
+
 SUMMARIZE_PROMPT = [
     "You are a dialogue summarizer in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",
