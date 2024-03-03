@@ -34,9 +34,6 @@ def check_init_types(scene: dict):
             assert isinstance(info['trait'], str), "THE TRAITS OF AN NPC IS NOT THE STRING TYPE."
             assert isinstance(info['flaw'], str), "THE FLAWS OF AN NPC IS NOT THE STRING TYPE."
 
-    # The generation rules.
-    assert isinstance(scene['generation_rules'], list), "THE LIST OF GENERATION RULES IS NOT THE LIST TYPE."
-
     # The success condition.
     assert isinstance(scene['success_condition'], str), "THE SUCCESS CONDITION IS NOT THE STRING TYPE."
 
@@ -76,7 +73,9 @@ async def init_scene(args: Namespace, agent: Kani):
     scene = scenes[args.scene_idx]
 
     print_system_log("INITIALIZING THE SCENE...")
-    raw_res = await agent.chat_round_str(f"Generate the JSON output for the initialized scene attributes.\nScene: {scene}")
+    raw_res = await agent.chat_round_str(f"Generate the JSON output for the initialized scene attributes.\nScene: {scene}", 
+        response_format={ "type": "json_object" }
+    )
 
     # Finding each key and mapping into the corresponding attribute.
     try:

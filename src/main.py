@@ -17,7 +17,6 @@ import logging
 import asyncio
 import random
 import time
-import torch
 import os
 
 log = logging.getLogger("kani")

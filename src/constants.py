@@ -183,25 +183,26 @@ SCENE_INIT_PROMPT = [
         "Proud - I leave the party if my pride is damaged.",
         "Selfish - I leave the party if I see an opportunity for personal gain.",
         "Try not to be make each property inconsistent or contradictory to each other.",
-        "Note that when you generate NPCs, you should also refer to 'locations' in the input, since they might have important information for the NPCs.",
-        "Also, if a random table defines the NPC's attributes or properties, do not generate that NPC since eventually it will be generated during the game."
+        "The NPCs should be generated are listed in 'locations' in the input.",
+        "You should read carefully 'locations', 'notes' and 'random_tables' to generate each NPC's specifications",
+        "When you should retrieve the properties from 'random_tables' for generating NPCs, follow these instructions.",
+        "First, find a random table which defines the property of the NPC.",
+        "Second, find the number of entries from the table, which might be mentioned in 'notes' or 'locations'.",
+        "If there is no special indication of the number of entries to be sampled, you can determine it.",
+        "Then randomly retrieve the entries from the table and set them into 'persona', 'goal', or 'trait' considering which attribute is the most suitable one.",
+        "After that you can remove the table from 'random_tables'."
     ],
     [
-        "3. generation_rules: The generation rules define the things to keep in mind with during the scene especially for the response from the game manager.",
-        "This is a list of strings.",
-        "Each sentence is one rule that specifies the content which might make the game too easy or unfair, might offend the players, or might severly violate the game rules."
-    ],
-    [
-        "4. success_condition: This is a string which specifies when the players win the current game.",
+        "3. success_condition: This is a string which specifies when the players win the current game.",
         "The winning is a situation where the players cleared the current scene so that can move on the next scene, or achieved something which might be beneficial to the party.",
         "This is required."
     ],
     [
-        "5. failure_condition: This is a string which specifies when the players lose the current game.",
+        "4. failure_condition: This is a string which specifies when the players lose the current game.",
         "The losing is a situation where the players got killed, have been trapped in somewhere which cannot be escaped from, or got a huge disadvantage which makes the party unable to proceed anymore."
     ],
     [
-        "6. game_flow: The game flow is for specifying how the curreng game should actually go.", 
+        "5. game_flow: The game flow is for specifying how the curreng game should actually go.", 
         "This is a list of strings.",
         "Each string is a sentence for one step or flow.",
         "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
@@ -210,12 +211,18 @@ SCENE_INIT_PROMPT = [
         "Read carefully and extract the rules from them if you think the rules should be kept for maintaining the game flow intended."
     ],
     [
-        "7. environment: This should contain the remaining necessary environmental objects after making NPCs and game flow rules from 'locations'.",
+        "6. environment: This should contain the remaining necessary environmental objects after making NPCs and game flow rules from 'locations'.",
         "This is a dictionary.",
         "Each key is the name of the object which is a word."
         "Each value is a string of description of the corresponding key object.",
-        "The Goblin King might improvise the description if there is nothing specified in the scene input.",
-        "Include the objects in 'locations' if they have not been included in any previous attributes."
+        "You may improvise the description if there is nothing specified in the scene input.",
+        "Make sure to include the objects in 'locations' when setting the environment and read carefully 'notes' and 'random_tables' not to miss the essential contents.",
+        "When you should retrieve the objects from 'random_tables' for setting , follow these instructions.",
+        "First, find a random table which defines the content of the object.",
+        "Second, find the number of entries from the table, which might be mentioned in 'notes' or 'locations'.",
+        "If there is no special indication of the number of entries to be sampled, you can determine it.",
+        "Then randomly retrieve the entries from the table and set them into the environment as the keys.",
+        "After that you can remove the original object in 'locations'."
     ]
 ]
 

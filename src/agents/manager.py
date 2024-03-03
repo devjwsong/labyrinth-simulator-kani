@@ -537,25 +537,25 @@ class GameManager(Kani):
                 should_retry_call = False
                 n_errs = 0
                 results = await asyncio.gather(*(_do_tool_call(tc) for tc in message.tool_calls))
-                for result, arguments, intermediate_res in results:
-                    # save the result to the chat history as a system message.
-                    system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
-                    await self.add_to_history(system_message)
-                    yield result.message
-
-                    # Recording the function execution specifications.
-                    context['function_calls'].append({
-                        'result': convert_into_dict(result.message),
-                        'arguments': deepcopy(arguments),
-                        'intermediate_results': deepcopy(intermediate_res)
-                    })
-                    
+                for result, arguments, intermediate_res in results:                    
                     if isinstance(result, ExceptionHandleResult):
                         is_model_turn = True
                         n_errs += 1
                         # retry if any function says so
                         should_retry_call = should_retry_call or result.should_retry
                     else:
+                        # save the result to the chat history as a system message.
+                        system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
+                        await self.add_to_history(system_message)
+                        yield result.message
+
+                        # Recording the function execution specifications.
+                        context['function_calls'].append({
+                            'result': convert_into_dict(result.message),
+                            'arguments': deepcopy(arguments),
+                            'intermediate_results': deepcopy(intermediate_res)
+                        })
+
                         # allow model to generate response if any function says so
                         is_model_turn = is_model_turn or result.is_model_turn
 
