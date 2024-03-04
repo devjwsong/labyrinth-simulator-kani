@@ -751,7 +751,7 @@ class GameManager(Kani):
     @ai_function
     def terminate_action_scene(self):
         """
-        Terminate the current ongoing action scene if the urgent circumstance has been finished now. 
+        Terminate the current ongoing action scene if the urgent circumstance has been finished. 
         Do not call this function if action_scene is set False already.
         """
         arguments, intermediate_res = None, None
@@ -817,7 +817,7 @@ class GameManager(Kani):
     ):
         """
         Add a new trait to a player if any circumstance necessiates it. 
-        Do not call this function if the trait already exists.
+        Do not call this function if the trait already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
         
@@ -858,7 +858,7 @@ class GameManager(Kani):
     ):
         """
         Add a new flaw to a player if any circumstance necessiates it. 
-        Do not call this function if the flaw already exists.
+        Do not call this function if the flaw already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name}
 
@@ -937,7 +937,7 @@ class GameManager(Kani):
     ):
         """
         Remove a trait if any circumstance necessiates it.
-        This function must not be called if the trait does not exist in the current state of the player who triggered this function.
+        Do not call this function if the trait does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
 
@@ -967,7 +967,7 @@ class GameManager(Kani):
     ):
         """
         Remove a flaw if any circumstance necessiates it.
-        This function must not be called if the flaw does not exist in the current state of the player who triggered this function.
+        Do not call this function if the flaw does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name}
 
@@ -997,7 +997,7 @@ class GameManager(Kani):
     ):
         """
         Remove an item if the player wants to discard it from the inventory.
-        This function must not be called if the item does not exist in the inventory of the player who triggered this function.
+        Do not call this function if the item does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
@@ -1031,7 +1031,7 @@ class GameManager(Kani):
     ):
         """
         Let the player use an item if the player wants to use it from the inventory.
-        This function must not be called if the item does not exist in the inventory of the player who triggered this function.
+        Do not call this function if the item does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
@@ -1072,9 +1072,9 @@ class GameManager(Kani):
         object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
     ):
         """
-        Let the player get access to an object in the environment if the player tries to reach out to it or if the object should be referred to anytime during the game.
-        This function must not be called if the object does not exist in the environment.
-        If the object name also exists as a random table, ignore this function and call use_random_table function instead.
+        Let the player get access to an object or a location in the environment if the player tries to reach out to it anytime during the game.
+        Do not call this function if the object does not exist in the current environment.
+        If the object name also exists as a random table, prioritize to call use_environment instead of use_random_table.
         """
 
         arguments = {'player_name': player_name, 'object_name': object_name}
