@@ -150,14 +150,20 @@ def convert_into_natural(message: ChatMessage):
     return f"{name} {content}"
 
 
-# Extracting the class index in the output of a classification problem.
-def convert_into_class_idx(res: str, options: list):
+# Converting the model response into a number.
+def convert_into_number(res: str):
     pattern = r'\d+'
     matches = re.findall(pattern, res)
     if matches:
-        index = int(matches[0])
-        if index >= len(options):
-            return select_random_options(options)
-        return index
-    else:
+        return int(matches[0])
+    
+    return None
+
+
+# Extracting the class index in the output of a classification problem.
+def convert_into_class_idx(res: str, options: list):
+    num = convert_into_number(res)
+    if num is None or num >= len(options):
         return select_random_options(options)
+
+    return num

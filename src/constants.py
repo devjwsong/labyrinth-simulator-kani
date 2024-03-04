@@ -275,6 +275,13 @@ OBTAINABLE_CHECK_PROMPT = [
     "You must answer only in number."
 ]
 
+TABLE_PROCESSING_PROMPT = [
+    "You are a multi-class classifier in a fantasy text-based adventure game.",
+    "You are given the current state of the player character which includes his/her traits and flaws.",
+    "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand the interaction so far.",
+    "You will answer several questions which require a careful understanding of the current game scene and the random table contents."
+]
+
 GENERATE_TRAIT_DESC_PROMPT = [
     "You are a description generator in a fantasy text-based adventure game.",
     "You are given the current state of the player character which has the information of existing traits.",
