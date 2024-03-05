@@ -1000,7 +1000,7 @@ class GameManager(Kani):
         player = self.players[self.name_to_idx[player_name]]
 
         # Wrong activation: The flaw does not exist.
-        if flaw_name not in player.traits:
+        if flaw_name not in player.flaws:
             msg = f"THE PLAYER {player_name} DOES NOT HAVE THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
@@ -1027,11 +1027,17 @@ class GameManager(Kani):
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
         player = self.players[self.name_to_idx[player_name]]
 
-        # False Positive: The function is called even when the argument is an item which does not exist in the inventory.
+        # Wrong activation: The item does not exist.
         if item_name not in player.inventory:
-            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
+            msg = f"THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
