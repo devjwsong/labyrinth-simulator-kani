@@ -208,6 +208,29 @@ class GameManager(Kani):
             # The number of sentence embeddings and chat logs should always be identical.
             assert len(self.chat_history) == self.sent_embs.shape[0], "The sentence embeddings and chat histories are not synced."
 
+    # Verifying whether the function result should be added into the chat history or not.
+    def should_be_added(self, message: ChatMessage, intermediate_res: dict):
+        print(f"DEBUG: {message.name}")
+        if message.name == 'activate_test': 
+            return True
+        if message.name == 'use_item':
+            for k, v in intermediate_res.items():
+                if "expendable" in k and not v:
+                    return True
+        if message.name == 'use_environment':
+            for k, v in intermediate_res.items():
+                if "obtainable" in k and not v:
+                    return True
+                if "added" in k and not v:
+                    return True
+        if message.name == 'use_random_table':
+            for k, v in intermediate_res.items():
+                if 'usage' in k and 'proceed' in v:
+                    return True
+
+        return False
+        
+
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
         if self.max_num_msgs is None:
@@ -537,8 +560,8 @@ class GameManager(Kani):
                     else:
                         # save the result to the chat history as a system message.
                         system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
-                        await self.add_to_history(system_message)
-                        yield result.message
+                        if self.should_be_added(system_message, intermediate_res):
+                            await self.add_to_history(system_message)
 
                         # Recording the function execution specifications.
                         context['function_calls'].append({
@@ -1037,13 +1060,13 @@ class GameManager(Kani):
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
         
-        options = ['Expendable', 'Permanent']
+        options = ['Expendable', 'Not expendable']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=[self.scene_prompt, self.make_player_prompt(player)], system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
-        intermediate_res = {f"Expendable item detection result for '{item_name}'": options[res]}
+        intermediate_res = {f"The item '{item_name}' expendable": True if res == 0 else False}
 
         if res == 0:  # The item is expendable.
             msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
@@ -1089,7 +1112,10 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
-        intermediate_res = {f"Obtainable object detection result for '{object_name}'": options[res]}
+        intermediate_res = {
+            f"The object '{object_name}' obtainable": True if res == 0 else False,
+            f"The item '{object_name}' added": False
+        }
 
         if res == 0:  # The item is obtainble.
             # Removing unnecessary punctuations from the object name.
@@ -1106,6 +1132,7 @@ class GameManager(Kani):
                 if item_name in player.inventory:
                     self.environment.pop(object_name)
 
+                intermediate_res[f"The item '{object_name}' added"] = True
                 msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
                 print_system_log(msg, after_break=True)
 
@@ -1214,8 +1241,9 @@ class GameManager(Kani):
         elif next_step == 1:
             query = "Update the NPCS using the retrieved samples from the table. " + \
                 "You should re-generate the NPCs as a JSON format which is the same format of the original NPC dictionary. " + \
-                "Note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
-                "If you need to generate any additional description, feel free to do it and make sure to add it too."
+                "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
+                "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
+                "If you need to generate any additional description, feel free to do it and make sure to include it too."
             res = await kani.chat_round_str(f"{query}\nOriginal NPCs: {self.npcs}\n{table_name}: {samples}")
 
             try:
@@ -1233,7 +1261,7 @@ class GameManager(Kani):
 
         elif next_step == 2:
             query = "Update the game flow using the retrieved samples from the table. " + \
-                "You should re-generate the game flow as a Python list of strings which is the same format of the original game flow list. " + \
+                "You should re-generate the game flow as a list of strings in Python which is the same format of the original game flow list. " + \
                 "Note that you should only update the parts which are related to the given samples without changing any other essential information."
             res = await kani.chat_round_str(f"{query}\nOriginal game flow: {self.game_flow}\n{table_name}: {samples}")
 
@@ -1253,7 +1281,8 @@ class GameManager(Kani):
         elif next_step == 3:
             query = "Update the environment using the retrieved samples from the table. " + \
                 "You should re-generate the environment as a JSON format which is the same format of the original environment dictionary. " + \
-                "Note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
+                "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
+                "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
                 "If you need to generate any additional description, feel free to do it and make sure to add it too."
             res = await kani.chat_round_str(f"{query}\nOriginal environment: {self.environment}\n{table_name}: {samples}")
 
