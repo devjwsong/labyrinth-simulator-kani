@@ -886,7 +886,7 @@ class GameManager(Kani):
 
         # Wrong activation: The flaw already exists.
         if flaw_name in player.flaws:
-            msg = f"THE PLAYER {player_name} ALREADY HAS THE TRAIT {flaw_name}."
+            msg = f"THE PLAYER {player_name} ALREADY HAS THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
         
@@ -955,11 +955,17 @@ class GameManager(Kani):
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
 
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
         player = self.players[self.name_to_idx[player_name]]
 
-        # False Positive: The function is called even when the argument is a trait which does not exist in the player.
+        # Wrong activation: The trait does not exist.
         if trait_name not in player.traits:
-            msg = f"UNEXPECTED FUNCTION CALLING: THE PLAYER {player_name} DOES NOT HAVE THE TRAIT {trait_name}."
+            msg = f"THE PLAYER {player_name} DOES NOT HAVE THE TRAIT {trait_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
