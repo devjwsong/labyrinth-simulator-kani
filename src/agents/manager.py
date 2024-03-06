@@ -208,28 +208,6 @@ class GameManager(Kani):
             # The number of sentence embeddings and chat logs should always be identical.
             assert len(self.chat_history) == self.sent_embs.shape[0], "The sentence embeddings and chat histories are not synced."
 
-    # Verifying whether the function result should be added into the chat history or not.
-    def should_be_added(self, message: ChatMessage, intermediate_res: dict):
-        if message.name == 'activate_test': 
-            return True
-        if message.name == 'use_item':
-            for k, v in intermediate_res.items():
-                if "expendable" in k and not v:
-                    return True
-        if message.name == 'use_environment':
-            for k, v in intermediate_res.items():
-                if "obtainable" in k and not v:
-                    return True
-                if "added" in k and not v:
-                    return True
-        if message.name == 'use_random_table':
-            for k, v in intermediate_res.items():
-                if 'usage' in k and 'proceed' in v:
-                    return True
-
-        return False
-        
-
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
         if self.max_num_msgs is None:
@@ -559,8 +537,7 @@ class GameManager(Kani):
                     else:
                         # save the result to the chat history as a system message.
                         system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
-                        if self.should_be_added(system_message, intermediate_res):
-                            await self.add_to_history(system_message)
+                        await self.add_to_history(system_message)
 
                         # Recording the function execution specifications.
                         context['function_calls'].append({
