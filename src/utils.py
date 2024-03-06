@@ -95,14 +95,15 @@ def remove_punctuation(word: str):
     return word
 
 
-# Finding the valid current queries.
-def find_current_point(chat_history: list[ChatMessage]) -> int:
-    idx = len(chat_history)
-    for i in range(len(chat_history)-1, -1, -1):
-        if chat_history[i].role == ChatRole.USER and (i == 0 or chat_history[i-1].role != ChatRole.USER):
-            idx = i
-            break
-    return idx
+# Removing function-related messages in the messages.
+def clean_history(messages: list[ChatMessage]) -> list[ChatMessage]:
+    chat_messages = []
+    for message in messages:
+        if message.role == ChatRole.USER:
+            chat_messages.append(message)
+        if message.role == ChatRole.ASSISTANT and message.content:
+            chat_messages.append(ChatMessage.assistant(name="Goblin_King", content=message.content))
+    return chat_messages
 
 
 # Converting ChatMessage into a dictionary.
@@ -112,6 +113,8 @@ def convert_into_dict(message: ChatMessage):
         'name': message.name,
         'content': message.content,
     }
+    if message.role == ChatRole.ASSISTANT:
+        res['function_call'] = True if message.tool_calls else False
     return res
 
 # Converting a dictionary into ChatMessage.

@@ -298,13 +298,6 @@ GENERATE_FLAW_DESC_PROMPT = [
     "The output should be in one or two sentences."
 ]
 
-GENERATE_OBJECT_DESC_PROMPT = [
-    "You are a description generator in a fantasy text-based adventure game.",
-    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "You should generate a specification of an object if its name is given.",
-    "The output should be in one or two sentences."
-]
-
 VALIDATE_SUCCESS_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You are given the chat history between the users (players) and an assistant (game manager).",

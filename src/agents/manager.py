@@ -17,15 +17,14 @@ from constants import (
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT,
     GENERATE_TRAIT_DESC_PROMPT,
-    GENERATE_FLAW_DESC_PROMPT,
-    GENERATE_OBJECT_DESC_PROMPT
+    GENERATE_FLAW_DESC_PROMPT
 )
 from utils import (
     print_system_log, 
     remove_punctuation, 
     select_options, 
     select_random_options, 
-    find_current_point, 
+    clean_history,
     convert_into_dict,
     convert_into_natural, 
     convert_into_number, 
@@ -84,6 +83,7 @@ class GameManager(Kani):
             device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
             self.encoder = SentenceTransformer('all-mpnet-base-v2').to(device)
         self.sent_embs = np.empty((0, self.encoder.get_sentence_embedding_dimension())) if self.concat_policy == 'retrieval' else None
+        self.current_queries = []
         self.raw_history = []
         self.start_idx = 0
         self.turn_count = 0
@@ -189,53 +189,55 @@ class GameManager(Kani):
         print("<CONSEQUENCES>")
         print(self.consequences)
 
-    # Encoding the chat message into a sentence embedding.
-    def encode_message(self, message: ChatMessage):
-        content = convert_into_natural(message)
-        return self.encoder.encode(content).astype('float64')
+    # Encoding the chat messages into the sentence embedding vectors.
+    def encode_messages(self, messages: list[ChatMessage]):
+        contents = [convert_into_natural(message) for message in messages]
+        return self.encoder.encode(contents).astype('float64')  # (N, d)
 
     # Overriding add_to_history.
-    async def add_to_history(self, message: ChatMessage, store_in_raw: bool=True):
-        self.chat_history.append(message)
+    async def add_to_history(self, messages: list[ChatMessage], store_in_raw: bool=True):
+        self.chat_history += messages
         if store_in_raw:
-            self.raw_history.append(message)
+            self.raw_history += messages
 
         # Sentence embedding for the retrieval.
         if self.sent_embs is not None:
-            emb = self.encode_message(message)
-            self.sent_embs = np.concatenate((self.sent_embs, np.expand_dims(emb, axis=0)))
+            embs = self.encode_messages(messages)  # (N, d)
+            self.sent_embs = np.concatenate((self.sent_embs, embs))
 
             # The number of sentence embeddings and chat logs should always be identical.
             assert len(self.chat_history) == self.sent_embs.shape[0], "The sentence embeddings and chat histories are not synced."
 
     # Making a prompt using the simple concatenation.
     def get_simple_history(self) -> list[ChatMessage]:
+        valid_chat_history = self.chat_history + self.current_queries
         if self.max_num_msgs is None:
-            valid_chat_history = deepcopy(self.chat_history)
+            return valid_chat_history
         else:
-            valid_chat_history = self.chat_history[max(len(self.chat_history)-self.max_num_msgs, 0):]
+            if len(self.current_queries) > self.max_num_msgs:
+                return deepcopy(self.current_queries)
+
+            valid_chat_history = valid_chat_history[max(len(valid_chat_history)-self.max_num_msgs, 0):]
 
         return valid_chat_history
 
     # Making a prompt using the retrieval concatenation.
     def get_retrieval_history(self) -> list[ChatMessage]:
-        cur = find_current_point(self.chat_history)
-
         # If this is the case, retrieval has no meaning.
-        if len(self.chat_history) <= self.max_num_msgs or self.max_num_msgs <= (len(self.chat_history)-cur):
+        if len(self.chat_history) + len(self.current_queries) <= self.max_num_msgs or self.max_num_msgs <= len(self.current_queries):
             return self.get_simple_history()
         
         # Calculating the max-pooled cosine similarities.
-        top_n = self.max_num_msgs - (len(self.chat_history)-cur)
-        query_embs, cand_embs = self.sent_embs[cur:], self.sent_embs[:cur]  # (Q, d), (C, d)
+        top_n = self.max_num_msgs - len(self.current_queries)
+        query_embs, cand_embs = self.sent_embs, self.encode_messages(self.current_queries)  # (Q, d), (C, d)
         cos_sims = util.cos_sim(query_embs, cand_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
 
         # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        retrieved, scores = [self.chat_history[:cur][idx] for idx in idxs], [scores[idx] for idx in idxs]
-        valid_chat_history = retrieved + self.chat_history[cur:]
+        retrieved, scores = [self.chat_history[idx] for idx in idxs], [scores[idx] for idx in idxs]
+        valid_chat_history = retrieved + self.current_queries
 
         # Checking the length of the valid chat logs.
         assert len(valid_chat_history) == self.max_num_msgs, "The numbers of sampled chat logs and the maximum number of turns are different."
@@ -276,9 +278,8 @@ class GameManager(Kani):
 
         # If summarization + no period, valid_chat_history is just one summary and the current query.
         if self.summarization and self.summ_period is None:
-            cur = find_current_point(self.chat_history)
-            summary = await self.summarize_history(self.chat_history[:cur])
-            valid_chat_history = [summary] + self.chat_history[cur:]
+            summary = await self.summarize_history(self.chat_history)
+            valid_chat_history = [summary] + self.current_queries
         else:
             if self.concat_policy == 'simple':
                 valid_chat_history = self.get_simple_history()
@@ -336,13 +337,8 @@ class GameManager(Kani):
             return
 
         # Calculating the cosine similarities between the queries and rules.
-        cur = find_current_point(self.chat_history)
-        if self.sent_embs is not None:
-            query_embs = self.sent_embs[cur:]  # (Q, d)
-        else:
-            queries = self.chat_history[cur:]
-            queries = [convert_into_natural(message) for message in queries]
-            query_embs = self.encoder.encode(queries).astype('float64')  # (Q, d)
+        queries = [convert_into_natural(message) for message in self.current_queries]
+        query_embs = self.encode_messages(queries)  # (Q, d)
         cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
 
@@ -471,8 +467,7 @@ class GameManager(Kani):
         retry = 0
         is_model_turn = True
         async with self.lock:
-            for msg in queries:
-                await self.add_to_history(msg)
+            self.current_queries = deepcopy(queries)
             
             while is_model_turn:
                 # do the model prediction
@@ -480,15 +475,12 @@ class GameManager(Kani):
 
                 # Recording the current state.
                 context = self.make_context()
-                idx = find_current_point(self.raw_history)
-                past_history = self.raw_history[:idx]
-                current_queries = self.raw_history[idx:]
 
                 context["past_history"] = []
-                for msg in past_history:
+                for msg in self.raw_history:
                     context["past_history"].append(convert_into_dict(msg))
                 context["current_queries"] = []
-                for msg in current_queries:
+                for msg in self.current_queries:
                     context["current_queries"].append(convert_into_dict(msg))
                 context["actual_prompt"] = []
                 for msg in messages:
@@ -505,15 +497,17 @@ class GameManager(Kani):
                     self.retrieved_rules = None
 
                 message = completion.message
-                normal_message = ChatMessage.assistant(name="Goblin_King", content=message.content)
+                if not message.tool_calls:
+                    message = ChatMessage.assistant(name="Goblin_King", content=message.content)
                 yield message
-                if message.content is not None:  # An empty function call will be ignored.
-                    await self.add_to_history(normal_message)
-                    context["generated"] = convert_into_dict(normal_message)
+
+                # In the current query, all types of messages are stored.
+                self.current_queries.append(message)
+                context["generated"] = convert_into_dict(message)
 
                 if not message.tool_calls:  # If there is no function call, this is the end of a turn.
                     self.gameplay_logs.append(context)
-                    return
+                    break
 
                 # run each tool call in parallel
                 async def _do_tool_call(tc: ToolCall):
@@ -528,16 +522,17 @@ class GameManager(Kani):
                 should_retry_call = False
                 n_errs = 0
                 results = await asyncio.gather(*(_do_tool_call(tc) for tc in message.tool_calls))
-                for result, arguments, intermediate_res in results:                    
+                for result in results:                    
                     if isinstance(result, ExceptionHandleResult):
                         is_model_turn = True
                         n_errs += 1
                         # retry if any function says so
                         should_retry_call = should_retry_call or result.should_retry
                     else:
+                        result, arguments, intermediate_res = result
+
                         # save the result to the chat history as a system message.
-                        system_message = ChatMessage.system(name=result.message.name, content=result.message.content)
-                        await self.add_to_history(system_message)
+                        self.current_queries.append(result.message)
 
                         # Recording the function execution specifications.
                         context['function_calls'].append({
@@ -560,18 +555,23 @@ class GameManager(Kani):
 
                 self.gameplay_logs.append(context)
 
+            # After finishing the turn, the current queries should be added to the chat history.
+            await self.add_to_history(clean_history(self.current_queries))
+
             # Increasing the turn count. If the summarization period has been reached, adding the summary.
             self.turn_count += 1
             if self.summarization and self.summ_period is not None and self.turn_count == self.summ_period:
                 input_history = self.chat_history[self.start_idx:]
                 summary = await self.summarize_history(input_history)
-                await self.add_to_history(summary, store_in_raw=False)
+                await self.add_to_history([summary], store_in_raw=False)
 
                 if self.clear_raw_logs:
                     self.chat_history = self.chat_history[:self.start_idx] + self.chat_history[-1:]
                     
                     if self.sent_embs is not None:
                         self.sent_embs = np.concatenate((self.sent_embs[:self.start_idx], self.sent_embs[-1:]), axis=0)
+
+                        assert len(self.chat_history) == self.sent_embs.shape[0], "The sentence embeddings and chat histories are not synced."
                 
                 self.start_idx = len(self.chat_history)
                 self.turn_count = 0
@@ -684,7 +684,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(
             self.engine, 
-            chat_history=[self.make_player_prompt(player)] + self.raw_history, 
+            chat_history=[self.make_player_prompt(player)] + clean_history(self.current_queries), 
             system_prompt=system_prompt
         )
         res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
@@ -1312,7 +1312,7 @@ class GameManager(Kani):
 
         options = ['Succeeded', 'Not yet']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
@@ -1328,7 +1328,7 @@ class GameManager(Kani):
 
         options = ['Failed', 'Not yet']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, chat_history=deepcopy(self.chat_history), system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
         
