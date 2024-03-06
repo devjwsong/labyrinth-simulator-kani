@@ -210,7 +210,6 @@ class GameManager(Kani):
 
     # Verifying whether the function result should be added into the chat history or not.
     def should_be_added(self, message: ChatMessage, intermediate_res: dict):
-        print(f"DEBUG: {message.name}")
         if message.name == 'activate_test': 
             return True
         if message.name == 'use_item':
@@ -784,7 +783,7 @@ class GameManager(Kani):
         """ 
         arguments = {'npc_name': npc_name}
 
-        # Wrong activation: The NPC already exists.
+        # Wrong activation/argument: The NPC already exists.
         if npc_name in self.npcs:
             msg = f"NPC {npc_name} ALREADY EXISTS."
             print_system_log(msg, after_break=True)
@@ -843,7 +842,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The trait already exists.
+        # Wrong activation/argument: The trait already exists.
         if trait_name in player.traits:
             msg = f"THE PLAYER {player_name} ALREADY HAS THE TRAIT {trait_name}."
             print_system_log(msg, after_break=True)
@@ -884,7 +883,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The flaw already exists.
+        # Wrong activation/argument: The flaw already exists.
         if flaw_name in player.flaws:
             msg = f"THE PLAYER {player_name} ALREADY HAS THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
@@ -963,7 +962,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The trait does not exist.
+        # Wrong activation/argument: The trait does not exist.
         if trait_name not in player.traits:
             msg = f"THE PLAYER {player_name} DOES NOT HAVE THE TRAIT {trait_name}."
             print_system_log(msg, after_break=True)
@@ -999,7 +998,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The flaw does not exist.
+        # Wrong activation/argument: The flaw does not exist.
         if flaw_name not in player.flaws:
             msg = f"THE PLAYER {player_name} DOES NOT HAVE THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
@@ -1035,7 +1034,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The item does not exist.
+        # Wrong activation/argument: The item does not exist.
         if item_name not in player.inventory:
             msg = f"THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
@@ -1075,7 +1074,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The item does not exist.
+        # Wrong activation/argument: The item does not exist.
         if item_name not in player.inventory:
             msg = f"THE PLAYER {player_name} DOES NOT HAVE THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
@@ -1124,7 +1123,7 @@ class GameManager(Kani):
 
         player = self.players[self.name_to_idx[player_name]]
 
-        # Wrong activation: The object does not exist.
+        # Wrong activation/argument: The object does not exist.
         if object_name not in self.environment:
             msg = f"THE OBJECT {object_name} CANNOT BE FOUND IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
@@ -1180,43 +1179,36 @@ class GameManager(Kani):
     # Kani's function call for getting access to the random table.
     @ai_function
     async def use_random_table(self, 
-        player_name: Annotated[str, AIParam(desc="The name of the player charater which tries to reach out to the random table.")], 
         table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
     ):
         """
-        Let the player use a random table if the player tries to reach out to any random table content or if a certain table should be referred to anytime during the game.
+        Let the players use a random table if any player tries to reach out to any random table content or if a certain table should be referred to anytime during the game.
         Do not call this function if the table or the content which should be referred to does not exist in the random table dictionary.
-        If the object the player wants to get access to, call use_environment instead of this function.
-        This function should be called when it is certainly necessary to proceed with the game.
+        If the object or component which should be accessed explicitly exists in the environment, call use_environment instead of this function.
+        This function should be called only when random sampling is certainly necessary to proceed with the game.
         """
-        arguments = {'player_name': player_name, 'table_name': table_name}
 
-        # False Positive: The function is called even when the argument is a table name which does not exist in the random table dictionary.
+        arguments = {'table_name': table_name}
+
+        # Wrong activation/argument: The table name does not exist in the random table dictionary.
         if table_name not in self.random_tables:
-            msg = f"UNEXPECTED FUNCTION CALLING: THE TABLE {table_name} DOES NOT EXIST IN THE RANDOM TABLE DICTIONARY."
+            msg = f"THERE IS NO RANDOM TABLE {table_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
-        player_idx = self.name_to_idx[player_name]
-        player = self.players[player_idx]
         entries = self.random_tables[table_name]
-
-        # If the table entries are empty.
-        if len(entries) == 0:
-            msg = f"THERE IS NOTHING IN {table_name}."
-            print_system_log(msg, after_break=True)
-            return msg, arguments, None
 
         system_prompt = ' '.join(TABLE_PROCESSING_PROMPT)
         kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+
+        intermediate_res = {}
 
         # 1. Determining the usage of the random table.
         usage_options = [
             "Disclosing the information to proceed with the game. (e.g. hint, puzzle, result, or description, etc.)",
             "Updating an NPC's property. (e.g. adding/updating a new trait, flaw, or persona.)",
             "Updating the game flow. (e.g. major change in the expected flow of the current game.)",
-            "Updating the environment. (e.g. adding a new environmental object or location.)",
-            "Nothing. I think using this random table is not necessary."
+            "Updating the environment. (e.g. adding a new environmental object or location.)"
         ]
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(usage_options)])
         query = "Determine how the given random table should be used among the following results list. " + \
@@ -1224,11 +1216,7 @@ class GameManager(Kani):
             "You must answer only in number."
         res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}")
         next_step = convert_into_class_idx(res, usage_options)
-
-        if next_step == len(usage_options)-1:
-            msg = f"UNEXPECTED FUNCTION CALLING: THE TABLE {table_name} ISN'T NEEDED YET."
-            print_system_log(msg, after_break=True)
-            return msg, arguments, {'The usage of the random table': usage_options[next_step]}
+        intermediate_res["The usage of the random table"] = usage_options[next_step]
 
         # 2. Determining the number of entries to retrieve.
         query = "How many entries should be sampled from the table? If the specific number is indicated in the scene, you should give that number. " + \
@@ -1237,31 +1225,40 @@ class GameManager(Kani):
         res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}")
         num_samples = convert_into_number(res)
         if num_samples is None: num_samples = random.randint(1, len(entries))
+        intermediate_res["The number of samples"] = num_samples
 
         # 3. Sampling the entries.
-        if not isinstance(player, PlayerKani):
-            _ = input(f"SAMPLING {num_samples} ENTRIES FROM THE TABLE {table_name}. PRESS ANY KEY TO ROLL A DICE.")
-        idxs = random.sample(list(range(len(entries))), num_samples)
-        samples = [entries[idx] for idx in idxs]
-        entries = [entry for e, entry in enumerate(entries) if e not in idxs]
+        samples = random.sample(entries, num_samples)
+        intermediate_res["The retrieved samples from the table"] = deepcopy(samples)
 
-        # 4. Determining whether the random table should be removed or not.
-        removal_options = ["Yes", "No"]
-        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(removal_options)])
-        query = "Do you think the table should be removed because it will not be required anymore?" + \
+        # 4. Updating the table after sampling.
+        exclusion_options = ['Yes', 'No']
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(exclusion_options)])
+        query = "Do you think the sampled entries should be excluded from the table because they will not be needed later? " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}")
-        removal_idx = convert_into_class_idx(res, removal_options)
-        if removal_idx == 0:
-            self.random_tables.pop(table_name)
+        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\nRetrieved samples: {samples}\n\n{options_str}")
+        exclusion_idx = convert_into_class_idx(res, exclusion_options)
 
-        # 5. Processing the samples according to the result.
-        intermediate_res = {
-            "The usage of the random table": usage_options[next_step],
-            "The number of samples": num_samples,
-            "The retrieved samples from the table": samples,
-            "Removal of the table": removal_options[removal_idx]
-        }
+        if exclusion_idx == 0:  # The retrieved sample should be excluded from the table.
+            entries = [entry for entry in entries if entry not in samples]
+        self.random_tables[table_name] = entries
+        if len(entries) == 0:
+            self.random_tables.pop(table_name)
+        intermediate_res["Exclusion of the sampled entries"] = True if exclusion_idx == 0 else False
+
+        # 5. Determining whether the random table should be removed or not.
+        if table_name in self.random_tables:
+            removal_options = ["Yes", "No"]
+            options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(removal_options)])
+            query = "Do you think the table should be removed because it will not be required anymore? " + \
+                "You must answer only in number."
+            res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}")
+            removal_idx = convert_into_class_idx(res, removal_options)
+            if removal_idx == 0:
+                self.random_tables.pop(table_name)
+            intermediate_res["Removal of the table"] = True if removal_idx == 0 else False
+
+        # 6. Processing the samples according to the result.
         if next_step == 0:
             msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}"
             print_system_log(msg, after_break=True)
