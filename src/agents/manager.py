@@ -1116,12 +1116,17 @@ class GameManager(Kani):
 
         arguments = {'player_name': player_name, 'object_name': object_name}
 
-        player_idx = self.name_to_idx[player_name]
-        player = self.players[player_idx]
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
 
-        # False Positive: The function is called even when the argument is an object which does not exist in the environment.
+        player = self.players[self.name_to_idx[player_name]]
+
+        # Wrong activation: The object does not exist.
         if object_name not in self.environment:
-            msg = f"UNEXPECTED FUNCTION CALLING: THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
+            msg = f"THE OBJECT {object_name} CANNOT BE FOUND IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
         
