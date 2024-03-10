@@ -62,7 +62,7 @@ There are a few technical details of the system, which can help you understand h
 | ------------------ | -------------- | ------------------------------------------------------------ | --------------------- |
 | `--seed`           | `int`          | The random seed for randomized operations.                   | *YOU SHOULD SPECIFY.* |
 | `--model_idx`      | `str`          | The index of the model. Since only `openai` engine is supported for leveraging the function calling feature, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | *YOU SHOULD SPECIFY.* |
-| `--rule_injection` | `str`          | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. For this, you just erase `--rule_injection` from `exec_main.sh`. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`                |
+| `--rule_injection` | `str`          | The rule injection policy. The available options include: 1) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 2)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`                |
 | `--scene_path`     | `str`          | The path of the JSON file which has the initialized scene information before. | *YOU SHOULD SPECIFY.* |
 | `--players_path`   | `str`          | The path of the JSON file which has the created player character information before. If the file cannot be found, the system will make you create the new characters from the beginning. | -                     |
 | `--export_data`    | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results` directory. | *Set by default.*     |
@@ -82,18 +82,29 @@ There are a few technical details of the system, which can help you understand h
 
 <br/>
 
+**Arguments for the processing of additional contexts**
+
+| Argument                  | Type         | Description                                                  | Default          |
+| ------------------------- | ------------ | ------------------------------------------------------------ | ---------------- |
+| `--include_functions`     | `store_true` | Setting whether to use function calls or not.                | *Set by default* |
+| `--include_rules`         | `store_true` | Setting whether to include the game rules in the prompt.     | *Set by default* |
+| `--include_scene_state`   | `store_true` | Setting whether to include the state of the current scene.   | *Set by default* |
+| `--include_players_state` | `store_true` | Setting whether to include the states of the players.        | *Set by default* |
+| `--generate_states`       | `store_true` | Setting whether to use a model to directly generate the scene/player states. | -                |
+
+<br/>
+
 **Arguments for the response generation**
 
 Note that these are only used for the actual interaction during the game. Other tasks, such as initializing a scene, classification-based decisions in the functions, and summarization, will have default decoding parameters. You can refer to [the document](https://platform.openai.com/docs/api-reference/chat/create) for more details.
 
-| Argument              | Type         | Description                                                  | Default          |
-| --------------------- | ------------ | ------------------------------------------------------------ | ---------------- |
-| `--include_functions` | `store_true` | Setting whether to use function calls or not.                | *Set by default* |
-| `--max_tokens`        | `int`        | The maximum number of tokens to generate.                    | -                |
-| `--frequency_penalty` | `float`      | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`            |
-| `--presence_penalty`  | `float`      | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`            |
-| `--temperature`       | `float`      | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`            |
-| `--top_p`             | `float`      | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`            |
+| Argument              | Type    | Description                                                  | Default |
+| --------------------- | ------- | ------------------------------------------------------------ | ------- |
+| `--max_tokens`        | `int`   | The maximum number of tokens to generate.                    | -       |
+| `--frequency_penalty` | `float` | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`   |
+| `--presence_penalty`  | `float` | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`   |
+| `--temperature`       | `float` | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`   |
+| `--top_p`             | `float` | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`   |
 
 <br/>
 

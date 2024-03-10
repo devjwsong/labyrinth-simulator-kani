@@ -135,8 +135,7 @@ RULE_SUMMARY = [
     [
         "Additional instructions: During the interactions with the players, you should keep your role as a game manager.",
         "You should keep track of the game flow and try to lead the game which should not be too far from the game flow rules.",
-        "And you should keep thinking whether the current circumstance is matched with the success/failure condition so that you can wrap-up the scene.",
-        "Also, you should also validate every output from the NPCs if if violates some of the generation rules."
+        "And you should keep thinking whether the current circumstance is matched with the success/failure condition so that you can wrap-up the scene."
     ]
 ]
 

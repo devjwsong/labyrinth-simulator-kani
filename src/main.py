@@ -114,8 +114,11 @@ def main(manager: GameManager, args: Namespace):
             async for response in manager.full_round_str(
                 manager_queries,
                 message_formatter=assistant_message_contents_thinking,
-                include_functions=args.include_functions,
                 max_tokens=args.max_tokens,
+                include_functions=args.include_functions,
+                include_rules=args.include_rules,
+                include_scene_state=args.include_scene_state,
+                include_player_states=args.include_player_states,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,
                 temperature=args.temperature,
@@ -199,12 +202,12 @@ if __name__=='__main__':
     parser.add_argument('--summ_period', type=int, help="The summarization period in terms of the number of turns.")
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
 
-    # Parameters for togging the additional contexts.
+    # Parameters for toggling the additional contexts.
     parser.add_argument('--include_functions', action='store_true', help="Setting whether to use function calls or not.")
     parser.add_argument('--include_rules', action='store_true', help="Setting whether to include the game rules in the prompt.")
     parser.add_argument('--include_scene_state', action='store_true', help="Setting whether to include the state of the current scene.")
     parser.add_argument('--include_player_states', action='store_true', help="Setting whether to include the states of the players.")
-    parser.add_argument('--update_states', action='store_true', help="Setting whether to use a model to directly updates the scene/player states.")
+    parser.add_argument('--generate_states', action='store_true', help="Setting whether to use a model to directly generate the scene/player states.")
 
     # Parameters for the response generation.
     parser.add_argument('--max_tokens', type=int, help="The maximum number of tokens to generate.")

@@ -260,21 +260,37 @@ class GameManager(Kani):
         return ChatMessage.system(content=res, name="Summary")
 
     # Overriding get_prompt.
-    async def get_prompt(self) -> list[ChatMessage]:
+    async def get_prompt(self,
+        include_rules: bool = True,
+        include_scene_state: bool = True,
+        include_player_states: bool = True,
+    ) -> list[ChatMessage]:
         # First, setting the additional information.
-        self.make_rule_prompt()
-        self.make_scene_prompt()
-        self.make_player_prompts()
+        default_prompt = deepcopy(self.always_included_messages)
 
         rule_prompt_len = 0
-        if self.rule_prompt is not None:
-            rule_prompt_len = self.message_token_len(self.rule_prompt)
+        if include_rules:
+            self.make_rule_prompt()
+            if self.rule_prompt is not None:
+                rule_prompt_len = self.message_token_len(self.rule_prompt)
+                default_prompt.append(deepcopy(self.rule_prompt))
+
         scene_prompt_len = 0
-        if self.scene_prompt is not None:
-            scene_prompt_len = self.message_token_len(self.scene_prompt)
-        always_len = self.always_len + rule_prompt_len + scene_prompt_len  # Additional length for rule/scene information.
-        for message in self.player_prompts:  # Additional length for player information.
-            always_len += self.message_token_len(message)
+        if include_scene_state:
+            self.make_scene_prompt()
+            if self.scene_prompt is not None:
+                scene_prompt_len = self.message_token_len(self.scene_prompt)
+                default_prompt.append(deepcopy(self.scene_prompt))
+        
+        player_prompts_len = 0
+        if include_player_states:
+            self.make_player_prompts()
+            if len(self.player_prompts) > 0:
+                for message in self.player_prompts:
+                    player_prompts_len += self.message_token_len(message)
+                default_prompt += self.player_prompts
+
+        always_len = self.always_len + rule_prompt_len + scene_prompt_len + player_prompts_len  # Additional length for rule/scene information.
 
         # If summarization + no period, valid_chat_history is just one summary and the current query.
         if self.summarization and self.summ_period is None:
@@ -315,14 +331,6 @@ class GameManager(Kani):
             f" {len(self.always_included_messages) + to_keep} messages"
             f" ({len(self.always_included_messages)} always)"
         )
-
-        default_prompt = deepcopy(self.always_included_messages)
-        if self.rule_prompt is not None:
-            default_prompt += [self.rule_prompt]
-        if self.scene_prompt is not None:
-            default_prompt += [self.scene_prompt]
-        if len(self.player_prompts) > 0:
-            default_prompt += self.player_prompts
 
         if not to_keep:
             return default_prompt
@@ -416,7 +424,13 @@ class GameManager(Kani):
         return context
 
     # Overriding get_model_completion.
-    async def get_model_completion(self, include_functions: bool = True, **kwargs) -> Tuple[BaseCompletion, list[ChatMessage]]:
+    async def get_model_completion(self, 
+        include_functions: bool = True, 
+        include_rules: bool = True,
+        include_scene_state: bool = True,
+        include_player_states: bool = True,
+        **kwargs
+    ) -> Tuple[BaseCompletion, list[ChatMessage]]:
         """Get the model's completion with the current chat state.
 
         Compared to :meth:`chat_round` and :meth:`full_round`, this lower-level method does not save the model's reply
@@ -427,7 +441,7 @@ class GameManager(Kani):
         :param kwargs: Arguments to pass to the model engine.
         """
         # get the current chat state
-        messages = await self.get_prompt()
+        messages = await self.get_prompt(include_rules, include_scene_state, include_player_states)
 
         # log it (message_log includes the number of messages sent and the last message)
         n_messages = len(messages)
@@ -633,28 +647,6 @@ class GameManager(Kani):
         async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
                 yield text
-
-    # Overriding chat_round.
-    async def chat_round(self, query: QueryType, **kwargs) -> ChatMessage:
-        """Perform a single chat round (user -> model -> user, no functions allowed).
-
-        This is slightly faster when you are chatting with a kani with no AI functions defined.
-
-        :param query: The contents of the user's chat message.
-        :param kwargs: Additional arguments to pass to the model engine (e.g. hyperparameters).
-        :returns: The model's reply.
-        """
-        kwargs = {**kwargs, "include_functions": False}
-        # do the chat round
-        async with self.lock:
-            # add the user's chat input to the state
-            await self.add_to_history(ChatMessage.user(query))
-
-            # and get a completion
-            completion, _ = await self.get_model_completion(**kwargs)
-            message = completion.message
-            await self.add_to_history(message)
-            return message
 
     # Kani's function call for a dice roll test.
     @ai_function
