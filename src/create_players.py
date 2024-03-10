@@ -12,9 +12,10 @@ import os
 def export_result(result: list[dict], username: str, execution_time: str):
     num_players = len(result)
 
-    if not os.path.isdir('players'):
-        os.makedirs('players')
-    file_path = f"players/{username}-num_players={num_players}-time={execution_time}.json"
+    file_dir = f"players/num_players={num_players}"
+    if not os.path.isdir(file_dir):
+        os.makedirs(file_dir)
+    file_path = f"{file_dir}/{username}-time={execution_time}.json"
     with open(file_path, 'w') as f:
         json.dump(result, f)
 

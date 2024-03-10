@@ -365,7 +365,8 @@ if __name__=='__main__':
     # Arguments for the rule understanding evaluation.
     parser.add_argument('--seed', type=int, default=0, help="The random seed for shuffling the question list.")
     parser.add_argument('--target_model_idx', type=str, help="The index of the model which should be evaluated.")
-    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
+    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
+    parser.add_argument('--include_rules', action='store_true', help="Setting whether to include the game rules in the prompt.")
 
     args = parser.parse_args()
 
@@ -383,7 +384,7 @@ if __name__=='__main__':
         assert args.scene_path is not None, "You should specify the initialized scene data you want to evaluate."
     if args.eval_task == 'rules':
         assert args.target_model_idx is not None, "You should specify the model you want to test."
-        assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as None."
+        assert args.rule_injection in ['full', 'retrieval'], "Specify an available rule injection option: 'full' / 'retrieval'"
 
         # Setting the sentence encoder for the rule embedding.
         encoder = None

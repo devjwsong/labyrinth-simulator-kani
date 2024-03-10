@@ -72,10 +72,10 @@ def check_init_types(scene: dict):
 
 # Exporting the initialized result.
 def export_result(result: dict, model_idx: str, scene_idx: int, username: str, execution_time: str):
-    file_dir = f"scenes/scene={scene_idx}"
+    file_dir = f"scenes/scene={scene_idx}/model={model_idx}"
     if not os.path.isdir(file_dir):
         os.makedirs(file_dir)
-    file_path = f"{file_dir}/{username}-model={model_idx}-time={execution_time}.json"
+    file_path = f"{file_dir}/{username}-time={execution_time}.json"
     with open(file_path, 'w') as f:
         json.dump(result, f)
 

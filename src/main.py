@@ -186,7 +186,7 @@ if __name__=='__main__':
     # Arguments for the gameplay.
     parser.add_argument('--seed', type=int, required=True, help="The random seed for randomized operations.")
     parser.add_argument('--model_idx', type=str, required=True, help="The index of the model.")
-    parser.add_argument('--rule_injection', type=str, default=None, help="The rule injection policy.")
+    parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
     parser.add_argument('--scene_path', type=str, required=True, help="The path of the JSON file which has the initialized scene information before.")
     parser.add_argument('--players_path', type=str, required=True, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
@@ -199,8 +199,14 @@ if __name__=='__main__':
     parser.add_argument('--summ_period', type=int, help="The summarization period in terms of the number of turns.")
     parser.add_argument('--clear_raw_logs', action='store_true', help="Setting whether to remove the raw chat logs after the summarization.")
 
-    # Parameters for the response generation.
+    # Parameters for togging the additional contexts.
     parser.add_argument('--include_functions', action='store_true', help="Setting whether to use function calls or not.")
+    parser.add_argument('--include_rules', action='store_true', help="Setting whether to include the game rules in the prompt.")
+    parser.add_argument('--include_scene_state', action='store_true', help="Setting whether to include the state of the current scene.")
+    parser.add_argument('--include_player_states', action='store_true', help="Setting whether to include the states of the players.")
+    parser.add_argument('--update_states', action='store_true', help="Setting whether to use a model to directly updates the scene/player states.")
+
+    # Parameters for the response generation.
     parser.add_argument('--max_tokens', type=int, help="The maximum number of tokens to generate.")
     parser.add_argument('--frequency_penalty', type=float, default=0.5, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
     parser.add_argument('--presence_penalty', type=float, default=0.5, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
@@ -209,7 +215,7 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    assert args.rule_injection in [None, 'full', 'retrieval'], "Either specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
+    assert args.rule_injection in ['full', 'retrieval'], "Specify an available rule injection option: 'full' / 'retrieval', or leave it as non-specified."
     if not args.summarization:
         assert args.summ_period is None, "To use summ_period, you must set the summarization argument."
         assert args.clear_raw_logs is False, "To use clear_raw_logs, you must set the summarization argument."
@@ -220,6 +226,10 @@ if __name__=='__main__':
         if args.max_num_msgs is None:
             print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF MESSAGES WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
             args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
+    if args.update_states:
+        print_system_log("YOU SET update_state=True WHICH AUTOMATICALLY TURNS OFF include_scene_state AND include_player_states.")
+        args.include_scene_state = False
+        args.include_player_states = False
 
     # Creating the engine.
     random.seed(args.seed)
@@ -278,8 +288,10 @@ if __name__=='__main__':
 
     # Exporting data after finishing the scene.
     if args.export_data:
-        file_dir = f"results/{args.scene_path.split('/')[1]}/rule={args.rule_injection}/concat={args.concat_policy}/" + \
-            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/functions={args.include_functions}"
+        file_dir = f"results/{args.scene_path.split('/')[1]}/rule_injection={args.rule_injection}/concat={args.concat_policy}/" + \
+            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/" + \
+            f"functions={args.include_functions}/rules={args.include_rules}/scene_state={args.include_scene_state}/player_states={args.include_player_states}/" + \
+            f"update_states={args.update_states}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 
