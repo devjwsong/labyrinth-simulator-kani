@@ -259,7 +259,13 @@ class GameManager(Kani):
         system_prompt = ' '.join(SUMMARIZE_PROMPT)
         
         kani = Kani(self.engine, chat_history=input_history, system_prompt=system_prompt)
-        res = await kani.chat_round_str("Give me the summarization of the chat history so far.")
+        generation_params = {
+            'temperature': 0.5,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+        res = await kani.chat_round_str("Give me the summarization of the chat history so far.", **generation_params)
 
         return ChatMessage.system(content=res, name="Summary")
 
@@ -668,6 +674,7 @@ class GameManager(Kani):
             'temperature': 0,
             'top_p': 1,
             'presence_penalty': 0,
+            'frequency_penalty': 0,
         }
 
         # Updating the scene.
@@ -729,7 +736,14 @@ class GameManager(Kani):
         options = ["The test becomes easier.", "The test becomes harder.", "There is no change."]
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=clean_history(self.current_queries), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {f"Improvement/Hinderance of the test due to the player traits/flaws": options[res]}
@@ -814,7 +828,14 @@ class GameManager(Kani):
         system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
         
         kani = Kani(self.engine, system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\nNPC name: '{npc_name}'")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\nNPC name: '{npc_name}'", **generation_params)
 
         # Converting & Fetching information.
         try:
@@ -875,7 +896,14 @@ class GameManager(Kani):
         system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
 
         kani = Kani(self.engine, system_prompt=system_prompt)
-        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
+        generation_params = {
+            'temperature': 1.0,
+            'top_p': 1,
+            'presence_penalty': 0.5,
+            'frequency_penalty': 0.5,
+        }
+
+        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}", **generation_params)
 
         intermediate_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
 
@@ -919,7 +947,14 @@ class GameManager(Kani):
         system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
 
         kani = Kani(self.engine, system_prompt=system_prompt)
-        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
+        generation_params = {
+            'temperature': 1.0,
+            'top_p': 1,
+            'presence_penalty': 0.5,
+            'frequency_penalty': 0.5,
+        }
+        
+        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}", **generation_params)
 
         intermediate_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
 
@@ -1116,7 +1151,14 @@ class GameManager(Kani):
         options = ['Expendable', 'Not expendable']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {f"The item '{item_name}' expendable": True if res == 0 else False}
@@ -1169,7 +1211,14 @@ class GameManager(Kani):
         options = ['Obtainable', 'Not obtainable']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {
@@ -1248,7 +1297,14 @@ class GameManager(Kani):
         query = "Determine how the given random table should be used among the following results list. " + \
             "In other words, you should give your decision on which change the randomly sampled from the table would make in the game. " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+        
+        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}", **generation_params)
         next_step = convert_into_class_idx(res, usage_options)
         intermediate_res["The usage of the random table"] = usage_options[next_step]
 
@@ -1256,7 +1312,7 @@ class GameManager(Kani):
         query = "How many entries should be sampled from the table? If the specific number is indicated in the scene, you should give that number. " + \
             "If not, you can determine any number which you think most reasonable. " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}")
+        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}", **generation_params)
         num_samples = convert_into_number(res)
         if num_samples is None: num_samples = random.randint(1, len(entries))
         intermediate_res["The number of samples"] = num_samples
@@ -1270,7 +1326,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(exclusion_options)])
         query = "Do you think the sampled entries should be excluded from the table because they will not be needed later? " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\nRetrieved samples: {samples}\n\n{options_str}")
+        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\nRetrieved samples: {samples}\n\n{options_str}", **generation_params)
         exclusion_idx = convert_into_class_idx(res, exclusion_options)
 
         if exclusion_idx == 0:  # The retrieved sample should be excluded from the table.
@@ -1286,7 +1342,7 @@ class GameManager(Kani):
             options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(removal_options)])
             query = "Do you think the table should be removed because it will not be required anymore? " + \
                 "You must answer only in number."
-            res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}")
+            res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}", **generation_params)
             removal_idx = convert_into_class_idx(res, removal_options)
             if removal_idx == 0:
                 self.random_tables.pop(table_name)
@@ -1304,7 +1360,7 @@ class GameManager(Kani):
                 "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
                 "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
                 "If you need to generate any additional description, feel free to do it and make sure to include it too."
-            res = await kani.chat_round_str(f"{query}\nOriginal NPCs: {self.npcs}\n{table_name}: {samples}")
+            res = await kani.chat_round_str(f"{query}\nOriginal NPCs: {self.npcs}\n{table_name}: {samples}", **generation_params)
 
             try:
                 self.npcs = json.loads(res)
@@ -1323,7 +1379,7 @@ class GameManager(Kani):
             query = "Update the game flow using the retrieved samples from the table. " + \
                 "You should re-generate the game flow as a list of strings in Python which is the same format of the original game flow list. " + \
                 "Note that you should only update the parts which are related to the given samples without changing any other essential information."
-            res = await kani.chat_round_str(f"{query}\nOriginal game flow: {self.game_flow}\n{table_name}: {samples}")
+            res = await kani.chat_round_str(f"{query}\nOriginal game flow: {self.game_flow}\n{table_name}: {samples}", **generation_params)
 
             try:
                 self.game_flow = ast.literal_eval(res)
@@ -1344,7 +1400,7 @@ class GameManager(Kani):
                 "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
                 "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
                 "If you need to generate any additional description, feel free to do it and make sure to add it too."
-            res = await kani.chat_round_str(f"{query}\nOriginal environment: {self.environment}\n{table_name}: {samples}")
+            res = await kani.chat_round_str(f"{query}\nOriginal environment: {self.environment}\n{table_name}: {samples}", **generation_params)
 
             try:
                 self.environment = json.loads(res)
@@ -1370,7 +1426,14 @@ class GameManager(Kani):
         options = ['Succeeded', 'Not yet']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         return True if res == 0 else False
@@ -1386,7 +1449,14 @@ class GameManager(Kani):
         options = ['Failed', 'Not yet']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
-        res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}\n\n{options_str}")
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+
+        res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
         
         return True if res == 0 else False
