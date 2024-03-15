@@ -110,8 +110,9 @@ RULE_SUMMARY = [
         "If there are, declaring an action scene might be better, otherwise just a test."
     ],
     [
-        "Using tables: The random tables are used during the scene if there are some objects that should be brought in or selected for proceeding the scene.",
-        "The Goblin King should first determine if the current game flow requires to use the random table, decide which table should be referred to, pick one entry randomly, and notify it to the players."
+        "Using tables: The random tables are used during the scene if there are some objects that should be brought in or some entries should be selected for proceeding the scene.",
+        "The Goblin King should first determine if the current game flow requires to use the random table, decide which table should be referred to, pick the entries depending on the requirement, and use them during the game.",
+        "The sampled entries can be used for just adding the context during the gameplay, or directly updating the required game states."
     ],
     [
         "Hours: Other than the time limit during an action scene, the Labyrinth has the total time limit per each scene.",
@@ -145,6 +146,16 @@ SCENE_INIT_PROMPT = [
     "You will also be given the game rules to get some help for understanding the game.",
     "The scene input will be given as a JSON object.",
     "Avoid just copying and pasting the contents in the input identically."
+]
+
+STATE_UPDATE_PROMPT = [
+    "You are a state updater in a fantasy text-based adventure game.",
+    "You should generate the updated states strictly following the same JSON foramt of the input state.",
+    "You should not generate any additional content or explanation and make suer that your answer can be parsed as a Python dictionary without an error.",
+    "You will be given the game ruels, the previous state and one interaction between the players and the game manager, which is called Goblin King, during the game.",
+    "This interaction might have multiple responses from the game manager or the results of function calls.",
+    "Carefully consider what changes have happened during the interaction and re-generate the given state.",
+    "If there is nothing to update, just generate the state which is identical to the input."
 ]
 
 SCENE_SUMMARY_DETAILS = [

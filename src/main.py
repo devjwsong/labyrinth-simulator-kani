@@ -119,6 +119,7 @@ def main(manager: GameManager, args: Namespace):
                 include_rules=args.include_rules,
                 include_scene_state=args.include_scene_state,
                 include_player_states=args.include_player_states,
+                generate_states=args.generate_states,
                 frequency_penalty=args.frequency_penalty,
                 presence_penalty=args.presence_penalty,
                 temperature=args.temperature,
@@ -229,10 +230,9 @@ if __name__=='__main__':
         if args.max_num_msgs is None:
             print_system_log("ANY CONCATENATION POLICY WITH NO SPECIFIC MAX NUMBER OF MESSAGES WOULD BE CASTED INTO THE SIMPLE CONCATENATION.")
             args.concat_policy = 'simple'  # The retrieval concatenation without any number of turns is not different from the simple concatenation.
-    if args.update_states:
-        print_system_log("YOU SET update_state=True WHICH AUTOMATICALLY TURNS OFF include_scene_state AND include_player_states.")
-        args.include_scene_state = False
-        args.include_player_states = False
+    if args.generate_states:
+        print_system_log("YOU SET update_state=True WHICH AUTOMATICALLY TURNS OFF include_functions.")
+        args.include_functions = False
 
     # Creating the engine.
     random.seed(args.seed)

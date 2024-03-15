@@ -8,6 +8,7 @@ from agents.player import Player, PlayerKani
 from constants import (
     SEP,
     RULE_SUMMARY,
+    STATE_UPDATE_PROMPT,
     VALIDATE_SUCCESS_PROMPT, 
     VALIDATE_FAILURE_PROMPT,
     DIFFICULTY_PROMPT,
@@ -92,6 +93,8 @@ class GameManager(Kani):
         self.gameplay_logs = []
 
         # Pre-buidling the rule prompt or embeddings.
+        self.game_rules = []
+        self.rule_embs = None
         if main_args.rule_injection == 'retrieval':
             self.game_rules = list(chain.from_iterable(RULE_SUMMARY))
             self.rule_embs = self.encoder.encode(self.game_rules).astype('float64')
@@ -112,8 +115,7 @@ class GameManager(Kani):
         self.consequences = obj['consequences']
 
     # Setting the attributes in a player.
-    def set_player(self, player_idx, obj):
-        player = self.players[player_idx]
+    def set_player(self, player: Player, obj: dict):
         player.name = obj['name']
         player.kin = obj['kin']
         player.persona = obj['persona']
@@ -122,8 +124,6 @@ class GameManager(Kani):
         player.flaws = obj['flaws']
         player.inventory = obj['inventory']
         player.additional_notes = obj['additional_notes']
-
-        self.players[player_idx] = player
 
     # Getter for NPC in a natural format.
     def get_npc(self, info):
@@ -371,7 +371,7 @@ class GameManager(Kani):
     def make_scene_prompt(self):
         content = f"chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
             f"npcs={self.npcs}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
-            f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}, " + \
+            f"game_flow={self.game_flow}, environment={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}, " + \
             f"is_action_scene={self.is_action_scene}"
         
         scene_prompt = ChatMessage.system(name="Scene_State", content=content)
@@ -484,7 +484,9 @@ class GameManager(Kani):
         is_model_turn = True
         async with self.lock:
             self.current_queries = deepcopy(queries)
-            
+            generate_states = kwargs['generate_states']
+            kwargs.pop('generate_states')
+
             while is_model_turn:
                 # do the model prediction
                 completion, messages = await self.get_model_completion(**kwargs)
@@ -523,6 +525,11 @@ class GameManager(Kani):
 
                 if not message.tool_calls:  # If there is no function call, this is the end of a turn.
                     self.gameplay_logs.append(context)
+
+                    # If specified, the model updates the game states on its own.
+                    if generate_states:
+                        await self.update_states(deepcopy(self.current_queries))
+
                     break
 
                 # run each tool call in parallel
@@ -649,6 +656,49 @@ class GameManager(Kani):
         async for message in self.full_round(queries, **kwargs):
             if text := message_formatter(message):
                 yield text
+
+    # Updating the game state after every generation.
+    async def update_states(self, current_queries: list[ChatMessage]):
+        system_prompt = ' '.join(STATE_UPDATE_PROMPT)
+        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+        system_prompt = f"{system_prompt}\n\nGame Rules: {rule_content}"
+
+        kani = Kani(self.engine, chat_history=current_queries, system_prompt=system_prompt)
+        generation_params = {
+            'temperature': 0,
+            'top_p': 1,
+            'presence_penalty': 0,
+        }
+
+        # Updating the scene.
+        scene_prompt = self.make_scene_prompt()
+        scene_res = await kani.chat_round_str(
+            f"Generate the updated scene state from the previous scene state considering the given interaction.\n\nPrevious Scene State: {scene_prompt.content}",
+            **generation_params
+        )
+        try:
+            new_scene_state = json.loads(scene_res)
+            self.set_scene(new_scene_state)
+
+        except json.decoder.JSONDecodeError as e:
+            log.debug(scene_res)
+            log.error(f"{e}: The output format cannot be converted into dict.")
+            raise Exception()
+
+        # Updating the players.
+        for player in self.players:
+            player_prompt = self.make_player_prompt(player)
+            player_res = await kani.chat_round_str(
+                f"Generate the updated player state from the previous player state considering the given interaction.\n\nPrevious Player State: {player_prompt.content}",
+                **generation_params
+            )
+            try:
+                new_player_state = json.loads(player_res)
+                self.set_player(player, new_player_state)
+            except json.decoder.JSONDecodeError as e:
+                log.debug(scene_res)
+                log.error(f"{e}: The output format cannot be converted into dict.")
+                raise Exception()         
 
     # Kani's function call for a dice roll test.
     @ai_function
