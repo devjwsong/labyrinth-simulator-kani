@@ -185,8 +185,8 @@ if __name__=='__main__':
 
     system_prompt = ' '.join(SCENE_INIT_PROMPT)
     rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])  # For scene initialization, we only use the direct injection of rules.
-    rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
-    agent = Kani(engine, chat_history=[rule_prompt], system_prompt=system_prompt)
+    system_prompt = f"{system_prompt}\n\nGame Rules: {rule_content}"
+    agent = Kani(engine, system_prompt=system_prompt)
 
     # Running the main logic.
     result = asyncio.run(init_scene(args, agent))

@@ -1,5 +1,5 @@
 from kani import Kani, ai_function, AIParam
-from kani.models import ChatMessage, ChatRole, FunctionCall, QueryType, ToolCall
+from kani.models import ChatMessage, ChatRole, FunctionCall, ToolCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult, ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
@@ -72,11 +72,6 @@ class GameManager(Kani):
         self.summ_period = main_args.summ_period
         self.clear_raw_logs = True if main_args.clear_raw_logs else False
 
-        # Context prompts.
-        self.rule_prompt = None
-        self.scene_prompt = None
-        self.player_prompts = []
-
         # Additional attributes for enabling the prompt policies.
         self.encoder = None
         if main_args.concat_policy == 'retrieval' or main_args.rule_injection == 'retrieval':
@@ -97,12 +92,7 @@ class GameManager(Kani):
         self.gameplay_logs = []
 
         # Pre-buidling the rule prompt or embeddings.
-        self.game_rules = []
-        self.rule_embs = None
-        if main_args.rule_injection == 'full':
-            rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
-            self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
-        elif main_args.rule_injection == 'retrieval':
+        if main_args.rule_injection == 'retrieval':
             self.game_rules = list(chain.from_iterable(RULE_SUMMARY))
             self.rule_embs = self.encoder.encode(self.game_rules).astype('float64')
 
@@ -120,6 +110,20 @@ class GameManager(Kani):
         self.environment = obj['environment']
         self.random_tables = obj['random_tables']
         self.consequences = obj['consequences']
+
+    # Setting the attributes in a player.
+    def set_player(self, player_idx, obj):
+        player = self.players[player_idx]
+        player.name = obj['name']
+        player.kin = obj['kin']
+        player.persona = obj['persona']
+        player.goal = obj['goal']
+        player.traits = obj['traits']
+        player.flaws = obj['flaws']
+        player.inventory = obj['inventory']
+        player.additional_notes = obj['additional_notes']
+
+        self.players[player_idx] = player
 
     # Getter for NPC in a natural format.
     def get_npc(self, info):
@@ -270,25 +274,22 @@ class GameManager(Kani):
 
         rule_prompt_len = 0
         if include_rules:
-            self.make_rule_prompt()
-            if self.rule_prompt is not None:
-                rule_prompt_len = self.message_token_len(self.rule_prompt)
-                default_prompt.append(deepcopy(self.rule_prompt))
+            rule_prompt = self.make_rule_prompt()
+            rule_prompt_len = self.message_token_len(rule_prompt)
+            default_prompt.append(deepcopy(rule_prompt))
 
         scene_prompt_len = 0
         if include_scene_state:
-            self.make_scene_prompt()
-            if self.scene_prompt is not None:
-                scene_prompt_len = self.message_token_len(self.scene_prompt)
-                default_prompt.append(deepcopy(self.scene_prompt))
+            scene_prompt = self.make_scene_prompt()
+            scene_prompt_len = self.message_token_len(scene_prompt)
+            default_prompt.append(deepcopy(scene_prompt))
         
         player_prompts_len = 0
         if include_player_states:
-            self.make_player_prompts()
-            if len(self.player_prompts) > 0:
-                for message in self.player_prompts:
-                    player_prompts_len += self.message_token_len(message)
-                default_prompt += self.player_prompts
+            player_prompts = self.make_player_prompts()
+            for message in player_prompts:
+                player_prompts_len += self.message_token_len(message)
+            default_prompt += player_prompts
 
         always_len = self.always_len + rule_prompt_len + scene_prompt_len + player_prompts_len  # Additional length for rule/scene information.
 
@@ -340,55 +341,56 @@ class GameManager(Kani):
 
     # Making the rule prompt.
     def make_rule_prompt(self, top_n: int=5):
-        # If this is a full rule injection or none rull injection, return None.
-        if self.rule_embs is None:
-            return
+        if self.rule_embs:  # This means the manager using the retrieval-based rules.
+            # Calculating the cosine similarities between the queries and rules.
+            queries = [convert_into_natural(message) for message in self.current_queries]
+            query_embs = self.encode_messages(queries)  # (Q, d)
+            cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
+            scores = torch.max(cos_sims, dim=0).values  # (C)
 
-        # Calculating the cosine similarities between the queries and rules.
-        queries = [convert_into_natural(message) for message in self.current_queries]
-        query_embs = self.encode_messages(queries)  # (Q, d)
-        cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
-        scores = torch.max(cos_sims, dim=0).values  # (C)
+            # Sorting the candidate logs by the similarities.
+            idxs = torch.sort(scores, descending=True).indices[:top_n]
+            idxs = torch.sort(idxs).values
+            valid_rules, scores = [self.game_rules[idx] for idx in idxs], [scores[idx] for idx in idxs]
 
-        # Sorting the candidate logs by the similarities.
-        idxs = torch.sort(scores, descending=True).indices[:top_n]
-        idxs = torch.sort(idxs).values
-        valid_rules, scores = [self.game_rules[idx] for idx in idxs], [scores[idx] for idx in idxs]
+            assert len(valid_rules) == top_n, "The number of retrieved rules is not same as the pre-defined top_n."
+            assert len(valid_rules) == len(scores), "The retrieved rules are not matched with the calculated scores."
 
-        assert len(valid_rules) == top_n, "The number of retrieved rules is not same as the pre-defined top_n."
-        assert len(valid_rules) == len(scores), "The retrieved rules are not matched with the calculated scores."
+            # Since this function only works when rule_injection=retrieval, the retrieved rules are also exported.
+            self.retrieved_rules = [(valid_rules[i], scores[i].item()) for i in range(len(scores))]
 
-        # Since this function only works when rule_injection=retrieval, the retrieved rules are also exported.
-        self.retrieved_rules = [(valid_rules[i], scores[i].item()) for i in range(len(scores))]
+            rule_content = '\n'.join(valid_rules)
 
-        rule_content = '\n'.join(valid_rules)
-        self.rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
+        else:
+            rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+        
+        rule_prompt = ChatMessage.system(name="Game_Rules", content=rule_content)
+        return rule_prompt
 
     # Making the scene prompt.
     def make_scene_prompt(self):
-        # If there is no scene, return None.
-        if len(self.chapter) == 0 and len(self.scene) == 0: return
-
         content = f"chapter={self.chapter}, scene={self.scene}, scene_summary={self.scene_summary}, " + \
             f"npcs={self.npcs}, success_condition={self.success_condition}, failure_condition={self.failure_condition}, " + \
             f"game_flow={self.game_flow}, environement={self.environment}, random_tables={self.random_tables}, consequences={self.consequences}, " + \
             f"is_action_scene={self.is_action_scene}"
-        self.scene_prompt = ChatMessage.system(name="Scene_State", content=content)
+        
+        scene_prompt = ChatMessage.system(name="Scene_State", content=content)
+        return scene_prompt
 
     # Making one player prompt.
     def make_player_prompt(self, player: Player):
         content = f"name={player.name}, kin={player.kin}, persona={player.persona}, goal={player.goal}, " + \
             f"traits={player.traits}, flaws={player.flaws}, inventory={player.inventory}, additional_notes={player.additional_notes}"
-        return ChatMessage.system(name="Player_State", content=content)
+        player_prompt = ChatMessage.system(name="Player_State", content=content)
+        return player_prompt
 
     # Making the player prompts.
     def make_player_prompts(self):
-        # If there is no player, return None.
-        if len(self.players) == 0: return
-
-        self.player_prompts.clear()
+        player_prompts = []
         for player in self.players:
-            self.player_prompts.append(self.make_player_prompt(player))
+            player_prompts.append(self.make_player_prompt(player))
+
+        return player_prompts
 
     # Making the context for exporting data.
     def make_context(self):
@@ -671,14 +673,12 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction.
         system_prompt = ' '.join(DIFFICULTY_PROMPT)
+        player_prompt = self.make_player_prompt(player)
+        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
         
         options = ["The test becomes easier.", "The test becomes harder.", "There is no change."]
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(
-            self.engine, 
-            chat_history=[self.make_player_prompt(player)] + clean_history(self.current_queries), 
-            system_prompt=system_prompt
-        )
+        kani = Kani(self.engine, chat_history=clean_history(self.current_queries), system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
@@ -760,8 +760,10 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction and the requirement for an NPC.
         system_prompt = ' '.join(CREATE_NPC_PROMPT)
+        scene_prompt = self.make_scene_prompt()
+        system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
         
-        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        kani = Kani(self.engine, system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\nNPC name: '{npc_name}'")
 
         # Converting & Fetching information.
@@ -819,7 +821,10 @@ class GameManager(Kani):
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
-        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
+        player_prompt = self.make_player_prompt(player)
+        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
+
+        kani = Kani(self.engine, system_prompt=system_prompt)
         trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}")
 
         intermediate_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
@@ -860,7 +865,10 @@ class GameManager(Kani):
         
         # The default system prompt consists of the instruction to generate the specific description of the trait.
         system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
-        kani = Kani(self.engine, chat_history=[self.make_player_prompt(player)], system_prompt=system_prompt)
+        player_prompt = self.make_player_prompt(player)
+        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
+
+        kani = Kani(self.engine, system_prompt=system_prompt)
         flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}")
 
         intermediate_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
@@ -1051,10 +1059,13 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction to check if the item is expendable.
         system_prompt = ' '.join(EXPENDABLE_CHECK_PROMPT)
+        scene_prompt = self.make_scene_prompt()
+        player_prompt = self.make_player_prompt(player)
+        system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}\n\nPlayer State: {player_prompt.content}"
         
         options = ['Expendable', 'Not expendable']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, chat_history=[self.scene_prompt, self.make_player_prompt(player)], system_prompt=system_prompt)
+        kani = Kani(self.engine, system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
@@ -1102,10 +1113,12 @@ class GameManager(Kani):
 
         # The default system prompt consists of the instruction to check if the object is obtainable.
         system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
+        scene_prompt = self.make_scene_prompt()
+        system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
         
         options = ['Obtainable', 'Not obtainable']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        kani = Kani(self.engine, system_prompt=system_prompt)
         res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}")
         res = convert_into_class_idx(res, options)
 
@@ -1168,7 +1181,9 @@ class GameManager(Kani):
         entries = self.random_tables[table_name]
 
         system_prompt = ' '.join(TABLE_PROCESSING_PROMPT)
-        kani = Kani(self.engine, chat_history=[self.scene_prompt], system_prompt=system_prompt)
+        scene_prompt = self.make_scene_prompt()
+        system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
+        kani = Kani(self.engine, system_prompt=system_prompt)
 
         intermediate_res = {}
 
