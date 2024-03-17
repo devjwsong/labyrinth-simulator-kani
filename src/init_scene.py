@@ -12,7 +12,6 @@ from constants import (
 )
 from kani import Kani
 from kani.engines.openai import OpenAIEngine
-from kani.models import ChatMessage
 from datetime import datetime
 from pytz import timezone
 from argparse import Namespace
@@ -23,7 +22,6 @@ import asyncio
 import logging
 import os
 import ast
-import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -98,48 +96,46 @@ async def init_scene(args: Namespace, agent: Kani):
             'temperature': 0,
             'top_p': 1,
             'presence_penalty': 0,
+            'frequency_penalty': 0,
         }
 
         # Generating the scene summary.
-        res = await agent.chat_round_str(f"{' '.join(SCENE_SUMMARY_DETAILS)}\nScene: {scene}", **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(SCENE_SUMMARY_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['scene_summary'] = ast.literal_eval(res)
-        time.sleep(WAITING_TIME)
 
         # Generating the NPCs.
-        res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['npcs'] = json.loads(res)
-        time.sleep(WAITING_TIME)
         
         # Generating the success condition.
-        res = await agent.chat_round_str(f"{' '.join(SUCCESS_CONDITION_DETAILS)}\nScene: {scene}")
+        res = await agent.chat_round_str(f"{' '.join(SUCCESS_CONDITION_DETAILS)}\n\nScene: {scene}")
         print(res)
         result['success_condition'] = res
-        time.sleep(WAITING_TIME)
 
         # Generating the failure condition.
-        res = await agent.chat_round_str(f"{' '.join(FAILURE_CONDITION_DETAILS)}\nScene: {scene}")
+        res = await agent.chat_round_str(f"{' '.join(FAILURE_CONDITION_DETAILS)}\n\nScene: {scene}")
         print(res)
         result['failure_condition'] = res
-        time.sleep(WAITING_TIME)
 
         # Generating the game flow.
-        res = await agent.chat_round_str(f"{' '.join(GAME_FLOW_DETAILS)}\nScene: {scene}", **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(GAME_FLOW_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['game_flow'] = ast.literal_eval(res)
-        time.sleep(WAITING_TIME)
 
         # Generating the environment.
-        res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
+        res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\n\nScene: {scene}\n\nGenerated NPCs: {result['npcs']}", **generation_params)
         print(res)
         result['environment'] = json.loads(res)
-        time.sleep(WAITING_TIME)
 
-        # Generating the random tables.
-        res = await agent.chat_round_str(f"{' '.join(RANDOM_TABLE_DETAILS)}\nScene: {scene}", response_format={'type': 'json_object'}, **generation_params)
+        # Filtering the used random tables.
+        result['random_tables'] = scene['random_tables']
+        res = await agent.chat_round_str(f"{' '.join(RANDOM_TABLE_DETAILS)}\n\nScene: {scene}\n\nGenerated NPCs: {result['npcs']}\n\nGenerated environment: {result['environment']}", **generation_params)
         print(res)
-        result['random_tables'] = json.loads(res)
+        table_names = ast.literal_eval(res)
+        for table_name in table_names:
+            result['random_tables'].pop(table_name)
 
         result['chapter'] = scene['chapter']
         result['scene'] = scene['scene']

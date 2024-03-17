@@ -151,6 +151,7 @@ SCENE_INIT_PROMPT = [
 STATE_UPDATE_PROMPT = [
     "You are a state updater in a fantasy text-based adventure game.",
     "You should generate the updated states strictly following the same JSON foramt of the input state.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
     "You should not generate any additional content or explanation and make suer that your answer can be parsed as a Python dictionary without an error.",
     "You will be given the game ruels, the previous state and one interaction between the players and the game manager, which is called Goblin King, during the game.",
     "This interaction might have multiple responses from the game manager or the results of function calls.",
@@ -161,14 +162,18 @@ STATE_UPDATE_PROMPT = [
 SCENE_SUMMARY_DETAILS = [
     "Generate a creative summarization of the given game scene.",
     "This should be a list of strings which can be parsed as a Python list without an error and 4-5 sentences would be enough.",
+    "This means that you should generate a list which contains multiple strings starting with '[' and ending with ']' without a code block notation or additional content.", 
+    "Each string is one sentence.",
     "You should refer to 'chapter_description', 'description' and 'locations' to generate the output."
     "Note that the scene summary must not have any hints or clues.",
     "This should be only a pure description of the current scene from the perspective of the players."
 ]
 
 NPC_DETAILS = [
-    "Generate the NPCs which are needed in the given game scene.",
-    "This is should be a JSON object which can be parsed as a Python dictionary.",
+    "Generate the NPCs which should exist at the beginning.",
+    "If an NPC should be set when the player party encounter with it, you don't have to generate it right now.",
+    "This should be a JSON object which can be parsed as a Python dictionary.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
     "Each key is an NPC's name and value is another dictionary, which has the NPC's following properties.",
     "a) kin: This is one word that describes the kin of the NPC.",
     "b) persona: The persona is a list of strings that contains the basic characteristics of the NPC.",
@@ -192,7 +197,7 @@ NPC_DETAILS = [
     "Second, find the number of entries which should be retrieved from each table, which might be mentioned in 'notes' or 'locations'.",
     "If there is no special indication of the number of entries to be sampled, you may determine it.",
     "Then randomly retrieve the entries from each table and set them into the NPC's 'persona', 'goal', or 'trait' considering which attribute is the most suitable one.",
-    "Make sure to include the sampled properties into the NPC's specifications.",
+    "Make sure to include the sampled properties in the NPC's specifications.",
     "If there is no need for any NPCs in this scene, just give an empty dictionary."
 ]
 
@@ -213,17 +218,24 @@ GAME_FLOW_DETAILS = [
     "Generate the desired game flow of the given game scene.",
     "The game flow is for specifying how the current game should actually go.", 
     "This should be a list of strings which can be parsed as a Python list without an error and 4-5 sentences would be enough.",
+    "This means that you should generate a list which contains multiple strings starting with '[' and ending with ']' without a code block notation or additional content.",
     "Each string is a sentence for one step or flow.",
     "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
     "You might improvise something if it is necessary to make the game more entertaining unless it highly violates the game rules.",
-    "The essential information for this can be fetched from 'locations' and 'notes'.",
-    "Read carefully and extract the rules from them considering which conditions should be kept for maintaining the game flow intended."
+    "The essential information for this can be fetched from 'locations', 'notes' and 'random_tables'.",
+    "Read carefully and extract the rules from them considering which conditions should be kept for maintaining the game flow intended.",
+    "If random tables should be actively used for proceeding with the game flow, follow these instructions.",
+    "First, find the random tables which would highly affect the game flow.",
+    "Second, find the number of entries to sample during the game.",
+    "If there is no special indication of the number of entries to be sampled, you may determine it.",
+    "Then leverage these tables to generate the game flow and make sure to include how the tables are used during the game in the flow descriptions."
 ]
 
 ENVIRONMENT_DETAILS = [
     "Generate the environmental objects in the given game scene.",
     "This should include the necessary objects or locations which are mentioned in 'locations'.",
     "This is should be a JSON object which can be parsed as a Python dictionary.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
     "Each key is the name of the object which is a word."
     "Each value is a string of description of the corresponding key object.",
     "You may improvise the description if there is nothing specified in the scene input.",
@@ -239,12 +251,13 @@ ENVIRONMENT_DETAILS = [
 ]
 
 RANDOM_TABLE_DETAILS = [
-    "Generate the random tables in the given game scene.",
-    "This should be a JSON object which can be parsed as a Python dictionary.",
-    "Also, this should be identical to 'random_tables' in the input after removing the tables which have been used for setting NPCs and environment.",
-    "You should remove the table as a whole if any of the entries were sampled from the previous generations for NPCs or environmental objects and if it is not likely to use these tables again during the actual game.",
-    "In other words, you should make sure to keep the tables which have not been used yet, or might be needed later even if they have been used.",
-    "The structure of the output must be identical to the original 'random_tables' in the input, which has a table name string as a key and a list of strings as the entries of each table."
+    "Generate the names of random tables which should be removed.",
+    "This should be a list of strings which can be parsed as a Python list.",
+    "This means that you should generate a list which contains multiple strings starting with '[' and ending with ']' without a code block notation or additional content.",
+    "Each string is a name of a random table which should be identical to a key in 'random_tables' in the input.",
+    "The table is removed if some entries in it explicitly exist in the components, such as 'npcs', 'game_flow', or 'environment'.",
+    "In other words, you should make sure to keep the tables that have not been used yet, or might be needed later even if they have been used.",
+    "If there is no table to remove, just return an empty list."
 ]
 
 SUMMARIZE_PROMPT = [
