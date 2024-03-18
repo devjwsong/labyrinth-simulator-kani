@@ -131,8 +131,7 @@ def main(manager: GameManager, args: Namespace):
                 print_manager_log(response, after_break=True)
 
             # Validating the success/failure conditions to terminate the game.
-            succ = await manager.validate_success_condition()
-            fail = await manager.validate_failure_condition()
+            elapsed_time = int(time.time() - start_time)
             if elapsed_time >= GAME_TIME_LIMIT:
                 print_system_log("PLAYER LOST! ENDING THE CURRENT SCENE.")
                 print_system_log("TIME LIMIT REACHED.")
@@ -141,6 +140,8 @@ def main(manager: GameManager, args: Namespace):
                     'condition': 'The players failed to beat the game in the time limit.'
                 })
                 break
+            succ = await manager.validate_success_condition()
+            fail = await manager.validate_failure_condition()
 
             if succ and fail:
                 print_system_log("CONTRADICTORY VALIDATION BETWEEN SUCCESS AND FAILURE. KEEPING THE GAME SCENE MORE.")
@@ -294,7 +295,7 @@ if __name__=='__main__':
         file_dir = f"results/{args.scene_path.split('/')[1]}/rule_injection={args.rule_injection}/concat={args.concat_policy}/" + \
             f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/" + \
             f"functions={args.include_functions}/rules={args.include_rules}/scene_state={args.include_scene_state}/player_states={args.include_player_states}/" + \
-            f"update_states={args.update_states}"
+            f"generate_states={args.generate_states}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 

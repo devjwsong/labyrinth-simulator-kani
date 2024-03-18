@@ -2,7 +2,7 @@ ONE_MINIUTE = 60
 ONE_HOUR = 60 * ONE_MINIUTE
 PER_PLAYER_TIME = 10
 GAME_TIME_LIMIT = 5 * ONE_MINIUTE  # Originally, the total time limit is 13 hours.
-SYSTEM_TIME_LIMIT = 5 * ONE_MINIUTE + 30  # This is a time limit for when the game cannot be stopped due to the technical problem.
+SYSTEM_TIME_LIMIT = GAME_TIME_LIMIT + 30  # This is a time limit for when the game cannot be stopped due to the technical problem.
 
 SEP = '||'
 
@@ -11,6 +11,7 @@ ASSISTANT_INSTRUCTION = [
     "You are going to interact with the players and manage the game flow for the game scene you are given.",
     "You must strictly follow the game rules and always be aware of the current state of the scene, players, and the chat history so far when generating a response or choosing a function to call.",
     "Make sure to check if the given function parameters exist in the current scene or player attributes when you are going to call a function.",
+    "Also, if the players try to do something which is not allowed or which is originally supposed to be your job, reject it and notify them so that the game flow does not become too mess.",
     "Other than that, you may improvise anything to make the game more entertaining."
 ]
 
@@ -318,6 +319,14 @@ GENERATE_FLAW_DESC_PROMPT = [
     "You are given the current state of the player character which has the information of existing flaws.",
     "You should generate the description of a new flaw if it is given.",
     "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
+    "The output should be in one or two sentences."
+]
+
+GENERATE_ITEM_DESC_PROMPT = [
+    "You are a description generator in a fantasy text-based adventure game.",
+    "You are given the current state of the player character which has the information of the inventory.",
+    "You should generate the description of a new item if it is given.",
+    "Make sure that the generated description has no contradiction with other items or their descriptions the character has.",
     "The output should be in one or two sentences."
 ]
 
