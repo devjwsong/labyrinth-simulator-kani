@@ -18,7 +18,8 @@ from constants import (
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT,
     GENERATE_TRAIT_DESC_PROMPT,
-    GENERATE_FLAW_DESC_PROMPT
+    GENERATE_FLAW_DESC_PROMPT,
+    GENERATE_ITEM_DESC_PROMPT
 )
 from utils import (
     print_system_log, 
@@ -347,10 +348,9 @@ class GameManager(Kani):
 
     # Making the rule prompt.
     def make_rule_prompt(self, top_n: int=5):
-        if self.rule_embs:  # This means the manager using the retrieval-based rules.
+        if self.rule_embs is not None:  # This means the manager using the retrieval-based rules.
             # Calculating the cosine similarities between the queries and rules.
-            queries = [convert_into_natural(message) for message in self.current_queries]
-            query_embs = self.encode_messages(queries)  # (Q, d)
+            query_embs = self.encode_messages(self.current_queries)  # (Q, d)
             cos_sims = util.cos_sim(query_embs, self.rule_embs)  # (Q, C)
             scores = torch.max(cos_sims, dim=0).values  # (C)
 
@@ -966,8 +966,62 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 
-    # Logic for adding an item. (Not an AI function!)
-    def add_item(self, player: Player, item_name: str, item_desc: str):
+    # Kani's function call for adding an item to the player inventory.
+    @ai_function
+    async def add_item(self,
+        player_name: Annotated[str, AIParam(desc="The name of the player charater whose new item should be added.")],
+        item_name: Annotated[str, AIParam(desc="The name of the new item to be added in the player.")]
+    ):
+        """
+        Add a new flaw to a player if any circumstance necessiates it. 
+        Do not call this function if the flaw already exists in the player who triggered this function.
+        """
+        arguments = {'player_name': player_name, 'item_name': item_name}
+
+        # Wrong argument: The player does not exist.
+        if player_name not in self.name_to_idx:
+            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
+        player = self.players[self.name_to_idx[player_name]]
+
+        # Wrong activation/argument: The flaw already exists.
+        if item_name in player.inventory:
+            msg = f"THE PLAYER {player_name} ALREADY HAS THE ITEM {item_name}."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+        
+        # The default system prompt consists of the instruction to generate the specific description of the item.
+        system_prompt = ' '.join(GENERATE_ITEM_DESC_PROMPT)
+        player_prompt = self.make_player_prompt(player)
+        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
+
+        kani = Kani(self.engine, system_prompt=system_prompt)
+        generation_params = {
+            'temperature': 1.0,
+            'top_p': 1,
+            'presence_penalty': 0.5,
+            'frequency_penalty': 0.5,
+        }
+        
+        item_desc = await kani.chat_round_str(f"Generate the plausible description of the item.\nitem: {item_name}", **generation_params)
+
+        intermediate_res = {f"Generated description of the item '{item_name}'": item_desc}
+
+        obtain_msg = self.put_item(player, item_name, item_desc)
+
+        if item_name in player.inventory:
+            intermediate_res[f"The item '{item_name}' added"] = True
+        else:
+            intermediate_res[f"The item '{item_name}' added"] = False
+        msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
+        print_system_log(msg, after_break=True)
+
+        return msg, arguments, intermediate_res
+
+    # Logic for putting an item into the player's inventory. (Not an AI function!)
+    def put_item(self, player: Player, item_name: str, item_desc: str):
         # A sub logic that adds the item.
         def sub_logic(player, item_name, item_desc):
             player.add_item(item_name, item_desc)
@@ -1235,7 +1289,7 @@ class GameManager(Kani):
             selected = select_random_options(['Yes', 'No']) if isinstance(player, PlayerKani) else select_options(['Yes', 'No'])
 
             if selected == 0:
-                obtain_msg = self.add_item(player, item_name, object_desc)
+                obtain_msg = self.put_item(player, item_name, object_desc)
 
                 # Checking if the player took the item to update the environment.
                 if item_name in player.inventory:
