@@ -148,17 +148,6 @@ SCENE_INIT_PROMPT = [
     "The scene input will be given as a JSON object."
 ]
 
-STATE_UPDATE_PROMPT = [
-    "You are a state updater in a fantasy text-based adventure game.",
-    "You should generate the updated states strictly following the same JSON foramt of the input state.",
-    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
-    "You should not generate any additional content or explanation and make suer that your answer can be parsed as a Python dictionary without an error.",
-    "You will be given the game ruels, the previous state and one interaction between the players and the game manager, which is called Goblin King, during the game.",
-    "This interaction might have multiple responses from the game manager or the results of function calls.",
-    "Carefully consider what changes have happened during the interaction and re-generate the given state.",
-    "If there is nothing to update, just generate the state which is identical to the input."
-]
-
 RANDOM_TABLES_DETAILS = [
     [
         "Focus on the random tables in this scene.",
@@ -252,83 +241,94 @@ ENVIRONMENT_DETAILS = [
 
 SUMMARIZE_PROMPT = [
     "You are a dialogue summarizer in a fantasy text-based adventure game.",
-    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You will be given the chat history between the users (players) and an assistant (game manager).",
     "You should generate the summarization of the given conversation to include the essential information."
+]
+
+STATE_UPDATE_PROMPT = [
+    "You are a state updater in a fantasy text-based adventure game.",
+    "You should generate the updated states strictly following the same JSON format of the input state.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
+    "You should not generate any additional content or explanation and make sure that your answer can be parsed as a Python dictionary without an error.",
+    "You will be given the game rules, the previous state and one interaction between the players and the game manager, which is called Goblin King, during the game.",
+    "This interaction might have multiple responses from the game manager or the results of function calls.",
+    "Carefully consider what changes have happened during the interaction and re-generate the given state.",
+    "If there is nothing to update, just generate the state which is identical to the input."
 ]
 
 DIFFICULTY_PROMPT = [
     "You are a ternary classifier in a fantasy text-based adventure game.",
-    "You are given the current state of the player character which includes his/her traits and flaws.",
-    "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand what task should be performed.",
+    "You will be given the current state of the player character which includes his/her traits and flaws.",
+    "Also you will be given one interaction between the players and the game manager, which is called Goblin King, during the game.",
     "You should determine whether the task that the player tries to do becomes easier by one of the traits or becomes harder by one of the flaws.",
-    "If the player's trait or flaw do not have any effect, or both there is an advantage and penalty at the same time, just say 'none'.",
+    "If the player's trait or flaw does not have any effect, or both there is an advantage and penalty at the same time, just consider as no changes.",
     "You must answer only in number."
 ]
 
 CREATE_NPC_PROMPT = [
     "You are an NPC creator in a fantasy text-based adventure game.",
-    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "You should generate the specifications of a new NPC in a dictionary form if its name is given.",
     "Make sure that the generated specifications have no contradiction with other objects or NPCs in the current scene.",
     "Each key and corresponding value is as follows:"
-] + NPC_DETAILS[3:-8]
-
-EXPENDABLE_CHECK_PROMPT = [
-    "You are a binary classifier in a fantasy text-based adventure game.",
-    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "Also you are given the current state of the player character which includes the current inventory.",
-    "You should determine whether an item is expendable, which should be removed from the inventory after the player uses it.",
-    "You must answer only in number."
-]
-
-OBTAINABLE_CHECK_PROMPT = [
-    "You are a binary classifier in a fantasy text-based adventure game.",
-    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "You should determine whether an object is obtainable so a player character can have it in the inventory.",
-    "You must answer only in number."
-]
-
-TABLE_PROCESSING_PROMPT = [
-    "You are a multi-task assistant in a fantasy text-based adventure game.",
-    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand the interaction so far.",
-    "You will answer several questions which require a careful understanding of the current game scene and the random table contents."
-]
+] + NPC_DETAILS[3:-4]
 
 GENERATE_TRAIT_DESC_PROMPT = [
     "You are a description generator in a fantasy text-based adventure game.",
-    "You are given the current state of the player character which has the information of existing traits.",
-    "You should generate the description of a new trait if it is given.",
+    "You will be given the current state of the player character which has the information of existing traits.",
+    "You should generate the description of a new trait.",
     "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
     "The output should be in one or two sentences."
 ]
 
 GENERATE_FLAW_DESC_PROMPT = [
     "You are a description generator in a fantasy text-based adventure game.",
-    "You are given the current state of the player character which has the information of existing flaws.",
-    "You should generate the description of a new flaw if it is given.",
+    "You will be given the current state of the player character which has the information of existing flaws.",
+    "You should generate the description of a new flaw.",
     "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
     "The output should be in one or two sentences."
 ]
 
 GENERATE_ITEM_DESC_PROMPT = [
     "You are a description generator in a fantasy text-based adventure game.",
-    "You are given the current state of the player character which has the information of the inventory.",
-    "You should generate the description of a new item if it is given.",
-    "Make sure that the generated description has no contradiction with other items or their descriptions the character has.",
+    "You will be given the current state of the player character which has the information of the inventory.",
+    "You should generate the description of a new item.",
+    "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
     "The output should be in one or two sentences."
+]
+
+EXPENDABLE_CHECK_PROMPT = [
+    "You are a binary classifier in a fantasy text-based adventure game.",
+    "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "Also you will be given the current state of the player character which includes the current inventory.",
+    "You should determine whether an item is expendable, which should be removed from the inventory after the player uses it.",
+    "You must answer only in number."
+]
+
+OBTAINABLE_CHECK_PROMPT = [
+    "You are a binary classifier in a fantasy text-based adventure game.",
+    "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "You should determine whether an object is obtainable so that a player character can have it in the inventory.",
+    "You must answer only in number."
+]
+
+TABLE_PROCESSING_PROMPT = [
+    "You are a multi-task assistant in a fantasy text-based adventure game.",
+    "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
+    "Also you will be given one interaction between the players and the game manager, which is called Goblin King, during the game.",
+    "You will answer several questions which require a careful understanding of the current game scene and the random table contents."
 ]
 
 VALIDATE_SUCCESS_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
-    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You will be given the chat history between the players and the game manager, which is called Goblin King, during the game.",
     "You should determine whether the current game state satisfies the success condition for the players to win.",
     "You must answer only in number."
 ]
 
 VALIDATE_FAILURE_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
-    "You are given the chat history between the users (players) and an assistant (game manager).",
+    "You will be given the chat history between the players and the game manager, which is called Goblin King, during the game.",
     "You should determine whether the current game state satisfies the failure condition for the players to lose.",
     "You must answer only in number."
 ]

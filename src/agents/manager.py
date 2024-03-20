@@ -835,7 +835,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\nNPC name: '{npc_name}'", **generation_params)
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\n\nNPC name: '{npc_name}'", **generation_params)
 
         # Converting & Fetching information.
         try:
@@ -903,7 +903,7 @@ class GameManager(Kani):
             'frequency_penalty': 0.5,
         }
 
-        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\nTrait: {trait_name}", **generation_params)
+        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\n\nTrait: {trait_name}", **generation_params)
 
         intermediate_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
 
@@ -954,7 +954,7 @@ class GameManager(Kani):
             'frequency_penalty': 0.5,
         }
         
-        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\nFlaw: {flaw_name}", **generation_params)
+        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\n\nFlaw: {flaw_name}", **generation_params)
 
         intermediate_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
 
@@ -973,8 +973,8 @@ class GameManager(Kani):
         item_name: Annotated[str, AIParam(desc="The name of the new item to be added in the player.")]
     ):
         """
-        Add a new flaw to a player if any circumstance necessiates it. 
-        Do not call this function if the flaw already exists in the player who triggered this function.
+        Add a new item to a player inventory if any circumstance necessiates it. 
+        Do not call this function if the item already exists in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
@@ -1005,7 +1005,7 @@ class GameManager(Kani):
             'frequency_penalty': 0.5,
         }
         
-        item_desc = await kani.chat_round_str(f"Generate the plausible description of the item.\nitem: {item_name}", **generation_params)
+        item_desc = await kani.chat_round_str(f"Generate the plausible description of the item.\n\nitem: {item_name}", **generation_params)
 
         intermediate_res = {f"Generated description of the item '{item_name}'": item_desc}
 
@@ -1138,7 +1138,7 @@ class GameManager(Kani):
     ):
         """
         Remove an item if the player wants to discard it from the inventory.
-        Do not call this function if the item does not exist in the player who triggered this function.
+        Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
@@ -1178,7 +1178,7 @@ class GameManager(Kani):
     ):
         """
         Let the player use an item if the player wants to use it from the inventory.
-        Do not call this function if the item does not exist in the player who triggered this function.
+        Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
 
@@ -1212,7 +1212,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n{item_name}: {player.inventory[item_name]}\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"Is the item expendable which should be removed after usage?\n\n{item_name}: {player.inventory[item_name]}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {f"The item '{item_name}' expendable": True if res == 0 else False}
@@ -1272,7 +1272,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n{object_name}: {object_desc}\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n\n{object_name}: {object_desc}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {
@@ -1317,8 +1317,8 @@ class GameManager(Kani):
         table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
     ):
         """
-        Let the players use a random table if any player tries to reach out to any random table content or if a certain table should be referred to anytime during the game.
-        Do not call this function if the table or the content which should be referred to does not exist in the random table dictionary.
+        Let the players use a random table if a certain table should be referred to anytime during the game.
+        Do not call this function if the name of the required table does not exist in the random table dictionary.
         If the object or component which should be accessed explicitly exists in the environment, call use_environment instead of this function.
         This function should be called only when random sampling is certainly necessary to proceed with the game.
         """
@@ -1336,51 +1336,36 @@ class GameManager(Kani):
         system_prompt = ' '.join(TABLE_PROCESSING_PROMPT)
         scene_prompt = self.make_scene_prompt()
         system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
-        kani = Kani(self.engine, system_prompt=system_prompt)
+        kani = Kani(self.engine, chat_history=clean_history(self.current_queries), system_prompt=system_prompt)
 
         intermediate_res = {}
 
-        # 1. Determining the usage of the random table.
-        usage_options = [
-            "Disclosing the information to proceed with the game. (e.g. hint, puzzle, result, or description, etc.)",
-            "Updating an NPC's property. (e.g. adding/updating a new trait, flaw, or persona.)",
-            "Updating the game flow. (e.g. major change in the expected flow of the current game.)",
-            "Updating the environment. (e.g. adding a new environmental object or location.)"
-        ]
-        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(usage_options)])
-        query = "Determine how the given random table should be used among the following results list. " + \
-            "In other words, you should give your decision on which change the randomly sampled from the table would make in the game. " + \
-            "You must answer only in number."
+        # 1. Determining the number of samples to retrieve.
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
         }
-        
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}", **generation_params)
-        next_step = convert_into_class_idx(res, usage_options)
-        intermediate_res["The usage of the random table"] = usage_options[next_step]
 
-        # 2. Determining the number of entries to retrieve.
         query = "How many entries should be sampled from the table? If the specific number is indicated in the scene, you should give that number. " + \
             "If not, you can determine any number which you think most reasonable. " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}", **generation_params)
+        res = await kani.chat_round_str(f"{query}\n\nTarget table: {table_name}", **generation_params)
         num_samples = convert_into_number(res)
         if num_samples is None: num_samples = random.randint(1, len(entries))
         intermediate_res["The number of samples"] = num_samples
 
-        # 3. Sampling the entries.
+        # 2. Sampling the entries.
         samples = random.sample(entries, num_samples)
         intermediate_res["The retrieved samples from the table"] = deepcopy(samples)
 
-        # 4. Updating the table after sampling.
+        # 3. Updating the table after sampling.
         exclusion_options = ['Yes', 'No']
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(exclusion_options)])
         query = "Do you think the sampled entries should be excluded from the table because they will not be needed later? " + \
             "You must answer only in number."
-        res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\nRetrieved samples: {samples}\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"{query}\n\nTarget table: {table_name}\n\nRetrieved samples: {samples}\n\n{options_str}", **generation_params)
         exclusion_idx = convert_into_class_idx(res, exclusion_options)
 
         if exclusion_idx == 0:  # The retrieved sample should be excluded from the table.
@@ -1390,84 +1375,21 @@ class GameManager(Kani):
             self.random_tables.pop(table_name)
         intermediate_res["Exclusion of the sampled entries"] = True if exclusion_idx == 0 else False
 
-        # 5. Determining whether the random table should be removed or not.
+        # 4. Determining whether the random table should be removed or not.
         if table_name in self.random_tables:
             removal_options = ["Yes", "No"]
             options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(removal_options)])
             query = "Do you think the table should be removed because it will not be required anymore? " + \
                 "You must answer only in number."
-            res = await kani.chat_round_str(f"{query}\n{table_name}: {entries}\n\n{options_str}", **generation_params)
+            res = await kani.chat_round_str(f"{query}\n\nTarget table: {table_name}\n\n{options_str}", **generation_params)
             removal_idx = convert_into_class_idx(res, removal_options)
             if removal_idx == 0:
                 self.random_tables.pop(table_name)
             intermediate_res["Removal of the table"] = True if removal_idx == 0 else False
 
-        # 6. Processing the samples according to the result.
-        if next_step == 0:
-            msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}"
-            print_system_log(msg, after_break=True)
-            return msg, arguments, intermediate_res
-
-        elif next_step == 1:
-            query = "Update the NPCS using the retrieved samples from the table. " + \
-                "You should re-generate the NPCs as a JSON format which is the same format of the original NPC dictionary. " + \
-                "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
-                "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
-                "If you need to generate any additional description, feel free to do it and make sure to include it too."
-            res = await kani.chat_round_str(f"{query}\nOriginal NPCs: {self.npcs}\n{table_name}: {samples}", **generation_params)
-
-            try:
-                self.npcs = json.loads(res)
-                intermediate_res["Updated NPCs"] = deepcopy(self.npcs)
-
-                msg = f"NPCs UPDATED WITH THE RETRIEVED SAMPLES: {', '.join(samples)} FROM THE TABLE {table_name}."
-                print_system_log(msg, after_break=True)
-                return msg, arguments, intermediate_res
-
-            except json.decoder.JSONDecodeError as e:
-                log.debug(res)
-                log.error(f"{e}: The output format cannot be converted into dict.")
-                raise Exception()
-
-        elif next_step == 2:
-            query = "Update the game flow using the retrieved samples from the table. " + \
-                "You should re-generate the game flow as a list of strings in Python which is the same format of the original game flow list. " + \
-                "Note that you should only update the parts which are related to the given samples without changing any other essential information."
-            res = await kani.chat_round_str(f"{query}\nOriginal game flow: {self.game_flow}\n{table_name}: {samples}", **generation_params)
-
-            try:
-                self.game_flow = ast.literal_eval(res)
-                intermediate_res["Updated game flow"] = deepcopy(self.game_flow)
-
-                msg = f"GAME FLOW UPDATED WITH THE RETRIEVED SAMPLES: {', '.join(samples)} FROM THE TABLE {table_name}."
-                print_system_log(msg, after_break=True)
-                return msg, arguments, intermediate_res
-
-            except json.decoder.JSONDecodeError as e:
-                log.debug(res)
-                log.error(f"{e}: The output format cannot be converted into dict.")
-                raise Exception()
-
-        elif next_step == 3:
-            query = "Update the environment using the retrieved samples from the table. " + \
-                "You should re-generate the environment as a JSON format which is the same format of the original environment dictionary. " + \
-                "Note that the output must be able to be parsed into a Python dictionary without any error. " + \
-                "Also note that you should only update the parts which are related to the given samples without changing any other essential information. " + \
-                "If you need to generate any additional description, feel free to do it and make sure to add it too."
-            res = await kani.chat_round_str(f"{query}\nOriginal environment: {self.environment}\n{table_name}: {samples}", **generation_params)
-
-            try:
-                self.environment = json.loads(res)
-                intermediate_res["Updated environment"] = deepcopy(self.environment)
-
-                msg = f"ENVIRONMENT UPDATED WITH THE RETRIEVED SAMPLES: {', '.join(samples)} FROM THE TABLE {table_name}."
-                print_system_log(msg, after_break=True)
-                return msg, arguments, intermediate_res
-
-            except json.decoder.JSONDecodeError as e:
-                log.debug(res)
-                log.error(f"{e}: The output format cannot be converted into dict.")
-                raise Exception()
+        msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}"
+        print_system_log(msg, after_break=True)
+        return msg, arguments, intermediate_res
 
     # Validating if the current interaction falls into the success condition.
     async def validate_success_condition(self):
@@ -1487,7 +1409,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Have the players accomplished the success condition?\nSuccess condition: {self.success_condition}\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"Have the players accomplished the success condition?\n\nSuccess condition: {self.success_condition}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         return True if res == 0 else False
@@ -1510,7 +1432,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\nFailure condition: {self.failure_condition}\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"Have the players fallen into the failure condition?\n\nFailure condition: {self.failure_condition}\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
         
         return True if res == 0 else False
