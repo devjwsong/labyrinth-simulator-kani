@@ -145,8 +145,7 @@ SCENE_INIT_PROMPT = [
     "You are a scene initializer in a fantasy text-based adventure game.",
     "You should generate the required content in a game scene while strictly following the form of the output if it is specified.",
     "You will also be given the game rules to get some help for understanding the game.",
-    "The scene input will be given as a JSON object.",
-    "Avoid just copying and pasting the contents in the input identically."
+    "The scene input will be given as a JSON object."
 ]
 
 STATE_UPDATE_PROMPT = [
@@ -158,6 +157,23 @@ STATE_UPDATE_PROMPT = [
     "This interaction might have multiple responses from the game manager or the results of function calls.",
     "Carefully consider what changes have happened during the interaction and re-generate the given state.",
     "If there is nothing to update, just generate the state which is identical to the input."
+]
+
+RANDOM_TABLES_DETAILS = [
+    [
+        "Focus on the random tables in this scene.",
+        "Determine the usage of each random table.",
+        "You should generate a JSON object.",
+        "Each key is a name of the table and the value is one of 4 options.",
+        "Each value should be only in number."
+    ],
+    [
+        "This time, determines the number of samples to retrieve from each table.",
+        "You should generate a JSON object.",
+        "Each key is a name of the table and the value is the number of entries which will be randomly sampled."
+        "If there is no explicit indication of the number of samples, you can determine any number which you think most reasonable.",
+        "Each value should be only in number."
+    ],
 ]
 
 SCENE_SUMMARY_DETAILS = [
@@ -172,7 +188,6 @@ SCENE_SUMMARY_DETAILS = [
 
 NPC_DETAILS = [
     "Generate the NPCs which should exist at the beginning.",
-    "If an NPC should be set when the player party encounter with it, you don't have to generate it right now.",
     "This should be a JSON object which can be parsed as a Python dictionary.",
     "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
     "Each key is an NPC's name and value is another dictionary, which has the NPC's following properties.",
@@ -191,14 +206,9 @@ NPC_DETAILS = [
     "Proud - I leave the party if my pride is damaged.",
     "Selfish - I leave the party if I see an opportunity for personal gain.",
     "Try not to make each property inconsistent or contradictory to each other.",
-    "The NPCs should be generated are listed in 'locations' in the input.",
-    "You should read carefully 'locations', 'notes' and 'random_tables' to generate each NPC's specifications",
-    "When you should retrieve the properties from 'random_tables' for generating NPCs, follow these instructions.",
-    "First, find the random tables which define the properties of the NPC.",
-    "Second, find the number of entries which should be retrieved from each table, which might be mentioned in 'notes' or 'locations'.",
-    "If there is no special indication of the number of entries to be sampled, you may determine it.",
-    "Then randomly retrieve the entries from each table and set them into the NPC's 'persona', 'goal', or 'trait' considering which attribute is the most suitable one.",
-    "Make sure to include the sampled properties in the NPC's specifications.",
+    "The specifications of NPCs are listed in 'locations', 'notes' or 'npc_ingredients' in the input.",
+    "You should read them carefully to generate each NPC and make sure that each persona includes the essential information explicitly mentioned in them.",
+    "Especially, if 'npc_ingredients' is not empty, make sure to use it so that all entries should be included in the NPCS.",
     "If there is no need for any NPCs in this scene, just give an empty dictionary."
 ]
 
@@ -224,12 +234,7 @@ GAME_FLOW_DETAILS = [
     "Note that the game flow here is basic minimum requirements which are intended by the scene input.",
     "You might improvise something if it is necessary to make the game more entertaining unless it highly violates the game rules.",
     "The essential information for this can be fetched from 'locations', 'notes' and 'random_tables'.",
-    "Read carefully and extract the rules from them considering which conditions should be kept for maintaining the game flow intended.",
-    "If random tables should be actively used for proceeding with the game flow, follow these instructions.",
-    "First, find the random tables which would highly affect the game flow.",
-    "Second, find the number of entries to sample during the game.",
-    "If there is no special indication of the number of entries to be sampled, you may determine it.",
-    "Then leverage these tables to generate the game flow and make sure to include how the tables are used during the game in the flow descriptions."
+    "Read carefully and extract the rules from them considering which conditions should be kept for maintaining the game flow intended."
 ]
 
 ENVIRONMENT_DETAILS = [
@@ -240,25 +245,9 @@ ENVIRONMENT_DETAILS = [
     "Each key is the name of the object which is a word."
     "Each value is a string of description of the corresponding key object.",
     "You may improvise the description if there is nothing specified in the scene input.",
-    "Read carefully 'locations', 'notes' and 'random_tables' not to miss the essential contents to set the environment.",
-    "When you should retrieve the objects from 'random_tables' for setting an object in the scene, follow these instructions.",
-    "First, find the random tables which define the contents of an object.",
-    "Second, find the number of entries which should be retrieved from each table, which might be mentioned in 'notes' or 'locations'.",
-    "If there is no special indication of the number of entries to be sampled, you may determine it.",
-    "Then randomly retrieve the entries from each table and set them into the environment as another objects having each own key.",
-    "Not to mention, after setting each key, you should generate its value according to it.",
-    "Lastly, you can remove the original object in 'locations'.",
-    "Make sure to include the sampled objects in the dictionary."
-]
-
-RANDOM_TABLE_DETAILS = [
-    "Generate the names of random tables which should be removed.",
-    "This should be a list of strings which can be parsed as a Python list.",
-    "This means that you should generate a list which contains multiple strings starting with '[' and ending with ']' without a code block notation or additional content.",
-    "Each string is a name of a random table which should be identical to a key in 'random_tables' in the input.",
-    "The table is removed if some entries in it explicitly exist in the components, such as 'npcs', 'game_flow', or 'environment'.",
-    "In other words, you should make sure to keep the tables that have not been used yet, or might be needed later even if they have been used.",
-    "If there is no table to remove, just return an empty list."
+    "Read carefully 'locations', 'notes' or 'env_ingredients' not to miss the essential contents to set the environment.",
+    "Especially, if 'env_ingredients' is not empty, make sure to use it so that all entries should be included in the environment.",
+    "If there is no need for any objects in this scene, just give an empty dictionary."
 ]
 
 SUMMARIZE_PROMPT = [
@@ -300,8 +289,8 @@ OBTAINABLE_CHECK_PROMPT = [
 ]
 
 TABLE_PROCESSING_PROMPT = [
-    "You are a multi-class classifier in a fantasy text-based adventure game.",
-    "You are given the current state of the player character which includes his/her traits and flaws.",
+    "You are a multi-task assistant in a fantasy text-based adventure game.",
+    "You are given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "Also you are given the chat history between the users (players) and an assistant (game manager) so that you can understand the interaction so far.",
     "You will answer several questions which require a careful understanding of the current game scene and the random table contents."
 ]

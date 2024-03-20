@@ -292,13 +292,13 @@ if __name__=='__main__':
 
     # Exporting data after finishing the scene.
     if args.export_data:
-        file_dir = f"results/{args.scene_path.split('/')[1]}/rule_injection={args.rule_injection}/concat={args.concat_policy}/" + \
+        file_dir = f"results/{args.scene_path.split('/')[1]}/model={args.model_idx}/rule_injection={args.rule_injection}/concat={args.concat_policy}/" + \
             f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/" + \
             f"functions={args.include_functions}/rules={args.include_rules}/scene_state={args.include_scene_state}/player_states={args.include_player_states}/" + \
             f"generate_states={args.generate_states}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 
-        file_path = f"{file_dir}/{owner_name}-model={args.model_idx}-seed={args.seed}-time={execution_time}.json"
+        file_path = f"{file_dir}/{owner_name}-seed={args.seed}-time={execution_time}.json"
         with open(file_path, 'w') as f:
             json.dump(manager.gameplay_logs, f)

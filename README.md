@@ -43,6 +43,7 @@ There are a few technical details of the system, which can help you understand h
 
 | Argument      | Type  | Description                                                  | Default               |
 | ------------- | ----- | ------------------------------------------------------------ | --------------------- |
+| `--seed`      | `int` | The random seed.                                             | *YOU SHOULD SPECIFY.* |
 | `--model_idx` | `str` | The index of the model.                                      | *YOU SHOULD SPECIFY.* |
 | `--scene_idx` | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | *YOU SHOULD SPECIFY.* |
 
