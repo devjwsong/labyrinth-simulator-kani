@@ -196,8 +196,10 @@ NPC_DETAILS = [
     "Selfish - I leave the party if I see an opportunity for personal gain.",
     "Try not to make each property inconsistent or contradictory to each other.",
     "The specifications of NPCs are listed in 'locations', 'notes' or 'npc_ingredients' in the input.",
-    "You should read them carefully to generate each NPC and make sure that each persona includes the essential information explicitly mentioned in them.",
+    "You should read them carefully to generate NPCs and make sure that each NPC includes the essential information mentioned in them.",
     "Especially, if 'npc_ingredients' is not empty, make sure to use it so that all entries should be included in the NPCS.",
+    "The ingredients include key-value pairs, where the key defines what the ingredients represent, and the value is a list of actual ingredients.",
+    "Each ingredient should be assigned to each different NPC and explicitly exist in the final output.",
     "If there is no need for any NPCs in this scene, just give an empty dictionary."
 ]
 
@@ -229,13 +231,16 @@ GAME_FLOW_DETAILS = [
 ENVIRONMENT_DETAILS = [
     "Generate the environmental objects in the given game scene.",
     "This should include the necessary objects or locations which are mentioned in 'locations'.",
-    "This is should be a JSON object which can be parsed as a Python dictionary.",
+    "This should be a JSON object which can be parsed as a Python dictionary.",
     "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
     "Each key is the name of the object which is a word."
-    "Each value is a string of description of the corresponding key object.",
+    "Each value should be a string, which is the description of the corresponding key object.",
     "You may improvise the description if there is nothing specified in the scene input.",
     "Read carefully 'locations', 'notes' or 'env_ingredients' not to miss the essential contents to set the environment.",
     "Especially, if 'env_ingredients' is not empty, make sure to use it so that all entries should be included in the environment.",
+    "The ingredients include key-value pairs, where the key defines what the ingredients represent, and the value is a list of actual ingredients.",
+    "Initialize values into different objects considering the key of those values and how these objects are used in this scene."
+    "After distribution, the environment should have only string keys and string values without any internal dictionary."
     "If there is no need for any objects in this scene, just give an empty dictionary."
 ]
 

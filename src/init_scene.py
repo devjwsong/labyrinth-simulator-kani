@@ -88,6 +88,9 @@ async def process_random_tables(agent: Kani, scene: dict, random_tables: dict, *
     }
     init_tables = {}
 
+    if len(random_tables) == 0:
+        return result, random_tables
+
     # 1: Determining the usages of the random tables.
     options = [
         "Used for initializing the NPCs before the game.",
@@ -193,37 +196,31 @@ async def init_scene(args: Namespace, agent: Kani):
         res = await agent.chat_round_str(f"{' '.join(SCENE_SUMMARY_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['scene_summary'] = ast.literal_eval(res)
-        agent.chat_history.clear()
 
         # Generating the NPCs.
         res = await agent.chat_round_str(f"{' '.join(NPC_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['npcs'] = json.loads(res)
-        agent.chat_history.clear()
         
         # Generating the success condition.
         res = await agent.chat_round_str(f"{' '.join(SUCCESS_CONDITION_DETAILS)}\n\nScene: {scene}")
         print(res)
         result['success_condition'] = res
-        agent.chat_history.clear()
 
         # Generating the failure condition.
         res = await agent.chat_round_str(f"{' '.join(FAILURE_CONDITION_DETAILS)}\n\nScene: {scene}")
         print(res)
         result['failure_condition'] = res
-        agent.chat_history.clear()
 
         # Generating the game flow.
         res = await agent.chat_round_str(f"{' '.join(GAME_FLOW_DETAILS)}\n\nScene: {scene}", **generation_params)
         print(res)
         result['game_flow'] = ast.literal_eval(res)
-        agent.chat_history.clear()
 
         # Generating the environment.
         res = await agent.chat_round_str(f"{' '.join(ENVIRONMENT_DETAILS)}\n\nScene: {scene}\n\nGenerated NPCs: {result['npcs']}", **generation_params)
         print(res)
         result['environment'] = json.loads(res)
-        agent.chat_history.clear()
 
         # Checking the data types generated.
         check_init_types(result)
