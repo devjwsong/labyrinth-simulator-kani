@@ -1188,6 +1188,34 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 
+    # Kani's function call for adding an object into the environment.
+    @ai_function
+    def add_object(self,
+        object_name: Annotated[str, AIParam(desc="The name of the object which should be added into the environment.")],
+        object_desc: Annotated[str, AIParam(desc="The description of the object.")]
+    ):
+        """
+        Add a new object to the environment in the scene if any circumstance necessitates it. 
+        Pass the description of the object as a parameter too if it exists. 
+        If it does not exist, generate a brief description in one or two sentences. 
+        Do not call this function if the object already exists in the environment.
+        """
+        arguments = {'object_name': object_name, 'object_desc': object_desc}
+
+        # Wrong activation/argument: The object already exists.
+        if object_name in self.environment:
+            msg = f"THE OBJECT {object_name} ALREADY EXISTS IN THE ENVIRONMENT."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
+        self.environment[object_name] = object_desc
+
+        msg = f"A NEW OBJECT {object_name}: {object_desc} HAS BEEN ADDED TO THE ENVIRONMENT IN THE CURRENT SCENE."
+        updated_res = '\n'.join(self.get_environment(with_number=True))
+        print_system_log(f"ENVIRONMENT UPDATED:\n{updated_res}", after_break=True)
+        print_system_log(msg, after_break=True)
+        return msg, arguments, None
+
     # Kani's function call for getting access to an object in the environment.
     @ai_function
     async def use_environment(self, 
