@@ -667,7 +667,7 @@ class GameManager(Kani):
 
         kani = Kani(self.engine, chat_history=current_queries, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0.2,
+            'temperature': 0,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -712,7 +712,8 @@ class GameManager(Kani):
     ):
         """
         Activate a test if a player is trying to do something challenging with a certain difficulty. 
-        Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players.
+        Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players. 
+        If the samples returned from `use_random_table` function are related to a dice roll testing, call this function after sampling.
         """
         arguments = {'player_name': player_name, 'initial_difficulty': initial_difficulty, 'final_difficulty': final_difficulty}
 
@@ -779,8 +780,9 @@ class GameManager(Kani):
     @ai_function
     def activate_action_scene(self):
         """
-        Activate an action scene if this is a circumstance that players should take actions in a tight time limit. 
-        Do not call this function if action_scene is set True already.
+        Activate an action scene if this is a circumstance that players should take action within a tight time limit. 
+        If the samples returned from `use_random_table` function are related to starting a new action scene, call this function after sampling. 
+        Do not call this function if action_scene is set to True already.
         """
         arguments, intermediate_res = None, None
 
@@ -794,7 +796,8 @@ class GameManager(Kani):
     def terminate_action_scene(self):
         """
         Terminate the current ongoing action scene if the urgent circumstance has been finished. 
-        Do not call this function if action_scene is set False already.
+        If the samples returned from `use_random_table` function are related to ending an ongoing action scene, call this function after sampling. 
+        Do not call this function if action_scene is set to False already.
         """
         arguments, intermediate_res = None, None
 
@@ -812,6 +815,7 @@ class GameManager(Kani):
         """
         Create an NPC if the player party encounters or requests to interact with an NPC which has not been initialized in the scene yet. 
         If there is a description of the NPC which should be included, pass it as a function parameter too. 
+        If the samples returned from `use_random_table` function are related to setting a new NPC into the scene, call this function after sampling. 
         Do not call this function if the NPC already exists in the scene.
         """ 
         arguments = {'npc_name': npc_name, 'npc_desc': npc_desc}
@@ -829,7 +833,7 @@ class GameManager(Kani):
         
         kani = Kani(self.engine, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0.2,
+            'temperature': 0,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -875,6 +879,7 @@ class GameManager(Kani):
         Add a new trait as a player property if any circumstance necessitates it. 
         Pass the description of the trait as a parameter too if it exists. 
         If it does not exist, generate a brief description in one or two sentences. 
+        If the samples returned from `use_random_table` function are related to adding a new trait to a player, call this function after sampling.
         Do not call this function if the trait already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name, 'trait_desc': trait_desc}
@@ -912,6 +917,7 @@ class GameManager(Kani):
         Add a new flaw as a player property if any circumstance necessitates it. 
         Pass the description of the flaw as a parameter too if it exists. 
         If it does not exist, generate a brief description in one or two sentences. 
+        If the samples returned from `use_random_table` function are related to adding a new flaw to a player, call this function after sampling.
         Do not call this function if the flaw already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name, 'flaw_desc': flaw_desc}
@@ -949,6 +955,7 @@ class GameManager(Kani):
         Add a new item to a player inventory if any circumstance necessitates it. 
         Pass the description of the item as a parameter too if it exists. 
         If it does not exist, generate a brief description in one or two sentences. 
+        If the samples returned from `use_random_table` function are related to adding a new item to a player, call this function after sampling.
         Do not call this function if the item already exists in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name, 'item_desc': item_desc}
@@ -1025,7 +1032,8 @@ class GameManager(Kani):
         trait_name: Annotated[str, AIParam(desc="The name of the trait which should be removed from the player.")]
     ):
         """
-        Remove a trait if any circumstance necessiates it.
+        Remove a trait from a player if any circumstance necessitates it. 
+        If the samples returned from `use_random_table` function are related to removing a trait from a player, call this function after sampling.
         Do not call this function if the trait does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
@@ -1061,7 +1069,8 @@ class GameManager(Kani):
         flaw_name: Annotated[str, AIParam(desc="The name of the flaw which should be removed from the player.")]
     ):
         """
-        Remove a flaw if any circumstance necessiates it.
+        Remove a flaw from a player if any circumstance necessitates it. 
+        If the samples returned from `use_random_table` function are related to removing a flaw from a player, call this function after sampling.
         Do not call this function if the flaw does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name}
@@ -1097,7 +1106,8 @@ class GameManager(Kani):
         item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to discard.")]
     ):
         """
-        Remove an item if the player wants to discard it from the inventory.
+        Remove an item from a player's inventory if any circumstance necessitates it. 
+        If the samples returned from `use_random_table` function are related to removing an item from a player, call this function after sampling. 
         Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
@@ -1137,7 +1147,8 @@ class GameManager(Kani):
         item_name: Annotated[str, AIParam(desc="The name of the item which the player wants to use.")]
     ):
         """
-        Let the player use an item if the player wants to use it from the inventory.
+        Let the player use an item if the player wants to use it from the inventory. 
+        If the samples returned from `use_random_table` function are related to using an item by a player, call this function after sampling. 
         Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
@@ -1198,6 +1209,7 @@ class GameManager(Kani):
         Add a new object to the environment in the scene if any circumstance necessitates it. 
         Pass the description of the object as a parameter too if it exists. 
         If it does not exist, generate a brief description in one or two sentences. 
+        If the samples returned from `use_random_table` function are related to setting a new object to the environment, call this function after sampling. 
         Do not call this function if the object already exists in the environment.
         """
         arguments = {'object_name': object_name, 'object_desc': object_desc}
@@ -1223,7 +1235,8 @@ class GameManager(Kani):
         object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
     ):
         """
-        Let the player gets access to an object or a location in the environment if the player tries to reach out to it anytime during the game.
+        Let the player get access to an object or a location in the environment if the player tries to reach out to it anytime during the game. 
+        If the samples returned from `use_random_table` function are related to interacting with an existing object in the environment, call this function after sampling. 
         Do not call this function if the object does not exist in the current environment.
         """
 
@@ -1307,8 +1320,7 @@ class GameManager(Kani):
         """
         Sample some entries from a random table when it should be referred to anytime during the game. 
         Do not call this function if the name of the required table does not exist in the random table dictionary. 
-        If the contents of the table are highly related to the NPCs or objects in the environment which already exist, call this function first before using other components in the scene directly.
-        The result of this function might give additional ingredients to update the current game state or something necessary to make progress in the game.
+        Note that this function can be called flexibly when there should be a random encounter or the current scene should be updated with a new NPC or object during the game.
         """
 
         arguments = {'table_name': table_name}
@@ -1375,7 +1387,7 @@ class GameManager(Kani):
                 self.random_tables.pop(table_name)
             intermediate_res["Removal of the table"] = True if removal_idx == 0 else False
 
-        msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}"
+        msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}. RUN ANOTHER FUNCTION IF THE RESULT REQUIRES TO ADD OR CHANGE ANY OBJECTS OR NPCS IN THE SCENE."
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 

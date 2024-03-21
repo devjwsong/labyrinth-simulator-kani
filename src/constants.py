@@ -273,11 +273,14 @@ DIFFICULTY_PROMPT = [
 CREATE_NPC_PROMPT = [
     "You are an NPC creator in a fantasy text-based adventure game.",
     "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "You should generate the specifications of a new NPC in a dictionary form if its name is given.",
-    "If an additional description of the NPC is given, it must be included in the generated specifications.",
+    "You should generate the specifications of a new NPC if its name is given.",
+    "This should be a JSON object which can be parsed as a Python dictionary.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
+    "If an additional description of the NPC is given, it must be included when generating specifications.",
     "Make sure that the generated specifications have no contradiction with other objects or NPCs in the current scene.",
-    "Each key and corresponding value is as follows:"
-] + NPC_DETAILS[3:-4]
+    "Note that the output should be one JSON object for one NPC and you don't have to set the NPC name as a key, which will be set manually later.",
+    "The output should have five keys: 'kin', 'persona', 'goal', 'trait', and 'flaw'."
+] + NPC_DETAILS[4:-7]
 
 EXPENDABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
