@@ -274,33 +274,10 @@ CREATE_NPC_PROMPT = [
     "You are an NPC creator in a fantasy text-based adventure game.",
     "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
     "You should generate the specifications of a new NPC in a dictionary form if its name is given.",
+    "If an additional description of the NPC is given, it must be included in the generated specifications.",
     "Make sure that the generated specifications have no contradiction with other objects or NPCs in the current scene.",
     "Each key and corresponding value is as follows:"
 ] + NPC_DETAILS[3:-4]
-
-GENERATE_TRAIT_DESC_PROMPT = [
-    "You are a description generator in a fantasy text-based adventure game.",
-    "You will be given the current state of the player character which has the information of existing traits.",
-    "You should generate the description of a new trait.",
-    "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
-    "The output should be in one or two sentences."
-]
-
-GENERATE_FLAW_DESC_PROMPT = [
-    "You are a description generator in a fantasy text-based adventure game.",
-    "You will be given the current state of the player character which has the information of existing flaws.",
-    "You should generate the description of a new flaw.",
-    "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
-    "The output should be in one or two sentences."
-]
-
-GENERATE_ITEM_DESC_PROMPT = [
-    "You are a description generator in a fantasy text-based adventure game.",
-    "You will be given the current state of the player character which has the information of the inventory.",
-    "You should generate the description of a new item.",
-    "Make sure that the generated description has no contradiction with other attributes or properties the character has.",
-    "The output should be in one or two sentences."
-]
 
 EXPENDABLE_CHECK_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",

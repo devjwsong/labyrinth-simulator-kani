@@ -16,10 +16,7 @@ from constants import (
     OBTAINABLE_CHECK_PROMPT,
     TABLE_PROCESSING_PROMPT,
     EXPENDABLE_CHECK_PROMPT, 
-    SUMMARIZE_PROMPT,
-    GENERATE_TRAIT_DESC_PROMPT,
-    GENERATE_FLAW_DESC_PROMPT,
-    GENERATE_ITEM_DESC_PROMPT
+    SUMMARIZE_PROMPT
 )
 from utils import (
     print_system_log, 
@@ -44,7 +41,6 @@ import random
 import numpy as np
 import torch
 import asyncio
-import ast
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -234,14 +230,14 @@ class GameManager(Kani):
         
         # Calculating the max-pooled cosine similarities.
         top_n = self.max_num_msgs - len(self.current_queries)
-        query_embs, cand_embs = self.sent_embs, self.encode_messages(self.current_queries)  # (Q, d), (C, d)
+        query_embs, cand_embs = self.encode_messages(self.current_queries), self.sent_embs  # (Q, d), (C, d)
         cos_sims = util.cos_sim(query_embs, cand_embs)  # (Q, C)
         scores = torch.max(cos_sims, dim=0).values  # (C)
 
         # Sorting the candidate logs by the similarities.
         idxs = torch.sort(scores, descending=True).indices[:top_n]
         idxs = torch.sort(idxs).values
-        retrieved, scores = [self.chat_history[idx] for idx in idxs], [scores[idx] for idx in idxs]
+        retrieved, scores = [self.chat_history[idx] for idx in idxs], [scores[idx].item() for idx in idxs]
         valid_chat_history = retrieved + self.current_queries
 
         # Checking the length of the valid chat logs.
@@ -250,7 +246,7 @@ class GameManager(Kani):
         assert len(retrieved) == len(scores), "The retrieved messages are not matched with the calculated scores."
 
         # Since this function only works when concat_policy=retrieval, the retrieved messages are also exported.
-        self.retrieved_messages = [(retrieved[i], scores[i].item()) for i in range(len(scores))]
+        self.retrieved_messages = list(zip(retrieved, scores))
 
         return valid_chat_history
 
@@ -357,13 +353,13 @@ class GameManager(Kani):
             # Sorting the candidate logs by the similarities.
             idxs = torch.sort(scores, descending=True).indices[:top_n]
             idxs = torch.sort(idxs).values
-            valid_rules, scores = [self.game_rules[idx] for idx in idxs], [scores[idx] for idx in idxs]
+            valid_rules, scores = [self.game_rules[idx] for idx in idxs], [scores[idx].item() for idx in idxs]
 
             assert len(valid_rules) == top_n, "The number of retrieved rules is not same as the pre-defined top_n."
             assert len(valid_rules) == len(scores), "The retrieved rules are not matched with the calculated scores."
 
             # Since this function only works when rule_injection=retrieval, the retrieved rules are also exported.
-            self.retrieved_rules = [(valid_rules[i], scores[i].item()) for i in range(len(scores))]
+            self.retrieved_rules = list(zip(valid_rules, scores))
 
             rule_content = '\n'.join(valid_rules)
 
@@ -671,7 +667,7 @@ class GameManager(Kani):
 
         kani = Kani(self.engine, chat_history=current_queries, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -715,7 +711,7 @@ class GameManager(Kani):
         final_difficulty: Annotated[int, AIParam(desc="The final difficulty which has been reduced by the teamwork of the party and the minimum should still be 2.")]
     ):
         """
-        Activate a test if a player is trying to do something with a certain difficulty.
+        Activate a test if a player is trying to do something challenging with a certain difficulty. 
         Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players.
         """
         arguments = {'player_name': player_name, 'initial_difficulty': initial_difficulty, 'final_difficulty': final_difficulty}
@@ -737,7 +733,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=clean_history(self.current_queries), system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -809,12 +805,16 @@ class GameManager(Kani):
 
     # Kani's function call for creating an NPC immediately.
     @ai_function
-    async def create_npc(self, npc_name: Annotated[str, AIParam(desc="The name of the NPC which has been requested by the player.")]):
+    async def create_npc(self, 
+        npc_name: Annotated[str, AIParam(desc="The name of the NPC which should be set into the scene.")],
+        npc_desc: Annotated[str, AIParam(desc="The additional description of the NPC.")]
+    ):
         """
-        Create an NPC if the NPC requested by a user does not exist in the scene yet. 
+        Create an NPC if the player party encounters or requests to interact with an NPC which has not been initialized in the scene yet. 
+        If there is a description of the NPC which should be included, pass it as a function parameter too. 
         Do not call this function if the NPC already exists in the scene.
         """ 
-        arguments = {'npc_name': npc_name}
+        arguments = {'npc_name': npc_name, 'npc_desc': npc_desc}
 
         # Wrong activation/argument: The NPC already exists.
         if npc_name in self.npcs:
@@ -829,13 +829,13 @@ class GameManager(Kani):
         
         kani = Kani(self.engine, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\n\nNPC name: '{npc_name}'", **generation_params)
+        res = await kani.chat_round_str(f"Generate the specifications of the requested NPC.\n\nNPC name: '{npc_name}'\nAdditional description: {npc_desc}", **generation_params)
 
         # Converting & Fetching information.
         try:
@@ -866,15 +866,18 @@ class GameManager(Kani):
 
     # Kani's function call for adding a trait to the player.
     @ai_function
-    async def add_trait(self,
+    def add_trait(self,
         player_name: Annotated[str, AIParam(desc="The name of the player charater whose new trait should be added.")],
-        trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")]
+        trait_name: Annotated[str, AIParam(desc="The name of the new trait to be added in the player.")],
+        trait_desc: Annotated[str, AIParam(desc="The description of the trait.")]
     ):
         """
-        Add a new trait to a player if any circumstance necessiates it. 
+        Add a new trait as a player property if any circumstance necessitates it. 
+        Pass the description of the trait as a parameter too if it exists. 
+        If it does not exist, generate a brief description in one or two sentences. 
         Do not call this function if the trait already exists in the player who triggered this function.
         """
-        arguments = {'player_name': player_name, 'trait_name': trait_name}
+        arguments = {'player_name': player_name, 'trait_name': trait_name, 'trait_desc': trait_desc}
         
         # Wrong argument: The player does not exist.
         if player_name not in self.name_to_idx:
@@ -889,23 +892,6 @@ class GameManager(Kani):
             msg = f"THE PLAYER {player_name} ALREADY HAS THE TRAIT {trait_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
-        
-        # The default system prompt consists of the instruction to generate the specific description of the trait.
-        system_prompt = ' '.join(GENERATE_TRAIT_DESC_PROMPT)
-        player_prompt = self.make_player_prompt(player)
-        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
-
-        kani = Kani(self.engine, system_prompt=system_prompt)
-        generation_params = {
-            'temperature': 1.0,
-            'top_p': 1,
-            'presence_penalty': 0.5,
-            'frequency_penalty': 0.5,
-        }
-
-        trait_desc = await kani.chat_round_str(f"Generate the plausible description of the trait.\n\nTrait: {trait_name}", **generation_params)
-
-        intermediate_res = {f"Generated description of the trait '{trait_name}'": trait_desc}
 
         player.add_trait(trait_name, trait_desc)
 
@@ -913,19 +899,22 @@ class GameManager(Kani):
         updated_res = '\n'.join(player.get_traits(with_number=True))
         print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
-        return msg, arguments, intermediate_res 
+        return msg, arguments, None
 
     # Kani's function call for adding a flaw to the player.
     @ai_function
-    async def add_flaw(self,
+    def add_flaw(self,
         player_name: Annotated[str, AIParam(desc="The name of the player charater whose new flaw should be added.")],
-        flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")]
+        flaw_name: Annotated[str, AIParam(desc="The name of the new flaw to be added in the player.")],
+        flaw_desc: Annotated[str, AIParam(desc="The description of the flaw.")]
     ):
         """
-        Add a new flaw to a player if any circumstance necessiates it. 
+        Add a new flaw as a player property if any circumstance necessitates it. 
+        Pass the description of the flaw as a parameter too if it exists. 
+        If it does not exist, generate a brief description in one or two sentences. 
         Do not call this function if the flaw already exists in the player who triggered this function.
         """
-        arguments = {'player_name': player_name, 'flaw_name': flaw_name}
+        arguments = {'player_name': player_name, 'flaw_name': flaw_name, 'flaw_desc': flaw_desc}
 
         # Wrong argument: The player does not exist.
         if player_name not in self.name_to_idx:
@@ -940,23 +929,6 @@ class GameManager(Kani):
             msg = f"THE PLAYER {player_name} ALREADY HAS THE FLAW {flaw_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
-        
-        # The default system prompt consists of the instruction to generate the specific description of the trait.
-        system_prompt = ' '.join(GENERATE_FLAW_DESC_PROMPT)
-        player_prompt = self.make_player_prompt(player)
-        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
-
-        kani = Kani(self.engine, system_prompt=system_prompt)
-        generation_params = {
-            'temperature': 1.0,
-            'top_p': 1,
-            'presence_penalty': 0.5,
-            'frequency_penalty': 0.5,
-        }
-        
-        flaw_desc = await kani.chat_round_str(f"Generate the plausible description of the flaw.\n\nFlaw: {flaw_name}", **generation_params)
-
-        intermediate_res = {f"Generated description of the flaw '{flaw_name}'": flaw_desc}
 
         player.add_flaw(flaw_name, flaw_desc)
 
@@ -964,19 +936,22 @@ class GameManager(Kani):
         updated_res = '\n'.join(player.get_flaws(with_number=True))
         print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
-        return msg, arguments, intermediate_res
+        return msg, arguments, None
 
     # Kani's function call for adding an item to the player inventory.
     @ai_function
-    async def add_item(self,
+    def add_item(self,
         player_name: Annotated[str, AIParam(desc="The name of the player charater whose new item should be added.")],
-        item_name: Annotated[str, AIParam(desc="The name of the new item to be added in the player.")]
+        item_name: Annotated[str, AIParam(desc="The name of the new item to be added in the player.")],
+        item_desc: Annotated[str, AIParam(desc="The description of the item.")]
     ):
         """
-        Add a new item to a player inventory if any circumstance necessiates it. 
+        Add a new item to a player inventory if any circumstance necessitates it. 
+        Pass the description of the item as a parameter too if it exists. 
+        If it does not exist, generate a brief description in one or two sentences. 
         Do not call this function if the item already exists in the inventory of the player who triggered this function.
         """
-        arguments = {'player_name': player_name, 'item_name': item_name}
+        arguments = {'player_name': player_name, 'item_name': item_name, 'item_desc': item_desc}
 
         # Wrong argument: The player does not exist.
         if player_name not in self.name_to_idx:
@@ -991,25 +966,10 @@ class GameManager(Kani):
             msg = f"THE PLAYER {player_name} ALREADY HAS THE ITEM {item_name}."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
-        
-        # The default system prompt consists of the instruction to generate the specific description of the item.
-        system_prompt = ' '.join(GENERATE_ITEM_DESC_PROMPT)
-        player_prompt = self.make_player_prompt(player)
-        system_prompt = f"{system_prompt}\n\nPlayer State: {player_prompt.content}"
-
-        kani = Kani(self.engine, system_prompt=system_prompt)
-        generation_params = {
-            'temperature': 1.0,
-            'top_p': 1,
-            'presence_penalty': 0.5,
-            'frequency_penalty': 0.5,
-        }
-        
-        item_desc = await kani.chat_round_str(f"Generate the plausible description of the item.\n\nitem: {item_name}", **generation_params)
-
-        intermediate_res = {f"Generated description of the item '{item_name}'": item_desc}
 
         obtain_msg = self.put_item(player, item_name, item_desc)
+
+        intermediate_res = {}
 
         if item_name in player.inventory:
             intermediate_res[f"The item '{item_name}' added"] = True
@@ -1206,7 +1166,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -1235,7 +1195,7 @@ class GameManager(Kani):
         object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
     ):
         """
-        Let the player get access to an object or a location in the environment if the player tries to reach out to it anytime during the game.
+        Let the player gets access to an object or a location in the environment if the player tries to reach out to it anytime during the game.
         Do not call this function if the object does not exist in the current environment.
         """
 
@@ -1266,7 +1226,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -1317,10 +1277,10 @@ class GameManager(Kani):
         table_name: Annotated[str, AIParam(desc="The name of the table to be accessed.")]
     ):
         """
-        Let the players use a random table if a certain table should be referred to anytime during the game.
-        Do not call this function if the name of the required table does not exist in the random table dictionary.
-        If the object or component which should be accessed explicitly exists in the environment, call use_environment instead of this function.
-        This function should be called only when random sampling is certainly necessary to proceed with the game.
+        Sample some entries from a random table when it should be referred to anytime during the game. 
+        Do not call this function if the name of the required table does not exist in the random table dictionary. 
+        If the contents of the table are highly related to the NPCs or objects in the environment which already exist, call this function first before using other components in the scene directly.
+        The result of this function might give additional ingredients to update the current game state or something necessary to make progress in the game.
         """
 
         arguments = {'table_name': table_name}
@@ -1403,7 +1363,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,
@@ -1426,7 +1386,7 @@ class GameManager(Kani):
         options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
         kani = Kani(self.engine, chat_history=deepcopy(self.raw_history), system_prompt=system_prompt)
         generation_params = {
-            'temperature': 0,
+            'temperature': 0.2,
             'top_p': 1,
             'presence_penalty': 0,
             'frequency_penalty': 0,

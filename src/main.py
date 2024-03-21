@@ -170,8 +170,8 @@ def main(manager: GameManager, args: Namespace):
         except asyncio.TimeoutError:
             print_system_log("THE GAME GOT STUCK DUE TO UNKNOWN TECHNICAL REASON.")
             manager.gameplay_logs.append({
-                'game_result': 'unexpected',
-                'condition': "The game stuck due to an unexpected behavior."
+                'game_result': 'timeout',
+                'condition': "The game stuck before finishing a turn."
             })
 
     loop.run_until_complete(main_logic())
