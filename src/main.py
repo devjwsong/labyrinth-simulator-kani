@@ -168,7 +168,7 @@ def main(manager: GameManager, args: Namespace):
         try:
             await asyncio.wait_for(game_logic(), SYSTEM_TIME_LIMIT)
         except asyncio.TimeoutError:
-            print_system_log("THE GAME GOT STUCK DUE TO UNKNOWN TECHNICAL REASON.")
+            print_system_log("THE GAME GOT STUCK DUE TO A LONG PROCESSING OF A TURN.")
             manager.gameplay_logs.append({
                 'game_result': 'timeout',
                 'condition': "The game stuck before finishing a turn."
