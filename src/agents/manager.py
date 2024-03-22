@@ -864,7 +864,7 @@ class GameManager(Kani):
             log.error(f"{e}: Missing key.")
             raise Exception()
 
-        msg = f"NPC {npc_name} CREATED."
+        msg = f"THE NPC {npc_name} HAS BEEN SET INTO THE SCENE."
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 
@@ -900,7 +900,7 @@ class GameManager(Kani):
 
         player.add_trait(trait_name, trait_desc)
 
-        msg = f"A NEW TRAIT {trait_name}: {trait_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        msg = f"THE TRAIT {trait_name} HAS BEEN ADDED TO THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_traits(with_number=True))
         print_system_log(f"PLAYER TRAITS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
@@ -938,7 +938,7 @@ class GameManager(Kani):
 
         player.add_flaw(flaw_name, flaw_desc)
 
-        msg = f"A NEW FLAW {flaw_name}: {flaw_desc} HAS BEEN ADDED TO THE PLAYER {player_name}."
+        msg = f"THE FLAW {flaw_name} HAS BEEN ADDED TO THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_flaws(with_number=True))
         print_system_log(f"PLAYER FLAWS UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
@@ -992,7 +992,7 @@ class GameManager(Kani):
         # A sub logic that adds the item.
         def sub_logic(player, item_name, item_desc):
             player.add_item(item_name, item_desc)
-            msg = f"THE PLAYER {player.name} ADDED THE ITEM {item_name} TO THE INVENTORY."
+            msg = f"THE ITEM {item_name} HAS BEEN ADDED TO THE INVENTORY OF THE PLAYER {player.name}."
             updated_res = '\n'.join(player.get_inventory(with_number=True))
             print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
             return msg
@@ -1006,7 +1006,7 @@ class GameManager(Kani):
             selected = select_random_options(options) if isinstance(player, PlayerKani) else select_options(options)
             if selected == 0:  # Discarding any item from the inventory.
                 print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                selected = select_random_options(player.get_inventory) if isinstance(player, PlayerKani) else select_options(player.get_inventory())
+                selected = select_random_options(player.get_inventory()) if isinstance(player, PlayerKani) else select_options(player.get_inventory())
                 removal_target = list(player.inventory.keys())[selected]
                 remove_msg = self.remove_item(player.name, removal_target)
 
@@ -1133,7 +1133,7 @@ class GameManager(Kani):
         # Discarded item is placed in the environment.
         self.environment[item_name] = desc
 
-        msg = f"THE PLAYER {player_name} REMOVED THE ITEM {item_name} FROM THE INVENTORY."
+        msg = f"THE ITEM {item_name} HAS BEEN REMOVED FROM THE INVENTORY OF THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_inventory(with_number=True))
         print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
@@ -1222,9 +1222,7 @@ class GameManager(Kani):
 
         self.environment[object_name] = object_desc
 
-        msg = f"A NEW OBJECT {object_name}: {object_desc} HAS BEEN ADDED TO THE ENVIRONMENT IN THE CURRENT SCENE."
-        updated_res = '\n'.join(self.get_environment(with_number=True))
-        print_system_log(f"ENVIRONMENT UPDATED:\n{updated_res}", after_break=True)
+        msg = f"A NEW OBJECT {object_name} HAS BEEN ADDED TO THE ENVIRONMENT IN THE CURRENT SCENE."
         print_system_log(msg, after_break=True)
         return msg, arguments, None
 
@@ -1387,7 +1385,8 @@ class GameManager(Kani):
                 self.random_tables.pop(table_name)
             intermediate_res["Removal of the table"] = True if removal_idx == 0 else False
 
-        msg = f"SAMPLED FROM THE TABLE {table_name}: {', '.join(samples)}. RUN ANOTHER FUNCTION IF THE RESULT REQUIRES TO ADD OR CHANGE ANY OBJECTS OR NPCS IN THE SCENE."
+        samples_str = '\n'.join(samples)
+        msg = f"SAMPLED FROM THE TABLE {table_name}: \n{samples_str}\n\nRUN ANOTHER FUNCTION IF THE RESULT REQUIRES TO ADD OR CHANGE ANY OBJECTS OR NPCS IN THE SCENE."
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 
