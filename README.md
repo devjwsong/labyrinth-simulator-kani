@@ -68,6 +68,7 @@ There are a few technical details of the system, which can help you understand h
 | `--players_path`   | `str`          | The path of the JSON file which has the created player character information before. If the file cannot be found, the system will make you create the new characters from the beginning. | -                     |
 | `--export_data`    | `'store_true'` | Setting whether to export the gameplay data after the game for the evaluation purpose. The exported result will be stored in `results` directory. | *Set by default.*     |
 | `--num_ai_players` | `int`          | The number of AI players to simulate. Note that this cannot be larger than the number of players created in `--player_path`. | `0`                   |
+| `--result_dir`     | `str`          | The parent directory of the exported result.                 | `results`             |
 
 <br/>
 
@@ -109,19 +110,18 @@ Note that these are only used for the actual interaction during the game. Other 
 
 <br/>
 
-**Arguments for the evaluation**
+**Arguments for the extra evaluation**
 
-These are for using the separate evaluation script to test each individual model's capability on different tasks. The user can manually check the model's response and give a score for each task/question.
+These are for using the separate evaluation script to test each individual model's capability on some extra tasks. This runs the automatic evaluation based on the AI-based evaluator.
 
 | Argument             | Type  | Description                                                  | Default               |
 | -------------------- | ----- | ------------------------------------------------------------ | --------------------- |
 | `--eval_task`        | `str` | The name of the evaluation task. The available options include: 1) `gameplay` - It performs a holistic evaluation of the exported gameplay log in terms of consistency, generation quality, or proper usage of functions. 2) `scene_init` - It validates the quality of an initialized scene compared with the original scene input. 3) `rules` - It iteratively tests the performance of a target model's understanding capability of the game rules based on Q&A form. | *YOU SHOULD SPECIFY.* |
 | `--eval_model_idx`   | `str` | The index of the evaluator model. For now, since only `openai` engine is supported, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | *YOU SHOULD SPECIFY.* |
-| `--gameplay_path`    | `str` | The path of the JSON file which stores the whole gameplay data. This is required if `--eval_task=gameplay` has been set. | -                     |
 | `--scene_path`       | `str` | The path of the JSON file which has the initialized scene information before. This is required if `--eval_task=scene_init` has been set. | -                     |
 | `--seed`             | `int` | The random seed for shuffling the question list. This is used when `--eval_task=rules`, but not required, since the default value will be set. | `0`                   |
 | `--target_model_idx` | `str` | The index of the target model. This is required if `--eval_task=rules` has been set. Just as `--eval_model_idx`, only OpenAI's model is supported for now. | -                     |
-| `--rule_injection`   | `str` | The rule injection policy. The available options include: 1) `None` - We don't inject any rule. This tests the default knowledge in the pre-trained model. 2) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 3)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. Note that for the evaluation `init`, the model always uses `full` injection no matter which value is set for this argument. | -                     |
+| `--rule_injection`   | `str` | The rule injection policy. The available options include: 1) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 2)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | -                     |
 
 <br/>
 
@@ -141,7 +141,7 @@ These are for using the separate evaluation script to test each individual model
 
    <br/>
 
-3. Run `exec_init_scene.sh`. After initialization, the scene will be stored at: `scenes/scene={SCENE_IDX}/{USERNAME}-model={MODEL_IDX}-time={EXECUTION_TIME}.json`.
+3. Run `exec_init_scene.sh`. After initialization, the scene will be stored at: `scenes/scene={SCENE_IDX}/model={MODEL_IDX}/{USERNAME}-time={EXECUTION_TIME}.json`.
 
    ```shell
    sh exec_init_scene.sh
@@ -153,7 +153,7 @@ These are for using the separate evaluation script to test each individual model
 
    <br/>
 
-5. Run `exec_create_players.sh`. After initialization, the player characters will be stored at: `players/{USERNAME}-num_players={NUM_PLAYERS}-time={EXECUTION_TIME}.json`.
+5. Run `exec_create_players.sh`. After initialization, the player characters will be stored at: `players/num_players={NUM_PLAYERS}/{USERNAME}-time={EXECUTION_TIME}.json`.
 
    ```shell
    sh exec_create_players.sh
@@ -165,7 +165,7 @@ These are for using the separate evaluation script to test each individual model
 
    <br/>
 
-7. Enjoy the game! After finishing the scene or terminated by any reason, the gameplay log will be stored at: `results/scene={SCENE_IDX}/rule={RULE_INJECTION}/concat={CONCAT_POLICY}/msg_limit={MAX_NUM_MSGS}/summarization={SUMMARIZATION}/summ_period={SUMM_PERIOD}/clear_raw={CLEAR_RAW_logs}/function={INCLUDE_FUNCTIONS}/{USERNAME}-model={MODEL_IDX}-seed={SEED}-time={EXECUTION_TIME}.json`.
+7. Enjoy the game! After finishing the scene or terminated by any reason, the gameplay log will be stored at: `{RESULT_DIR}/model={MODEL_IDX}/scene={SCENE_IDX}/{USERNAME}-seed={SEED}-time={EXECUTION_TIME}.json`.
 
    ```shell
    sh exec_main.sh
@@ -173,10 +173,10 @@ These are for using the separate evaluation script to test each individual model
 
 <br/>
 
-For running the evaluation script, run the command below after modifying the arguments in `exec_evaluate.sh`.
+For running the evaluation script for extra performances (scene initialization, rule understanding), run the command below after modifying the arguments in `exec_evaluate_extra.sh`.
 
 ```shell
-sh exec_evaluate.sh
+sh exec_evaluate_extra.sh
 ```
 
 <br/>
