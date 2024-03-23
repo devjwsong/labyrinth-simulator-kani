@@ -67,7 +67,7 @@ def main(manager: GameManager, args: Namespace):
         notified = 0
 
         player_queries = [[ChatMessage.system(content=f"{start_sent}{scene_intro}")] for _ in range(len(manager.players))]
-        manager_queries = []
+        manager_queries = [] if args.include_scene_state else [manager.make_scene_prompt()]  # If the model does not use scene state, including the scene state at the beginning.
         while True:
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
@@ -196,6 +196,7 @@ if __name__=='__main__':
     parser.add_argument('--players_path', type=str, required=True, help="The path of the JSON file which has the created player character information before.")
     parser.add_argument('--export_data', action='store_true', help="Setting whether to export the gameplay data after the game for the evaluation purpose.")
     parser.add_argument('--num_ai_players', type=int, default=0, help="The number of AI players to simulate.")
+    parser.add_argument('--result_dir', type=str, default="results", help="The parent directory of the exported result.")
 
     # Parameters for the prompt construction.
     parser.add_argument('--concat_policy', type=str, default='simple', help="The concatenation policy for including the previous chat logs.")
@@ -215,8 +216,8 @@ if __name__=='__main__':
     parser.add_argument('--max_tokens', type=int, help="The maximum number of tokens to generate.")
     parser.add_argument('--frequency_penalty', type=float, default=0.5, help="A positive value penalizes the repetitive new tokens. (-2.0 - 2.0)")
     parser.add_argument('--presence_penalty', type=float, default=0.5, help="A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0)")
-    parser.add_argument('--temperature', type=float, default=1.0, help="A higher value makes the output more random. (0.0 - 2.0)")
-    parser.add_argument('--top_p', type=float, default=0.8, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
+    parser.add_argument('--temperature', type=float, default=0.5, help="A higher value makes the output more random. (0.0 - 2.0)")
+    parser.add_argument('--top_p', type=float, default=1.0, help="The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0)")
 
     args = parser.parse_args()
 
@@ -292,10 +293,8 @@ if __name__=='__main__':
 
     # Exporting data after finishing the scene.
     if args.export_data:
-        file_dir = f"results/{args.scene_path.split('/')[1]}/model={args.model_idx}/rule_injection={args.rule_injection}/concat={args.concat_policy}/" + \
-            f"msg_limit={args.max_num_msgs}/summarization={args.summarization}/summ_period={args.summ_period}/clear_raw={args.clear_raw_logs}/" + \
-            f"functions={args.include_functions}/rules={args.include_rules}/scene_state={args.include_scene_state}/player_states={args.include_player_states}/" + \
-            f"generate_states={args.generate_states}"
+        scene_dir = args.scene_path.split('/')[1]
+        file_dir = f"{args.result_dir}/model={args.model_idx}/{scene_dir}"
         if not os.path.isdir(file_dir):
             os.makedirs(file_dir)
 
