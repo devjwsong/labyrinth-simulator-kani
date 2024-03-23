@@ -110,6 +110,17 @@ Note that these are only used for the actual interaction during the game. Other 
 
 <br/>
 
+**Arguments for the human evaluation**
+
+These are for using the main evaluation of the gameplay record, which is done by a human evaluator.
+
+| Argument       | Type  | Description                                                  | Default                |
+| -------------- | ----- | ------------------------------------------------------------ | ---------------------- |
+| `--game_file`  | `str` | The path of the gameplay record file to evaluate.            | *YOU SHOULD SPECIFY.*  |
+| `--eval_focus` | `str` | The evaluation focus. The available options include: 1) `response`: The human evaluator evaluates the response quality of the game manager, except for the function result. 2) `function`: The human evaluator evaluates how well each function works. | *YOU SHOULD SPECIFCY.* |
+
+<br/>
+
 **Arguments for the extra evaluation**
 
 These are for using the separate evaluation script to test each individual model's capability on some extra tasks. This runs the automatic evaluation based on the AI-based evaluator.
