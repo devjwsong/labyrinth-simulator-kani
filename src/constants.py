@@ -24,34 +24,6 @@ USER_INSTRUCTION = [
     "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
-HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION = [
-    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You are given the dialogue between the player characters and Goblin King, which is the game manager, collected during the actual game.",
-    "You should determine whether the generated response of Goblin King is relevant to the dialogue so far semantically.",
-    "You must answer only in number."
-]
-
-STATE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
-    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You are given the scene state and player states extracted from the actual gameplay.",
-    "You should determine whether the generated response of Goblin King, which is the game manager, is consistent with the game state.",
-    "Note that the given state is the one before updating the effect of the generated response from the game manager.",
-    "In other words, you should check whether the response can be produced based on the given game state.",
-    "You must answer only in number."
-]
-
-RULE_CONSISTENCY_EVALUATOR_INSTRUCTION = [
-    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You should determine whether the generated response of Goblin King, which is the game manager, correctly obeys the game rules.",
-    "You must answer only in number."
-]
-
-INTEREST_EVALUATOR_INSTRUCTION = [
-    "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
-    "You should determine whether the generated response of Goblin King, which is the game manager, is funny and entertaining considering this is a game.",
-    "You must answer only in number."
-]
-
 SCENE_INIT_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",
     "You are given two Dict type data, one is the original game scene and the other is the output version from another language model.",

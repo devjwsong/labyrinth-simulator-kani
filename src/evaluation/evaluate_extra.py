@@ -1,15 +1,10 @@
 from kani import Kani
-from kani.models import ChatMessage
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
 from agents.evaluator import Evaluator
 from utils import convert_into_class_idx, print_question_start, print_system_log, convert_into_message
 from constants import (
     ASSISTANT_INSTRUCTION, 
-    HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION,
-    STATE_CONSISTENCY_EVALUATOR_INSTRUCTION,
-    RULE_CONSISTENCY_EVALUATOR_INSTRUCTION,
-    INTEREST_EVALUATOR_INSTRUCTION,
     SCENE_INIT_EVALUATOR_INSTRUCTION, 
     RULES_EVALUATOR_INSTRUCTION,
 )
@@ -18,7 +13,6 @@ from sentence_transformers import SentenceTransformer
 from argparse import Namespace
 from datetime import datetime
 from pytz import timezone
-from tqdm import tqdm
 
 import asyncio
 import argparse
@@ -43,176 +37,6 @@ def export_test_result(data: dict, path: str):
 
     with open(path, 'w') as f:
         json.dump(data, f)
-
-
-# Sublogic for history consistency evaluation.
-async def evaluate_history_consistency(engine: OpenAIEngine, past_history: list[dict], current_queries: list[dict], generated: dict):
-    options = [
-        "It is perfectly relevant to the whole previous interactions.",
-        "It is only relevant to the immediate input queries.",
-        "It totally makes no sense.",
-    ]
-    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-
-    # Setting the evalutor.
-    system_prompt = ' '.join(HISTORY_CONSISTENCY_EVALUATOR_INSTRUCTION)
-    evaluator = Evaluator(
-        engine=engine, 
-        system_prompt=system_prompt,
-        chat_history=[convert_into_message(hist) for hist in past_history] + [convert_into_message(query) for query in current_queries]
-    )
-
-    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King relevant to the dialogue so far?\nResponse: {generated['content']}\n\n{options_str}")
-    res = convert_into_class_idx(res, options)
-
-    if res == 0:
-        score = 1.0
-    elif res == 1:
-        score = 0.5
-    else:
-        score = 0.0
-
-    return {'history_consistency': {options[res]: score}}
-
-
-# Sublogic for state consistency evaluation.
-async def evaluate_state_consistency(engine: OpenAIEngine, scene: dict, players: list, generated: dict):
-    options = [
-        "Perfectly consistent with the current scene and the status of players.",
-        "Partially consistent with the current game state. (e.g. Consistent with only either the scene or the players.)",
-        "Completely inconsistent."
-    ]
-    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-
-    # Setting the evaluator.
-    content = f"chapter={scene['chapter']}, scene={scene['scene']}, scene_summary={scene['scene_summary']}, " + \
-        f"npcs={scene['npcs']}, generation_rules={scene['generation_rules']}, success_condition={scene['success_condition']}, failure_condition={scene['failure_condition']}, " + \
-        f"game_flow={scene['game_flow']}, environement={scene['environment']}, random_tables={scene['random_tables']}, consequences={scene['consequences']}, " + \
-        f"is_action_scene={scene['is_action_scene']}"
-    scene_prompt = ChatMessage.system(name="Scene_State", content=content)
-
-    player_prompts = []
-    for player in players:
-        content = f"name={player['name']}, kin={player['kin']}, persona={player['persona']}, goal={player['goal']}, " + \
-            f"traits={player['traits']}, flaws={player['flaws']}, inventory={player['inventory']}, additional_notes={player['additional_notes']}"
-        player_prompt = ChatMessage.system(name="Player_State", content=content)
-        player_prompts.append(player_prompt)
-    
-    
-    system_prompt = ' '.join(STATE_CONSISTENCY_EVALUATOR_INSTRUCTION)
-    evaluator = Evaluator(
-        engine=engine, 
-        system_prompt=system_prompt,
-        chat_history=[scene_prompt] + player_prompts
-    )
-
-    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King consistent with the current scene and players' status?\nResponse: {generated['content']}\n\n{options_str}")
-    res = convert_into_class_idx(res, options)
-
-    if res == 0:
-        score = 1.0
-    elif res == 1:
-        score = 0.5
-    else:
-        score = 0.0
-
-    return {'state_consistency': {options[res]: score}}
-
-
-# Sublogic for rule consistency evaluation.
-async def evaluate_rule_consistency(engine: OpenAIEngine, generated: dict):
-    options = [
-        "Perfectly consistent with the game rule."
-        "Violating the game rule."
-    ]
-    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-
-    system_prompt = ' '.join(RULE_CONSISTENCY_EVALUATOR_INSTRUCTION)
-    evaluator = Evaluator(
-        engine=engine, 
-        system_prompt=system_prompt
-    )
-
-    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King consistent with the game rules?\nResponse: {generated['content']}\n\n{options_str}")
-    res = convert_into_class_idx(res, options)
-
-    if res == 0:
-        score = 1.0
-    elif res == 1:
-        score = 0.0
-
-    return {'rule_consistency': {options[res]: score}}
-
-
-# Sublogic for interest evaluation.
-async def evaluate_interest(engine: OpenAIEngine, generated: dict):
-    options = [
-        "Interesting and entertaining!",
-        "Boring and bland..."
-    ]
-    options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-
-    system_prompt = ' '.join(INTEREST_EVALUATOR_INSTRUCTION)
-    evaluator = Evaluator(
-        engine=engine, 
-        system_prompt=system_prompt
-    )
-
-    res = await evaluator.chat_round_str(f"Is the generated response from Goblin King interesting?\nResponse: {generated['content']}\n\n{options_str}")
-    res = convert_into_class_idx(res, options)
-
-    if res == 0:
-        score = 1.0
-    elif res == 1:
-        score = 0.0
-
-    return {'interest': {options[res]: score}}
-
-
-# Evaluating the holistic quality of the gameplay.
-def evaluate_gameplay(args: Namespace, engine: OpenAIEngine):
-    # Loading the gameplay data.
-    with open(args.gameplay_path, 'r') as f:
-        game = json.load(f)
-
-    async def test():
-        result = {}
-        turn_scores = []
-
-        for t, turn in enumerate(tqdm(game)):
-            scene_state = turn['scene']
-            player_states = turn['players']
-            past_history = turn['past_history']
-            current_queries = turn['current_queries']
-            generated = turn['generated']
-
-            turn_score = {}
-
-            # Response generation.
-            if generated['role'] == 'assistant':
-                # 1. History consistency.
-                res = await evaluate_history_consistency(engine, past_history, current_queries, generated)
-                turn_score.update(res)
-
-                # 2. State consistency.
-                res = await evaluate_state_consistency(engine, scene_state, player_states, generated)
-                turn_score.update(res)
-
-                # 3. Rule consistency.
-                res = await evaluate_rule_consistency(engine, generated)
-                turn_score.update(res)
-
-                # 4. Interest.
-                res = await evaluate_interest(engine, generated)
-                turn_score.update(res)
-
-            turn_scores.append(turn_score)
-
-        result['per_turn'] = turn_scores
-
-        export_test_result(result, f"evaluations/{args.gameplay_path}")
-
-    asyncio.run(test())
 
 
 # Evaluating the scene quality. Note that this function only evaluate the quality of the generation. (0.8 or 1.0)
@@ -286,8 +110,6 @@ def evaluate_rules(args: Namespace, target_model: Kani, engine: OpenAIEngine):
     random.seed(args.seed)
     random.shuffle(questions)
 
-    questions = questions[:5]
-
     # Setting the evaluator model with the full rule injection.
     system_prompt = ' '.join(RULES_EVALUATOR_INSTRUCTION)
     evaluator = Evaluator(engine=engine, system_prompt=system_prompt)
@@ -356,9 +178,6 @@ if __name__=='__main__':
     parser.add_argument('--eval_task', type=str, required=True, help="The name of the evaluation task.")
     parser.add_argument('--eval_model_idx', type=str, required=True, help="The name of the model which is used for the automatic evaluation.")
 
-    # Arguments for the gameplay evalaution.
-    parser.add_argument('--gameplay_path', type=str, help="The path of the file which has the whole game play data.")
-
     # Arguments for the scene intialization evaluation.
     parser.add_argument('--scene_path', type=str, help="The path of the file which has the initialized scene information.")
 
@@ -370,7 +189,7 @@ if __name__=='__main__':
 
     args = parser.parse_args()
 
-    assert args.eval_task in ['gameplay', 'scene_init', 'rules'], "Specify the correct evaluation task name."
+    assert args.eval_task in ['scene_init', 'rules'], "Specify the correct evaluation task name."
 
     # Setting the engine for automated evaluation or evaluation of rule understanding.
     api_key = input("Enter the API key for OpenAI API: ")
@@ -378,8 +197,6 @@ if __name__=='__main__':
     engine = OpenAIEngine(api_key, model=args.eval_model_idx)
 
     # Setting & Validting the arguments for each evaluation task.
-    if args.eval_task == 'gameplay':
-        assert args.gameplay_path is not None, "You should specify the gameplay data you want to evaluate."
     if args.eval_task == 'scene_init':
         assert args.scene_path is not None, "You should specify the initialized scene data you want to evaluate."
     if args.eval_task == 'rules':
@@ -411,9 +228,6 @@ if __name__=='__main__':
         )
 
     # Evaluation logics.
-    if args.eval_task == 'gameplay':
-        evaluate_gameplay(args, engine)
-    
     if args.eval_task == 'scene_init':
         evaluate_scene_init(args, engine)
 
