@@ -199,7 +199,6 @@ if __name__=='__main__':
     parser.add_argument('--seed', type=int, default=0, help="The random seed for shuffling the question list.")
     parser.add_argument('--target_model_idx', type=str, help="The index of the model which should be evaluated.")
     parser.add_argument('--rule_injection', type=str, default='full', help="The rule injection policy.")
-    parser.add_argument('--include_rules', action='store_true', help="Setting whether to include the game rules in the prompt.")
 
     args = parser.parse_args()
 
