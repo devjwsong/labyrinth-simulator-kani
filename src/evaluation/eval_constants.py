@@ -79,7 +79,7 @@ MAIN_OPTIONS = [
 ]
 
 # Rubric setting.
-STATE_CONSISTENCY_RUBRIC = {
+CONSISTENCY_RUBRIC = {
     'question': "How consistent is the generated response to the current game progress?",
     'specifications': {
         "The generated response is consistent with the previous interactions between the game manager and players.": [
@@ -94,6 +94,39 @@ STATE_CONSISTENCY_RUBRIC = {
     'notes': [
         "If the model output hallucinates any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
     ],
+    'max_score': 1.0,
+    'min_score': 0.0
+}
+
+RELIABILITY_RUBRIC = {
+    'question': "How well does the model control and manage the game reliably?",
+    'specifications': {
+        "The game manager fully understands the game and performs its task as a manager correctly.": [
+            "The model acts while following the general game rules in Labyrinth.",
+            "The model understands the scene-specific rules, instructions, and specifications  of the current scene and guides the players to proceed with the game as intended."
+        ],
+        "When a player tries to do something which violates the rule or fake up anything which does not exist, the game manager rejects or ignores it.": [
+            "The model rejects it when the player attempts to do something which cannot be performed by a player character according to the rule.",
+            "The model rejects it when the player tries to use a trait, flaw, or item which does not exist in the player.",
+            "The model rejects it when the player tries to leverage or get access to non-existing environmental objects or NPCs, etc."
+        ],
+        "Any unexpected behavior which might hurt the players' gameplay experience or make the game flow far from intended should not be performed.": []
+    },
+    'notes': [
+        "Note that this metric does not evaluate the quality or consistency of the response.",
+        "Even if the response looks perfect, it can contain hallucinated content or the model might just let the player's unallowed trial."
+    ],
+    'max_score': 1.0,
+    'min_score': 0.0
+}
+
+INTERESTINGNESS_RUBRIC = {
+    'question': "How interesting is the generated response?",
+    'specifications': {
+        "The response describes the scene sincerely and specifically.": [],
+        "The response really sounds like the human game manager.": []
+    },
+    'notes': [],
     'max_score': 1.0,
     'min_score': 0.0
 }
