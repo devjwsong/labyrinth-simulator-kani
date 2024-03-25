@@ -674,14 +674,18 @@ class GameManager(Kani):
         }
 
         # Updating the scene.
-        scene_prompt = self.make_scene_prompt()
+        prev_scene = self.make_scene_prompt()
         scene_res = await kani.chat_round_str(
-            f"Generate the updated scene state from the previous scene state considering the given interaction.\n\nPrevious Scene State: {scene_prompt.content}",
+            f"Generate the updated scene state from the previous scene state considering the given interaction.\n\nPrevious Scene State: {prev_scene.content}",
             **generation_params
         )
+
         try:
             new_scene_state = json.loads(scene_res)
-            self.set_scene(new_scene_state)
+            self.npcs = new_scene_state['npcs']
+            self.environment = new_scene_state['environment']
+            self.random_tables = new_scene_state['random_tables']
+            self.is_action_scene = new_scene_state['is_action_scene']
 
         except json.decoder.JSONDecodeError as e:
             log.debug(scene_res)
@@ -690,18 +694,23 @@ class GameManager(Kani):
 
         # Updating the players.
         for player in self.players:
-            player_prompt = self.make_player_prompt(player)
+            prev_state = self.make_player_prompt(player)
             player_res = await kani.chat_round_str(
-                f"Generate the updated player state from the previous player state considering the given interaction.\n\nPrevious Player State: {player_prompt.content}",
+                f"Generate the updated player state from the previous player state considering the given interaction.\n\nPrevious Player State: {prev_state.content}",
                 **generation_params
             )
+
             try:
                 new_player_state = json.loads(player_res)
-                self.set_player(player, new_player_state)
+                player.traits = new_player_state['traits']
+                player.flaws = new_player_state['flaws']
+                player.inventory = new_player_state['inventory']
             except json.decoder.JSONDecodeError as e:
                 log.debug(scene_res)
                 log.error(f"{e}: The output format cannot be converted into dict.")
-                raise Exception()         
+                raise Exception()
+
+        await kani.engine.close()         
 
     # Kani's function call for a dice roll test.
     @ai_function

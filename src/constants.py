@@ -206,7 +206,8 @@ SUMMARIZE_PROMPT = [
 STATE_UPDATE_PROMPT = [
     "You are a state updater in a fantasy text-based adventure game.",
     "You should generate the updated states strictly following the same JSON format of the input state.",
-    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks or non-string-type keys.",
+    "This should be a JSON object which can be parsed as a Python dictionary.",
+    "This means that the output should not contain any data formats which violate the JSON restrictions, such as single quotation marks, non-string-type keys or caplitalized boolen value.",
     "You should not generate any additional content or explanation and make sure that your answer can be parsed as a Python dictionary without an error.",
     "You will be given the game rules, the previous state and one interaction between the players and the game manager, which is called Goblin King, during the game.",
     "This interaction might have multiple responses from the game manager or the results of function calls.",
@@ -261,6 +262,7 @@ VALIDATE_SUCCESS_PROMPT = [
     "You are a binary classifier in a fantasy text-based adventure game.",
     "You will be given the chat history between the players and the game manager, which is called Goblin King, during the game.",
     "You should determine whether the current game state satisfies the success condition for the players to win.",
+    "You should also consider it as a success even if the current circumstance does not perfectly align with the success condition, but somehow the game scene has been cleared and the player's can move on to the next scene without an issue.",
     "You must answer only in number."
 ]
 

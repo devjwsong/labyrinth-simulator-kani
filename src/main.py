@@ -67,7 +67,13 @@ def main(manager: GameManager, args: Namespace):
         notified = 0
 
         player_queries = [[ChatMessage.system(content=f"{start_sent}{scene_intro}")] for _ in range(len(manager.players))]
-        manager_queries = [] if args.include_scene_state else [manager.make_scene_prompt()]  # If the model does not use scene state, including the scene state at the beginning.
+        manager_queries = [] 
+        if not args.include_scene_state:  # If the model does not use scene state, including the scene state only at the beginning.
+            manager_queries.append(manager.make_scene_prompt())
+        if not args.include_player_states:  # If the model does not use player states, including the player states only at the beginning.
+            for player in manager.players:
+                manager_queries.append(manager.make_player_prompt(player))
+
         while True:
             # Checking if this is an action scene now.
             per_player_time = PER_PLAYER_TIME if manager.is_action_scene else None
