@@ -52,8 +52,13 @@ def target_response_logic(initial_scene: dict, initial_players: list[dict], gen:
             return False
 
         elif idx == 4:
+            gen['response_scores'][metric] = {}
             score = give_score(max_score, min_score)
-            gen['response_scores'][metric] = score
+            comment = input("Leave a comment that explains why you chose to give the score: ")
+            gen['response_scores'][metric] = {
+                'score': score,
+                'comment': comment
+            }
             return True
 
     elif metric == 'reliability':
@@ -81,16 +86,26 @@ def target_response_logic(initial_scene: dict, initial_players: list[dict], gen:
             return False
 
         elif idx == 5:
+            gen['response_scores'][metric] = {}
             score = give_score(max_score, min_score)
-            gen['response_scores'][metric] = score
+            comment = input("Leave a comment that explains why you chose to give the score: ")
+            gen['response_scores'][metric] = {
+                'score': score,
+                'comment': comment
+            }
             return True
 
     elif metric == 'interestingness':
         max_score, min_score = INTERESTINGNESS_RUBRIC['max_score'], INTERESTINGNESS_RUBRIC['min_score']
         idx = select_options(RESPONSE_INTERESTINGNESS_OPTIONS)
 
+        gen['response_scores'][metric] = {}
         score = give_score(max_score, min_score)
-        gen['response_scores'][metric] = score
+        comment = input("Leave a comment that explains why you chose to give the score: ")
+        gen['response_scores'][metric] = {
+            'score': score,
+            'comment': comment
+        }
         return True
 
 
