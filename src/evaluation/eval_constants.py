@@ -69,12 +69,22 @@ RULE_SUMMARY = [
 ]
 
 # Options setting.
-MAIN_OPTIONS = [
-    "Check the current scene state.",
-    "Check the current player states",
+RESPONSE_CONSISTENCY_OPTIONS = [
+    "Check the initial scene state.",
+    "Check the initial player states",
     "Check the past chat history.",
     "Check the current queries.",
+    "Give score."
+]
+RESPONSE_RELIABILITY_OPTIONS = [
     "Check the game rules.",
+    "Check the initial scene state.",
+    "Check the initial player states",
+    "Check the past chat history.",
+    "Check the current queries.",
+    "Give score."
+]
+RESPONSE_INTERESTINGNESS_OPTIONS = [
     "Give score."
 ]
 
@@ -114,7 +124,7 @@ RELIABILITY_RUBRIC = {
     },
     'notes': [
         "Note that this metric does not evaluate the quality or consistency of the response.",
-        "Even if the response looks perfect, it can contain hallucinated content or the model might just let the player's unallowed trial."
+        "Even if the response looks perfect, it can contain hallucinated content or the model might just let the player do an unallowed trial."
     ],
     'max_score': 1.0,
     'min_score': 0.0
@@ -123,8 +133,8 @@ RELIABILITY_RUBRIC = {
 INTERESTINGNESS_RUBRIC = {
     'question': "How interesting is the generated response?",
     'specifications': {
-        "The response describes the scene sincerely and specifically.": [],
-        "The response really sounds like the human game manager.": []
+        "The response describes the scene funny, entertaining and specific.": [],
+        "The response makes the user engaged and immersed in the game.": []
     },
     'notes': [],
     'max_score': 1.0,

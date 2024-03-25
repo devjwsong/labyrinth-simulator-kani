@@ -1,11 +1,9 @@
 from inputimeout import inputimeout
-from kani.models import ChatMessage, ChatRole
 from typing import Any, List
+from eval_constants import RULE_SUMMARY
 
 import logging
-import string
-import random
-import re
+import json
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -77,3 +75,135 @@ def give_score(max_score: float, min_score: float):
                 return score
         except ValueError:
             print_system_log("The input should be a valid number.", after_break=True)
+
+
+# A sub-logic for showing the scene state.
+def show_scene_state(scene: dict):
+    keys = list(scene.keys())
+    k = 0
+    while k < len(keys):
+        options = []
+        if k == 0:
+            options = ["Next", "Go back to the evaluation"]
+        elif k == len(keys)-1:
+            options = ["Prev", "Go back to the evaluation"]
+        else:
+            options = ["Next", "Prev", "Go back to the evaluation"]
+        
+        key = keys[k]
+        print_question_start()
+        print_system_log(f"{key}: ")
+        print(json.dumps(scene[key], indent=4))
+        log_break()
+
+        idx = select_options(options)
+        if options[idx] == "Next":
+            k += 1
+        elif options[idx] == "Prev":
+            k -= 1
+        else:
+            break
+
+# A sub-logic for showing the player states.
+def show_player_states(players: list[dict]):
+    num_players = len(players)
+    p = 0
+    while p < num_players:
+        if p == 0:
+            options = ["Next", "Go back to the evaluation"]
+        elif p == num_players-1:
+            options = ["Prev", "Go back to the evaluation"]
+        else:
+            options = ["Next", "Prev", "Go back to the evaluation"]
+
+        player = players[p]
+        print_question_start()
+        print_system_log(f"Player {p+1}: {player['name']}")
+        print(json.dumps(player, indent=4))
+        log_break()
+
+        idx = select_options(options)
+        if options[idx] == "Next":
+            p += 1
+        elif options[idx] == "Prev":
+            p -= 1
+        else:
+            break
+
+# A sub-logic for showing the past chat history.
+def show_past_history(past_history: list[dict]):
+    num_messages = len(past_history)
+    m = 0
+    while m < num_messages:
+        if m == 0:
+            options = ["Next", "Go back to the evaluation"]
+        elif m == num_messages-1:
+            options = ["Prev", "Go back to the evaluation"]
+        else:
+            options = ["Next", "Prev", "Go back to the evaluation"]
+        
+        message = past_history[m]
+        print_question_start()
+        print(json.dumps(message, indent=4))
+        log_break()
+
+        idx = select_options(options)
+        if options[idx] == "Next":
+            m += 1
+        elif options[idx] == "Prev":
+            m -= 1
+        else:
+            break
+
+
+# A sub-logic for showing the current queries.
+def show_current_queries(current_queries: list[dict]):
+    num_messages = len(current_queries)
+    m = 0
+    while m < num_messages:
+        if m == 0:
+            options = ["Next", "Go back to the evaluation"]
+        elif m == num_messages-1:
+            options = ["Prev", "Go back to the evaluation"]
+        else:
+            options = ["Next", "Prev", "Go back to the evaluation"]
+        
+        message = current_queries[m]
+        print_question_start()
+        print(json.dumps(message, indent=4))
+        log_break()
+
+        idx = select_options(options)
+        if options[idx] == "Next":
+            m += 1
+        elif options[idx] == "Prev":
+            m -= 1
+        else:
+            break
+
+
+# A sub-logic for showing the game rules.
+def show_game_rules():
+    num_parts = len(RULE_SUMMARY)
+    r = 0
+    while r < num_parts:
+        if r == 0:
+            options = ["Next", "Go back to the evaluation"]
+        elif r == num_parts-1:
+            options = ["Prev", "Go back to the evaluation"]
+        else:
+            options = ["Next", "Prev", "Go back to the evaluation"]
+
+        part = RULE_SUMMARY[r]
+        print_question_start()
+        print_system_log(f"Labyrinth's rule ({r+1})")
+        print('\n'.join(part))
+        log_break()
+
+        idx = select_options(options)
+        if options[idx] == "Next":
+            r += 1
+        elif options[idx] == "Prev":
+            r -= 1
+        else:
+            break
