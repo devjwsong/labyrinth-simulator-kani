@@ -158,7 +158,7 @@ FUNCTION_RUBRICS = {
             'specifications': {
                 "'player_name' is correct.": [
                     "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
-                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list."
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list."
                 ],
                 "'initial_difficulty' is correct.": [
                     "If the difficulty value for this test is mentioned in the scene, 'initial_difficulty' should be identical to that value.",
@@ -178,7 +178,9 @@ FUNCTION_RUBRICS = {
         'correct_detection_of_improvement': {
             'question': "Does the function correctly detect the improvement/hindrance of the test?",
             'specifications': {
-                "The intermediate result of the improvement detection is matched with whether the test was improved, hindered, or not affected based on the player's traits or flaws.": []
+                "The intermediate result of the improvement detection is matched with whether the test was improved, hindered, or not affected.": [
+                    "The improvement/hindrance of a test should be validated based on the player's traits and flaws."
+                ]
             },
             'notes': [],
             'max_score': 1.0,
@@ -272,7 +274,7 @@ FUNCTION_RUBRICS = {
             'specifications': {
                 "'player_name' is the name of the player who should have an additional trait.": [
                     "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
-                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
                 ],
                 "'trait_name' is properly parsed.": [
                     "Even if the trait already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'traits' in the player.",
@@ -306,7 +308,7 @@ FUNCTION_RUBRICS = {
             'specifications': {
                 "'player_name' is the name of the player who should have an additional flaw.": [
                     "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
-                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
                 ],
                 "'flaw_name' is properly parsed.": [
                     "Even if the flaw already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'flaws' in the player.",
@@ -340,7 +342,7 @@ FUNCTION_RUBRICS = {
             'specifications': {
                 "'player_name' is the name of the player who should have an additional item.": [
                     "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
-                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
                 ],
                 "'item_name' is properly parsed.": [
                     "Even if the item already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'inventory' in the player.",
@@ -356,11 +358,255 @@ FUNCTION_RUBRICS = {
             'min_score': 0.0
         }
     },
-    'remove_trait': {},
-    'remove_flaw': {},
-    'remove_item': {},
-    'use_item': {},
-    'add_object': {},
-    'use_environment': {},
-    'use_random_table': {},
+    'remove_trait': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when an existing trait should be removed from the player considering the progress and game state so far.": [
+                    "If 'trait_name' does not exist in 'traits' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player whose trait should be removed.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'trait_name' is properly parsed.": [
+                    "The trait name should be evaluated in terms of quality and consistency considering the progress and game state so far.",
+                    "If the trait name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the trait list in the player."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'remove_flaw': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when an existing flaw should be removed from the player considering the progress and game state so far.": [
+                    "If 'flaw_name' does not exist in 'flaws' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player whose flaw should be removed.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'flaw_name' is properly parsed.": [
+                    "The flaw name should be evaluated in terms of quality and consistency considering the progress and game state so far.",
+                    "If the flaw name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the flaw list in the player."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'remove_item': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when an existing item should be removed from the player considering the progress and game state so far.": [
+                    "If 'item_name' does not exist in 'inventory' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player whose item should be removed.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'item_name' is properly parsed.": [
+                    "The item name should be evaluated in terms of quality and consistency considering the progress and game state so far.",
+                    "If the item name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the inventory in the player."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'use_item': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when an existing item should be used by the player considering the progress and game state so far.": [
+                    "If 'item_name' does not exist in 'inventory' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player whose item should be used.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'item_name' is properly parsed.": [
+                    "The item name should be evaluated in terms of quality and consistency considering the progress and game state so far.",
+                    "If the item name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the inventory in the player."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_detection_of_expendability': {
+            'question': "Does the function correctly detect the expendability of the item?",
+            'specifications': {
+                "The intermediate result of the expendability detection is matched with whether the item should be removed after the usage.": []
+            }
+        }
+    },
+    'add_object': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a new object should be added to the environment considering the progress and game state so far.": [
+                    "If 'object_name' already exists in 'environment' in the scene, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'object_name' is properly parsed.": [
+                    "Even if the object already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'environment' in the scene.",
+                    "If the object does not exist, then the name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                ],
+                "'object_desc' is properly parsed.": [
+                    "If the object description is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the object description is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the object name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'use_environment': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a player tries to reach or interact with an object in 'environment' considering the progress and game state so far.": [
+                    "If 'object_name' does not exist in 'environment' in the scene, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player who uses the object.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'object_name' is properly parsed.": [
+                    "The object name should be evaluated in terms of quality and consistency considering the progress and game state so far.",
+                    "If the object name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the environment in the scene."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_detection_of_obtainability': {
+            'question': "Does the function correctly detect the obtainability of the object?",
+            'specifications': {
+                "The intermediate result of the obtainability detection is matched with whether the object can be added into the player inventory.": []
+            }
+        }
+    },
+    'use_random_table': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when some entries should be sampled from a random table considering the progress and game state so far.": [
+                    "If 'table_name' does not exist in 'random_tables' in the scene, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'table_name' is properly parsed.": [
+                    "The table name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                    "The table should have the entries that are needed for proceeding with the game according to the scene-specific rules, game state and history so far."
+                    "If the table name is somewhat correct but it is represented differently, it is considered wrong since it cannot be parsed from the random table list in the scene."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_determination_of_numbers': {
+            'question': "Does the function make the right determination of the number of samples to retrieve?",
+            'specifications': {
+                "The intermediate result of the number of samples is matched with how many entries should be randomly sampled from the table.": [
+                    "If the number is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the number is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the table name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_determination_of_sample_exclusion': {
+            'question': "Does the function make the right determination of whether the sampled entries should be excluded?",
+            'specifications': {
+                "The intermediate result of the exclusion determination is matched with whether the sampled entries should be excluded or not from the table.": [
+                    "Consider whether the sampled entries should be used or set only once during the game and presenting them again later would make the game unnatural."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_determination_of_table_removal': {
+            'question': "Does the function make the right determination of whether the table should be removed?",
+            'specifications': {
+                "The intermediate result of the removal determination is matched with whether the table should be removed or not from the random table list.": [
+                    "Consider whether the table should be used during the game only once during the game and using this table again later would make the game unnatural.",
+                    "If there is no intermediate result of the table removal, this means the table has been automatically removed since all entries were excluded during the game. You don't have to evaluate this case."
+                ]
+            }
+        }
+    }
 }
