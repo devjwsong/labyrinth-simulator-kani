@@ -140,3 +140,227 @@ INTERESTINGNESS_RUBRIC = {
     'max_score': 1.0,
     'min_score': 0.0
 }
+
+FUNCTION_RUBRICS = {
+    'activate_test': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when the dice roll test is required considering the progress and game state so far.": []
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is correct.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list."
+                ],
+                "'initial_difficulty' is correct.": [
+                    "If the difficulty value for this test is mentioned in the scene, 'initial_difficulty' should be identical to that value.",
+                    "If the difficulty value for this test is not mentioned in the scene, validate if the difficulty makes sense considering the test the player tries to do.",
+                    "The difficulty value should be an integer between 2 and 6."
+                ],
+                "'final_difficulty' is correct.": [
+                    "If the teammates help the player to do the test, 'initial_difficulty' should be reduced to 'final_difficulty'.",
+                    "The traits of the teammates which help the test should have some reasonable advantages to make the test easy.",
+                    "Each help from a teammate decreases the difficulty by 1 each, but 'final_difficulty' should not be less than 2."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_detection_of_improvement': {
+            'question': "Does the function correctly detect the improvement/hindrance of the test?",
+            'specifications': {
+                "The intermediate result of the improvement detection is matched with whether the test was improved, hindered, or not affected based on the player's traits or flaws.": []
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'activate_action_scene': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when the action scene should start considering the progress and game state so far.": [
+                    "If the function is called when 'is_action_scene' is already true, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'terminate_action_scene': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when the action scene should end considering the progress and game state so far.": [
+                    "If the function is called when 'is_action_scene' is already false, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'create_npc': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a new NPC should be set considering the progress and game state so far.": [
+                    "If 'npc_name' already exists in 'npcs' in the scene, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'npc_name' is matched with the NPC which the players encountered or tried to interact with.": [
+                    "Even if the NPC already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'npcs' in the scene.",
+                    "If the NPC does not exist, then the name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                ],
+                "'npc_desc' is properly parsed.": [
+                    "If the NPC description is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the NPC description is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the NPC name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'npc_quality': {
+            'question': "Are the generated specifications satisfying?",
+            'specifications': {
+                "All values are following the conditions, reasonable, natural, and not contradictory with each other in the specifications.": [
+                    "The trait and flaw should follow the format: {NAME} - {DESCRIPTION}.",
+                    "The flaw should be one of the available options listed in the game manual."
+                ],
+                "All values should be consistent with other scene state components. (e.g. other NPCs, random tables, environment, etc.) without any contradiction.": [],
+                "The given description does exist in the generated specification. (e.g. in persona, goal, or trait)": []
+            }
+        }
+    },
+    'add_trait': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a new trait should be added to the player considering the progress and game state so far.": [
+                    "If 'trait_name' already exists in 'traits' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player who should have an additional trait.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'trait_name' is properly parsed.": [
+                    "Even if the trait already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'traits' in the player.",
+                    "If the trait does not exist, then the name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                ],
+                "'trait_desc' is properly parsed.": [
+                    "If the trait description is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the trait description is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the trait name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'add_flaw': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a new flaw should be added to the player considering the progress and game state so far.": [
+                    "If 'flaw_name' already exists in 'flaws' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player who should have an additional flaw.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'flaw_name' is properly parsed.": [
+                    "Even if the flaw already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'flaws' in the player.",
+                    "If the flaw does not exist, then the name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                ],
+                "'flaw_desc' is properly parsed.": [
+                    "If the flaw description is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the flaw description is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the flaw name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'add_item': {
+        'correct_activation': {
+            'question': "Is the function called in proper timing when it is needed?",
+            'specifications': {
+                "The function is called at the same turn as the user queries.": [],
+                "The function is called when a new item should be added to the player considering the progress and game state so far.": [
+                    "If 'item_name' already exists in 'inventory' in the player, this should be penalized."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        },
+        'correct_arguments': {
+            'question': "Are the function arguments parsed correctly?",
+            'specifications': {
+                "'player_name' is the name of the player who should have an additional item.": [
+                    "This should be identical to the name of the player stored in 'players'. (including case, special symbols, etc.)",
+                    "If the player name is somewhat correct but it is represented in a different way, it is considered wrong since it cannot be parsed from the player list.",
+                ],
+                "'item_name' is properly parsed.": [
+                    "Even if the item already exists but the function has been called falsely, the argument should be considered correct if it is the right name in 'inventory' in the player.",
+                    "If the item does not exist, then the name should be evaluated in terms of quality and consistency considering the progress and game state so far."
+                ],
+                "'item_desc' is properly parsed.": [
+                    "If the item description is explicitly mentioned in the scene, the argument should be considered correct if it is matched with the content described in the scene.",
+                    "If the item description is not mentioned in the scene, the argument should be considered correct if it is natural and reasonable taking into account the item name and the current progress."
+                ]
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
+        }
+    },
+    'remove_trait': {},
+    'remove_flaw': {},
+    'remove_item': {},
+    'use_item': {},
+    'add_object': {},
+    'use_environment': {},
+    'use_random_table': {},
+}
