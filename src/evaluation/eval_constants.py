@@ -87,6 +87,14 @@ RESPONSE_RELIABILITY_OPTIONS = [
 RESPONSE_INTERESTINGNESS_OPTIONS = [
     "Give score."
 ]
+FUNCTION_OPTIONS = [
+    "Check the game rules.",
+    "Check the current scene state.",
+    "Check the current player states.",
+    "Check the past chat history.",
+    "Check the current queries.",
+    "Give score."
+]
 
 # Rubric setting.
 CONSISTENCY_RUBRIC = {
@@ -253,7 +261,10 @@ FUNCTION_RUBRICS = {
                 ],
                 "All values should be consistent with other scene state components. (e.g. other NPCs, random tables, environment, etc.) without any contradiction.": [],
                 "The given description does exist in the generated specification. (e.g. in persona, goal, or trait)": []
-            }
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
         }
     },
     'add_trait': {
@@ -481,7 +492,10 @@ FUNCTION_RUBRICS = {
             'question': "Does the function correctly detect the expendability of the item?",
             'specifications': {
                 "The intermediate result of the expendability detection is matched with whether the item should be removed after the usage.": []
-            }
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
         }
     },
     'add_object': {
@@ -547,7 +561,10 @@ FUNCTION_RUBRICS = {
             'question': "Does the function correctly detect the obtainability of the object?",
             'specifications': {
                 "The intermediate result of the obtainability detection is matched with whether the object can be added into the player inventory.": []
-            }
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
         }
     },
     'use_random_table': {
@@ -606,7 +623,10 @@ FUNCTION_RUBRICS = {
                     "Consider whether the table should be used during the game only once during the game and using this table again later would make the game unnatural.",
                     "If there is no intermediate result of the table removal, this means the table has been automatically removed since all entries were excluded during the game. You don't have to evaluate this case."
                 ]
-            }
+            },
+            'notes': [],
+            'max_score': 1.0,
+            'min_score': 0.0
         }
     }
 }
