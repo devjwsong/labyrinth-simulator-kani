@@ -52,8 +52,8 @@ The JSON file contains an array of multiple JSON objects. Each JSON object repre
 
 - `scene`: The current state of the scene. If includes the essential components of the scene, such as NPCs, environmental objects, random tables, success/failure conditions, etc. (details on 1)
 - `players`: The current state of the players. Each player character has its own state, such as persona, traits, flaws, inventory, etc. (details on 2)
-- `current_queries`: The current queries to process. Each new query starts when any player types a new message. After that, all messages until the game manager finishes processing all requests are considered as current_queries. (details on 3)
-- `past_history`: The past chat history. Unlike current_queries, this only contains natural language messages without any NULL content or function execution results. (details on 4.)
+- `current_queries`: The current queries to process. Each new query starts when any player types a new message. After that, all messages until the game manager finishes processing all requests are considered as `current_queries`. (details on 3)
+- `past_history`: The past chat history. Unlike `current_queries`, this only contains natural language messages without any NULL content or function execution results. (details on 4.)
 - `generated`: The generated response from the AI game manager. This can be simply a natural language response or function call request. (details on 5.)
 - `function_calls`: The results of the called functions. This might contain multiple function results. (details on 6.)
 
@@ -129,7 +129,7 @@ Note that the last JSON object is just an indication of the game result, which i
 - `environment`: The environmental objects. This is a JSON object where each key is an object name and the value is the description of that object.
 - `random_tables`: The random tables. This is a JSON object where each key is a table name and the value is an array of table entries.
 - `consequences`: The consequence after finishing the scene.
-- `is_action_scene`: The boolean value that indicates whether the action scene has been currently activated or not.
+- `is_action_scene`: The boolean value that indicates whether the action scene is currently activated or not.
 
 <br/>
 
@@ -180,7 +180,9 @@ Note that the last JSON object is just an indication of the game result, which i
 
 The current queries contain the player messages and the game manager's responses or function call results. Although each player can speak only one message at a time, the game manager can generate multiple responses or call multiple functions sequentially until it thinks all necessary moves have been performed. For instance, if there are 4 players, the message list such as `P1 -> P2 -> P3 -> P4 -> GM(response) -> GM(function) -> GM(response)` is definitely possible. 
 
-In this project, one "turn" indicates one interaction after the manager finishes its all responses. For example, `P1 -> P2 -> P3 -> P4 -> GM(response) -> GM(function) -> GM(response)` is one turn. `P1 -> P2 -> P3 -> P4 -> GM(response) -> P2 -> P4 -> P1 -> P3 -> GM(response) -> GM(function) -> GM(response)` includes two turns.
+In this project, one "turn" indicates the whole interaction after the manager finishes its all responses. For example, `P1 -> P2 -> P3 -> P4 -> GM(response) -> GM(function) -> GM(response)` is one turn. `P1 -> P2 -> P3 -> P4 -> GM(response) -> P2 -> P4 -> P1 -> P3 -> GM(response) -> GM(function) -> GM(response)` includes two turns.
+
+Note that whenever a function is called, there should always be a response from the game manager before calling the function. This message signals that a certain function should be called next. And if the response is for signaling a function, `function_call` flag indicates it. Additionally, if a function is called and finishes its job, it returns the result message. Then the game manager generates another message based on this result of the function. (The above example `P1 -> P2 -> P3 -> P4 -> GM(response) -> GM(function) -> GM(response)` is actually showing this case.)
 
 ```json
 [
@@ -206,8 +208,6 @@ In this project, one "turn" indicates one interaction after the manager finishes
 ]
 ```
 
-Note that whenever a function is called, there should always be a generated response from the game manager before calling the function. This message signals that a certain function should be called next. And if the generated response is for signaling a function, `function_call` flag indicates it. Additionally, if a function is called and finishes its job, it returns the result message. Then the game manager generates another message based on this result. (The above example `P1 -> P2 -> P3 -> P4 -> GM(response) -> GM(function) -> GM(response)` is actually showing this case.)
-
 Each message is a JSON object:
 
 - `role`: The role of the speaker. This can be `user`, `assistant`, or `function`.
@@ -232,7 +232,7 @@ The only difference here is `past_history` does not include any assistant messag
 
 #### 5. Generated response
 
-The generated response, which is represented as `generated`, is an assistant message which has been generated by the model given the current `scene`, `players`, `past_history` and `current_queries`. The format is the same as the one explained in **3. Current queries**. This response will go into `current_queries` for the next generation.
+The generated response, which is represented as `generated`, is an assistant message which has been generated by the model given the current `scene`, `players`, `past_history` and `current_queries`. The format is the same as the one explained in **3. Current queries**. This response will go into `current_queries` to start a new turn by the players.
 
 <br/>
 
@@ -267,6 +267,8 @@ The function results are marked as `function_calls`. (which should originally be
 - `arguments`: This is a JSON object which contains the arguments used for executing the function. Each key is the name of the argument and the value is the actual value of that argument.
   - Some functions might not have any arguments.
 - `intermediate_results`: Some functions have a few sub-tasks which are needed to finish the main task. For example, `activate_test` determines whether a test is improved or not. `use_environment` determines whether the object can be retrieved or not. `use_random_table` actually randomly samples the table entries and removes the entries or the table if necessary. `intermediate_results` contain the results of these intermediate tasks for more detailed evaluations. Each key is the name of the sub-task and the value is the result of that task.
+  - Some functions might not have any intermediate results.
+
 
 <br/>
 
@@ -274,24 +276,24 @@ The function results are marked as `function_calls`. (which should originally be
 
 ### Function list
 
-These are the functions which have been used for this game system. Hope it is helpful for conducting your evaluation. Note that there are some intermediate results which can be ignored by an evaluator because it is not responsibility of the function. (This will be marked with a italic font.)
+These are the functions which have been used for this game system. Hope it is helpful for conducting your evaluation. **Note that there are some intermediate results which can be ignored by an evaluator because it is not responsibility of the function. (These are marked with a italic font.)**
 
 | Function name            | Arguments                                               | Description                                                  | Intermediate tasks                                           |
 | ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `activate_test`          | `player_name`, `initial_difficulty`, `final_difficulty` | This function is called when a player should perform a dice roll test to accomplish something challenging. The initial difficulty is the one for the test itself, and the final difficulty is the reduced one after the teamwork. | The function determines whether the test is improved, hindered or not changed based on the player's traits or flaws. |
+| `activate_test`          | `player_name`, `initial_difficulty`, `final_difficulty` | This function is called when a player should perform a dice roll test to accomplish something challenging. The initial difficulty is the one for the test itself, and the final difficulty is the reduced one after the teamwork. | Improvement/Hinderance of the test due to the player traits/flaws? |
 | `activate_action_scene`  | -                                                       | This function is called when the action scene starts. This means that the player party has fallen into a circumstance with a tight time limit. | -                                                            |
 | `terminate_action_scene` | -                                                       | This function is called when the action scene ends. This means that the urgent circumstance has finished. | -                                                            |
-| `create_npc`             | `npc_name`, `npc_desc`                                  | This function is called when a new NPC should be set into the current scene. `npc_desc` is an additional description of the NPC. | The function generates an object of the new NPC with `npc_name` and `npc_desc`. The format is the same as the one from other NPCs. |
+| `create_npc`             | `npc_name`, `npc_desc`                                  | This function is called when a new NPC should be set into the current scene. `npc_desc` is an additional description of the NPC. | Generated information of the NPC '`npc_name`'?               |
 | `add_trait`              | `player_name`, `trait_name`, `trait_desc`               | This function is called when a new trait should be added to a player. `trait_desc` is the description of the new trait. | -                                                            |
 | `add_flaw`               | `player_name`, `flaw_name`, `flaw_desc`                 | This function is called when a new flaw should be added to a player. `flaw_desc` is the description of the new flaw. | -                                                            |
-| `add_item`               | `player_name`, `item_name`, `item_desc`                 | This function is called when a new item should be added to a player. `item_desc` is the description of the new item. | *The player can choose to obtain the item or give it up.*    |
+| `add_item`               | `player_name`, `item_name`, `item_desc`                 | This function is called when a new item should be added to a player. `item_desc` is the description of the new item. | *The item '`item_name`' added?*                              |
 | `remove_trait`           | `player_name`, `trait_name`                             | This function is called when an existing trait should be removed from a player. | -                                                            |
 | `remove_flaw`            | `player_name`, `flaw_name`                              | This function is called when an existing flaw should be removed from a player. | -                                                            |
 | `remove_item`            | `player_name`, `item_name`                              | This function is called when an existing item should be removed from a player. The removed item becomes an object in `environment`. | -                                                            |
-| `use_item`               | `player_name`, `item_name`                              | This function is called when a player tries to use an item in the inventory. | The function determines whether the used item is expendable or not. |
+| `use_item`               | `player_name`, `item_name`                              | This function is called when a player tries to use an item in the inventory. | The item '`item_name`' expendable?                           |
 | `add_object`             | `object_name`, `object_desc`                            | This function is called when a new object should be added to the environment. `object_desc` is the description of the new object. | -                                                            |
-| `use_environment`        | `player_name`, `object_name`                            | This function is called when a player tries to use or interact with an object in the environment. | (1) The function determines whether the object is obtainable or not. *(2) Then the player chooses to get it or not.* |
-| `use_random_table`       | `table_name`                                            | This function is called when a random table should be used during the game. This case includes that the player party encounters some random objects or characters, random circumstances are needed, etc. | (1) The function first determines the number of samples to retrieve. *(2) Then the entries are sampled randomly.* (3) Next, the function determines whether the sampled entries should be excluded from the table permanently. (4) Lastly, the function determines whether the table itself should be removed permanently. |
+| `use_environment`        | `player_name`, `object_name`                            | This function is called when a player tries to use or interact with an object in the environment. | (1) The object '`object_name`' obtainable? *(2) The item '`item_name`' added?* |
+| `use_random_table`       | `table_name`                                            | This function is called when a random table should be used during the game. This case includes that the player party encounters some random objects or characters, random circumstances are needed, etc. | (1) The number of samples? *(2) The retrieved samples from the table?* (3) Exclusion of the sampled entries? (4) Removal of the table? |
 
 
 
