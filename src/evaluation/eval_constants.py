@@ -106,44 +106,54 @@ FUNCTION_OPTIONS = [
 
 # Rubric setting.
 CONSISTENCY_RUBRIC = {
-    'question': "How consistent is the generated response to the current game progress?",
+    'question': "How consistent is the target response to the current game progress, including the dialogue and the game states?",
     'specifications': {
-        "The generated response is consistent with the previous interactions between the game manager and players.": [
+        "The target response is consistent with the interaction between the players and the manager so far. (Past chat history + Current queries)": [
             "The model remembers the past interactions.",
-            "The response is relevant to the player party's queries or requests."
+            "The response is relevant to the player party's queries."
         ],
-        "The generated response is consistent with the current game state so far.": [
+        "The target response is consistent with the updates in the scene and players so far.": [
             "The model acknowledges the existing components in the current scene, such as NPCs, objects, and random table entries.",
             "The model acknowledges the existing properties of the players, such as traits, flaws, and inventories."
         ]
     },
     'notes': [
-        "If the model output hallucinates any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
+        "The starting scene state and player states are only initialized ones when the game started. While proceeding with the game, these states might have been updated, which you should also consider for your evaluations.",
+        "If the model output assumes or fakes up any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
     ],
-    'max_score': 10,
-    'min_score': 0
+    'examples': [
+        "1=The model does not follow the state at all",
+        "3=The model makes a narration that is plausible but misses some components in the scene or players",
+        "5=The model's response is correctly acknowledging the components in the states"
+    ],
+    'max_score': 5,
+    'min_score': 1
 }
 
 RELIABILITY_RUBRIC = {
     'question': "How well does the model control and manage the game reliably?",
     'specifications': {
         "The game manager fully understands the game and performs its task as a manager correctly.": [
-            "The model acts while following the general game rules in Labyrinth.",
-            "The model understands the scene-specific rules, instructions, and specifications  of the current scene and guides the players to proceed with the game as intended."
+            "The model keeps the general game rules in Labyrinth.",
+            "The model understands the scene-specific rules, instructions, and specifications of the current scene and guides the players to proceed with the game as intended."
         ],
-        "When a player tries to do something which violates the rule or fake up anything which does not exist, the game manager rejects or ignores it.": [
-            "The model rejects it when the player attempts to do something which cannot be performed by a player character according to the rule.",
+        "When a player tries to do something invalid, the game manager rejects it robustly.": [
+            "The model rejects it when the player attempts to do something which cannot be performed by a player character or which is not the player's task.",
             "The model rejects it when the player tries to use a trait, flaw, or item which does not exist in the player.",
-            "The model rejects it when the player tries to leverage or get access to non-existing environmental objects or NPCs, etc."
+            "The model rejects it when the player tries to leverage or get access to non-existing objects, NPCs, or random tables."
         ],
-        "Any unexpected behavior which might hurt the players' gameplay experience or make the game flow far from intended should not be performed.": []
+        "Any unexpected behavior which might hurt the players' gameplay experience or make the game flow far from intended should be penalized.": []
     },
     'notes': [
-        "Note that this metric does not evaluate the quality or consistency of the response.",
-        "Even if the response looks perfect, it can contain hallucinated content or the model might just let the player do an unallowed trial."
+        "Note that this metric does not evaluate the quality of the response. Even if the response looks perfect, it can contain an invalid content or the model might just let the player do an unallowed trial."
     ],
-    'max_score': 10,
-    'min_score': 0
+    'examples': [
+        "1=The model blatantly ignores the rules or is completely generous with the players' invalid moves, which makes the game go into a bad state",
+        "3=The model gets some rules incorrect or accepts the players' some violations, but the game generally progresses as it should",
+        "5=The model keeps the rules correctly and corrects the players' invalid or unacceptable behaviors"
+    ],
+    'max_score': 5,
+    'min_score': 1
 }
 
 INTERESTINGNESS_RUBRIC = {
@@ -153,8 +163,13 @@ INTERESTINGNESS_RUBRIC = {
         "The response makes the user engaged and immersed in the game.": []
     },
     'notes': [],
-    'max_score': 10,
-    'min_score': 0
+    'examples': [
+        "1=The response is too bland, simple, or half-hearted",
+        "3=The response is not highly entertaining, but at least it is not boring",
+        "5=The response is so engaging and immersive that I wouldn't want to stop the game if I were a player"
+    ],
+    'max_score': 5,
+    'min_score': 1
 }
 
 FUNCTION_RUBRICS = {

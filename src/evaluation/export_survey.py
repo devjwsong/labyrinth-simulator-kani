@@ -83,10 +83,12 @@ def generate_survey(data: list[dict]):
         survey.append("<br>")
         for note in CONSISTENCY_RUBRIC['notes']:
             survey.append(f"- <u>{note}</u><br>")
+        survey.append("<br>")
+        survey.append(f"({', '.join(CONSISTENCY_RUBRIC['examples'])})<br>")
         survey.append("[[Choices]]")
         cur = CONSISTENCY_RUBRIC['min_score']
         survey.append(f"{cur}")
-        for i in range(10):
+        for i in range(4):
             cur += 1
             survey.append(f"{cur}")
         survey.append("")
@@ -101,10 +103,12 @@ def generate_survey(data: list[dict]):
         survey.append("<br>")
         for note in RELIABILITY_RUBRIC['notes']:
             survey.append(f"- <u>{note}</u><br>")
+        survey.append("<br>")
+        survey.append(f"({', '.join(RELIABILITY_RUBRIC['examples'])})<br>")
         survey.append("[[Choices]]")
         cur = RELIABILITY_RUBRIC['min_score']
         survey.append(f"{cur}")
-        for i in range(10):
+        for i in range(4):
             cur += 1
             survey.append(f"{cur}")
         survey.append("")
@@ -119,10 +123,12 @@ def generate_survey(data: list[dict]):
         survey.append("<br>")
         for note in INTERESTINGNESS_RUBRIC['notes']:
             survey.append(f"- <u>{note}</u><br>")
+        survey.append("<br>")
+        survey.append(f"({', '.join(INTERESTINGNESS_RUBRIC['examples'])})<br>")
         survey.append("[[Choices]]")
         cur = INTERESTINGNESS_RUBRIC['min_score']
         survey.append(f"{cur}")
-        for i in range(10):
+        for i in range(4):
             cur += 1
             survey.append(f"{cur}")
         survey.append("")
