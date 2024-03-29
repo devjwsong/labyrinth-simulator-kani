@@ -77,6 +77,109 @@ def give_score(max_score: float, min_score: float):
             print_system_log("The input should be a valid number.", after_break=True)
 
 
+# Converting a dictionary into a natural language message.
+def convert_into_natural(message: dict):
+    name, content = message['name'], message['content']
+    if message['role'] == 'assistant':
+        if name is None:
+            name = "[Game Manager]"
+        else:
+            name = f"[Game Manager] {name.replace('_', ' ')}:"
+    if message['role'] == 'user':
+        if name is None:
+            name = "[Player]"
+        else:
+            name = f"[Player] {name.replace('_', ' ')}:"
+    if message['role'] == 'function':
+        name = f"[Function] {name}:"
+    if message['role'] == 'system':
+        if name is None:
+            name = "[SYSTEM]"
+        else:
+            name = f"[SYSTEM] {name}:"
+    
+    return f"{name} {content}"
+
+
+# Converting the scene state into a natural HTML form.
+def convert_scene_to_html(scene_state: dict):
+    chapter = scene_state['chapter']
+    scene = scene_state['scene']
+    scene_summary = scene_state['scene_summary']
+    npcs = scene_state['npcs']
+    success_condition = scene_state['success_condition']
+    failure_condition = scene_state['failure_condition']
+    game_flow = scene_state['game_flow']
+    environment = scene_state['environment']
+    random_tables = scene_state['random_tables']
+    consequences = scene_state['consequences']
+    is_action_scene = scene_state['is_action_scene']
+
+    def get_npc(npc: dict):
+        return f"Kin: {npc['kin']}<br>Persona: {', '.join(npc['persona'])}<br>Goal: {npc['goal']}<br>Trait: {npc['trait']}<br>Flaw: {npc['flaw']}"
+    
+    def get_table(table: list):
+        return '<br>'.join(table)
+
+    res = []
+    res.append(f"<strong><u>Chapter</u><strong>: {chapter}")
+    res.append(f"<strong><u>Scene</u><strong>: {scene}")
+    res.append(f"<strong><u>Scene Summary</u><strong>: <br>{'<br>'.join(scene_summary)}")
+
+    npc_blocks = []
+    for i, (name, npc) in enumerate(npcs.items()):
+        npc_blocks.append(f"[{name}]<br> {get_npc(npc)}")
+    res.append(f"<strong><u>NPCs</u><strong>: <br>{'<br>'.join(npc_blocks)}")
+
+    res.append(f"<strong><u>Success Condition</u><strong>: {success_condition}")
+    res.append(f"<strong><u>Failure Condition</u><strong>: {failure_condition}")
+
+    game_flow = [f"({f+1}) {flow}" for f, flow in enumerate(game_flow)]
+    res.append(f"<strong><u>Game Flow</u><strong>: <br>{'<br>'.join(game_flow)}")
+
+    environment = [f"[{name}] {desc}" for name, desc in environment.items()]
+    res.append(f"<strong><u>Environment</u><strong>: <br>{'<br>'.join(environment)}")
+
+    random_table_blocks = []
+    for name, entries in random_tables.items():
+        random_table_blocks.append(f"[{name}] {get_table(entries)}")
+    res.append(f"<strong><u>Random Tables</u><strong>: <br>{'<br>'.join(random_table_blocks)}")
+
+    res.append(f"<strong><u>Consequences</u><strong>: {consequences}")
+    res.append(f"<strong><u>Action Scene</u><strong>: {is_action_scene}")
+
+    return '<br><br>'.join(res)
+
+
+# Converting the player state into a natural HTML form.
+def convert_player_to_html(player_state: dict):
+    kin = player_state['kin']
+    persona = player_state['persona']
+    goal = player_state['goal']
+    traits = player_state['traits']
+    flaws = player_state['flaws']
+    inventory = player_state['inventory']
+    additional_notes = player_state['additional_notes']
+
+    res = []
+    res.append(f"<strong><u>Kin</u><strong>: {kin}")
+    res.append(f"<strong><u>Persona</u><strong>: <br>{'<br>'.join(persona)}")
+    res.append(f"<strong><u>Goal</u><strong>: {goal}")
+    
+    traits = [f"[{name}] {desc}" for name, desc in traits.items()]
+    res.append(f"<strong><u>Traits</u><strong>: <br>{'<br>'.join(traits)}")
+
+    flaws = [f"[{name}] {desc}" for name, desc in flaws.items()]
+    res.append(f"<strong><u>Flaws</u><strong>: <br>{'<br>'.join(flaws)}")
+
+    inventory = [f"[{name}] {desc}" for name, desc in inventory.items()]
+    res.append(f"<strong><u>Inventory</u><strong>: <br>{'<br>'.join(inventory)}")
+
+    res.append(f"<strong><u>Additional Notes</u><strong>: <br>{'<br>'.join(additional_notes)}")
+
+    return '<br><br>'.join(res)
+
+
 # A sub-logic for showing the scene state.
 def show_scene_state(scene: dict):
     keys = list(scene.keys())

@@ -1,3 +1,11 @@
+TASK_INSTRUCTION = [
+    "<p><strong><h2>Instructions</h2></strong><br>",
+    "In this task, you will see the part of the gameplay data of a text adventure game called \"Jim Henson's Labyrinth: The Adventure Game\". ",
+    "For each target response, you should answer the question considering the starting game states, the past chat history, and the current queries. ",
+    "This survey has been designed assuming that you have fully understood the evaluation guideline posted along with this survey. ",
+    "If you have any questions or issues, feel free to contact the survey designer, whose email address has been attached to the last page of the guideline. "
+]
+
 RULE_SUMMARY = [
     [
         "Player characters: Each player has own character.",
@@ -112,8 +120,8 @@ CONSISTENCY_RUBRIC = {
     'notes': [
         "If the model output hallucinates any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
     ],
-    'max_score': 1.0,
-    'min_score': 0.0
+    'max_score': 10,
+    'min_score': 0
 }
 
 RELIABILITY_RUBRIC = {
@@ -134,8 +142,8 @@ RELIABILITY_RUBRIC = {
         "Note that this metric does not evaluate the quality or consistency of the response.",
         "Even if the response looks perfect, it can contain hallucinated content or the model might just let the player do an unallowed trial."
     ],
-    'max_score': 1.0,
-    'min_score': 0.0
+    'max_score': 10,
+    'min_score': 0
 }
 
 INTERESTINGNESS_RUBRIC = {
@@ -145,8 +153,8 @@ INTERESTINGNESS_RUBRIC = {
         "The response makes the user engaged and immersed in the game.": []
     },
     'notes': [],
-    'max_score': 1.0,
-    'min_score': 0.0
+    'max_score': 10,
+    'min_score': 0
 }
 
 FUNCTION_RUBRICS = {
@@ -158,8 +166,8 @@ FUNCTION_RUBRICS = {
                 "The function is called when the dice roll test is required considering the progress and game state so far.": []
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -180,8 +188,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_detection_of_improvement': {
             'question': "Does the function correctly detect the improvement/hindrance of the test?",
@@ -191,8 +199,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'activate_action_scene': {
@@ -205,8 +213,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'terminate_action_scene': {
@@ -219,8 +227,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'create_npc': {
@@ -233,8 +241,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -249,8 +257,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'npc_quality': {
             'question': "Are the generated specifications satisfying?",
@@ -263,8 +271,8 @@ FUNCTION_RUBRICS = {
                 "The given description does exist in the generated specification. (e.g. in persona, goal, or trait)": []
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'add_trait': {
@@ -277,8 +285,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -297,8 +305,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'add_flaw': {
@@ -311,8 +319,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -331,8 +339,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'add_item': {
@@ -345,8 +353,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -365,8 +373,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'remove_trait': {
@@ -379,8 +387,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -395,8 +403,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'remove_flaw': {
@@ -409,8 +417,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -425,8 +433,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'remove_item': {
@@ -439,8 +447,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -455,8 +463,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'use_item': {
@@ -469,8 +477,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -485,8 +493,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_detection_of_expendability': {
             'question': "Does the function correctly detect the expendability of the item?",
@@ -494,8 +502,8 @@ FUNCTION_RUBRICS = {
                 "The intermediate result of the expendability detection is matched with whether the item should be removed after the usage.": []
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'add_object': {
@@ -508,8 +516,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -524,8 +532,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'use_environment': {
@@ -538,8 +546,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -554,8 +562,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_detection_of_obtainability': {
             'question': "Does the function correctly detect the obtainability of the object?",
@@ -563,8 +571,8 @@ FUNCTION_RUBRICS = {
                 "The intermediate result of the obtainability detection is matched with whether the object can be added into the player inventory.": []
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     },
     'use_random_table': {
@@ -577,8 +585,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_arguments': {
             'question': "Are the function arguments parsed correctly?",
@@ -590,8 +598,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_determination_of_numbers': {
             'question': "Does the function make the right determination of the number of samples to retrieve?",
@@ -602,8 +610,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_determination_of_sample_exclusion': {
             'question': "Does the function make the right determination of whether the sampled entries should be excluded?",
@@ -613,8 +621,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         },
         'correct_determination_of_table_removal': {
             'question': "Does the function make the right determination of whether the table should be removed?",
@@ -625,8 +633,8 @@ FUNCTION_RUBRICS = {
                 ]
             },
             'notes': [],
-            'max_score': 1.0,
-            'min_score': 0.0
+            'max_score': 10,
+            'min_score': 0
         }
     }
 }

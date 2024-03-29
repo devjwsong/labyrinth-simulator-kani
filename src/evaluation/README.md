@@ -274,41 +274,6 @@ The function results are marked as `function_calls`. (which should originally be
 
 ---
 
-### Function list
-
-These are the functions which have been used for this game system. Hope it is helpful for conducting your evaluation. **Note that there are some intermediate results which can be ignored by an evaluator because it is not responsibility of the function. (These are marked with a italic font.)**
-
-| Function name            | Arguments                                               | Description                                                  | Intermediate tasks                                           |
-| ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `activate_test`          | `player_name`, `initial_difficulty`, `final_difficulty` | This function is called when a player should perform a dice roll test to accomplish something challenging. The initial difficulty is the one for the test itself, and the final difficulty is the reduced one after the teamwork. | Improvement/Hinderance of the test due to the player traits/flaws? |
-| `activate_action_scene`  | -                                                       | This function is called when the action scene starts. This means that the player party has fallen into a circumstance with a tight time limit. | -                                                            |
-| `terminate_action_scene` | -                                                       | This function is called when the action scene ends. This means that the urgent circumstance has finished. | -                                                            |
-| `create_npc`             | `npc_name`, `npc_desc`                                  | This function is called when a new NPC should be set into the current scene. `npc_desc` is an additional description of the NPC. | Generated information of the NPC '`npc_name`'?               |
-| `add_trait`              | `player_name`, `trait_name`, `trait_desc`               | This function is called when a new trait should be added to a player. `trait_desc` is the description of the new trait. | -                                                            |
-| `add_flaw`               | `player_name`, `flaw_name`, `flaw_desc`                 | This function is called when a new flaw should be added to a player. `flaw_desc` is the description of the new flaw. | -                                                            |
-| `add_item`               | `player_name`, `item_name`, `item_desc`                 | This function is called when a new item should be added to a player. `item_desc` is the description of the new item. | *The item '`item_name`' added?*                              |
-| `remove_trait`           | `player_name`, `trait_name`                             | This function is called when an existing trait should be removed from a player. | -                                                            |
-| `remove_flaw`            | `player_name`, `flaw_name`                              | This function is called when an existing flaw should be removed from a player. | -                                                            |
-| `remove_item`            | `player_name`, `item_name`                              | This function is called when an existing item should be removed from a player. The removed item becomes an object in `environment`. | -                                                            |
-| `use_item`               | `player_name`, `item_name`                              | This function is called when a player tries to use an item in the inventory. | The item '`item_name`' expendable?                           |
-| `add_object`             | `object_name`, `object_desc`                            | This function is called when a new object should be added to the environment. `object_desc` is the description of the new object. | -                                                            |
-| `use_environment`        | `player_name`, `object_name`                            | This function is called when a player tries to use or interact with an object in the environment. | (1) The object '`object_name`' obtainable? *(2) The item '`item_name`' added?* |
-| `use_random_table`       | `table_name`                                            | This function is called when a random table should be used during the game. This case includes that the player party encounters some random objects or characters, random circumstances are needed, etc. | (1) The number of samples? *(2) The retrieved samples from the table?* (3) Exclusion of the sampled entries? (4) Removal of the table? |
-
-
-
-<br/>
-
----
-
-### Evaluation metrics
-
-
-
-<br/>
-
----
-
 ### Additional notes
 
 
