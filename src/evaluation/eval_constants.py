@@ -118,7 +118,6 @@ CONSISTENCY_RUBRIC = {
         ]
     },
     'notes': [
-        "The starting scene state and player states are only initialized ones when the game started. While proceeding with the game, these states might have been updated, which you should also consider for your evaluations.",
         "If the model output assumes or fakes up any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
     ],
     'examples': [

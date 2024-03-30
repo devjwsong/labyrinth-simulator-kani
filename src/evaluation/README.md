@@ -12,167 +12,52 @@ You can find the details of the project [here](https://docs.google.com/presentat
 
 ---
 
-### Gameplay data introduction
+### Survey instruction
 
-For evaluation, you are given JSON files and one file contains the gameplay for a single scene. Although the evaluation script helps you to focus on the target responses/functions and required components you should refer to, we are attaching a few introductions of the gameplay data for further understanding.
-
-```json
-[
-    {
-        "scene": {   },
-        "players": [   ],
-        "current_queries": [   ],
-        "past_history": [   ],
-        "generated": {   },
-        "function_calls": [   ]
-    },
-       
-    
-    {
-        
-    },
-    
-    ...
-    
-    {
-        
-    },
-        
-        
-    {
-        "game_result": "suceess/failure",
-        "condition": "The detailed explanation of the game result."
-    }
-]
-```
+For evaluation, you will be given survey links which enable you to give a score to each target response while checking the conversation between the players and the game manager and the game states on which the current scene is grounded. We attach a few instructions for the survey to help you understand what exactly each component represents and how you can follow the survey flow.
 
 <br/>
 
-The JSON file contains an array of multiple JSON objects. Each JSON object represents one model completion given the scene state, player states, the past chat history, and the current queries.
+First, one survey contains one gameplay data played by a party consisting of 4 player characters with different profiles. They interacted with the game manager, who is called "Goblin King" in the game, to clear the game scene. You should evaluate the generated responses, each of which is set to "target response", in terms of 3 different metrics. You will be given more specific instructions for each metric on the survey page.
 
-- `scene`: The current state of the scene. If includes the essential components of the scene, such as NPCs, environmental objects, random tables, success/failure conditions, etc. (details on 1)
-- `players`: The current state of the players. Each player character has its own state, such as persona, traits, flaws, inventory, etc. (details on 2)
-- `current_queries`: The current queries to process. Each new query starts when any player types a new message. After that, all messages until the game manager finishes processing all requests are considered as `current_queries`. (details on 3)
-- `past_history`: The past chat history. Unlike `current_queries`, this only contains natural language messages without any NULL content or function execution results. (details on 4.)
-- `generated`: The generated response from the AI game manager. This can be simply a natural language response or function call request. (details on 5.)
-- `function_calls`: The results of the called functions. This might contain multiple function results. (details on 6.)
-
-Note that the last JSON object is just an indication of the game result, which is different from others.
-
-- `game_result`: The result of the game. It can be either "success" or "failure".
-- `condition`: The detailed explanation of the result. This can be the success/failure condition in the scene, or timeout.
+For each evaluation, you will be given the context of the game, which includes **Starting game state**, **Starting player state** of each player, **Past chat history so far**, and **Current queries**. We introduce the details of these context components as follows:
 
 <br/>
 
-#### 1. Scene state
+#### 1. Starting game state
 
-```json
-{
-    "chapter": "Chapter name",
-    "scene": "Scene name",
-    "scene_summary": [
-    	"Summary sentence 1", 
-        ...
-        "Summary sentence n"
-    ],
-    "npcs": {
-        "NPC name": {
-            "kin": "Kin of the NPC",
-            "persona": [
-                "Persona sentence 1",
-                ...
-                "Persona sentence n"
-            ],
-            "goal": "Goal of the NPC",
-            "trait": "Trait of the NPC",
-            "flaw": "Flaw of the NPC"
-        },
-        "NPC name": {...},
-        ...
-    },
-    "success_condition": "The success condition of the current scene.",
-    "failure_condition": "The failure condition of the current scene.",
-    "game_flow": [
-    	"Game flow sentence 1",
-        ...
-        "Game flow sentence n"
-    ],
-    "environment": {
-        "Object name": "Object description",
-        ...
-    },
-    "random_tables": {
-        "Table name": [
-            "Entry 1",
-            ...
-            "Entry n"
-        ],
-        ...
-    },
-    "consequences": "The consequence after finishing the scene.",
-    "is_action_scene": true/false
-}
-```
+The starting game state shows the initial game scene when the scene has started. Note that this is the starting state, so while proceeding with the game, the state might have been updated, which you should also consider for your evaluations. (The starting state does not contain the updates!)
 
-- `chapter`: The chapter name.
-- `scene`: The scene name.
-- `scene_summary`: This is an overall summary of the current scene. This is an array of strings, where one string is one summary sentence.
-- `npcs`: This is an object for initialized NPCs. Each key is an NPC's name and the value is another JSON object which defines the specifications of that NPC.
-  - `kin`: The kin of the NPC.
-  - `persona`: The persona of the NPC. This is an array of strings, where one string is one persona sentence.
-  - `goal`: The goal of the NPC.
-  - `trait`: The trait of the NPC which would be helpful if it joins the player's party.
-  - `flaw`: The flaw of the NPC which would be harmful if it joined the player's party. (Might leave the players due to this flaw.)
-- `success_condition`: The condition for the players to win this scene.
-- `failure_condition`: The condition for the players to lose this scene.
-- `game_flow`: The intended game flow of the current game scene. This is an array of strings, in which one string is one progress sentence.
-- `environment`: The environmental objects. This is a JSON object where each key is an object name and the value is the description of that object.
-- `random_tables`: The random tables. This is a JSON object where each key is a table name and the value is an array of table entries.
-- `consequences`: The consequence after finishing the scene.
-- `is_action_scene`: The boolean value that indicates whether the action scene is currently activated or not.
+- <u>**Chapter**</u>: The chapter name.
+- <u>**Scene**</u>: The scene name.
+- <u>**Scene Summary**</u>: Overall description of the current scene.
+- <u>**NPCs**</u>: Initialized NPCs. The name of each NPC is tagged with **[Name]**. Below it, you can check the specifications of that NPC:
+  - **Kin**: The kin of the NPC.
+  - **Persona**: The persona of the NPC.
+  - **Goal**: The goal of the NPC.
+  - **Trait**: The trait of the NPC which would be helpful. (Trait name - Trait description)
+  - **Flaw**: The flaw of the NPC which would be harmful. (Flaw name - Flaw description)
+- <u>**Success Condition**</u>: The condition for the players to win this scene.
+- <u>**Failure Condition**</u>: The condition for the players to lose this scene.
+- <u>**Game Flow**</u>: The intended game flow of the current game scene. This might not have necessarily to be followed, but gives a useful hint to the game manager which is what should be done next during the game.
+- <u>**Environment**</u>: The environmental objects. The name of each object is tagged with **[Name]**. Next to it, you can check the description of that object.
+- <u>**Random Tables**</u>: The random tables. The name of each table is tagged with **[Name]**. Below it, you can check the actual entries of that table.
+- <u>**Consequences**</u>: The consequences after finishing the scene.
+- <u>**Action Scene**</u>: Indication of whether the action scene is currently activated or not. (True/False)
 
 <br/>
 
-#### 2. Player state
+#### 2. Starting player state
 
-```json
-{
-    "name": "Player name",
-    "kin": "Kin of the player character",
-    "persona": [
-        "Persona sentence 1",
-        ...
-        "Persona sentence n"
-    ],
-    "goal": "Goal of the player character",
-    "traits": {
-        "Trait name": "Trait description",
-        ...
-    },
-    "flaws": {
-        "Flaw name": "Flaw description",
-        ...
-    },
-    "inventory": {
-        "Item name": "Item description",
-        ...
-    },
-    "additional_notes": [
-        "Note sentence 1",
-        ...
-        "Note sentence n"
-    ]
-}
-```
+Starting player state shows the initialized state of each player character when the scene has started. Like the starting game state, these player states might have also been updated. So you should follow the dialogue and keep in mind these updates during the game for a correct evaluation. The name of each player is shown as **Starting player state of ...**
 
-- `name`: The name of the PC.
-- `kin`: The kin of the PC.
-- `persona`: The persona of the PC. This is an array of strings, where one string is one persona sentence.
-- `goal`: The goal of the PC.
-- `traits`: The traits of the PC. This is a JSON object where each key is a trait name and the value is the description of that trait.
-- `flaws`: The flaws of the PC. This is a JSON object where each key is a flaw name and the value is the description of that flaw.
-- `inventory`: The inventory of the PC. This is a JSON object where each key is an item name and the value is the description of that item.
-- `additional_notes`: The additional notes for the PC. This is an array of strings, where one string is one note sentence. Each note might indicate specific behavior that the game manager should take when the PC does something. (e.g. Adding a flaw when a firey detaches its body part.)
+- <u>**Kin**</u>: The kin of the player.
+- <u>**Persona**</u>: The persona of the player.
+- <u>**Goal**</u>: The goal of the player.
+- <u>**Traits**</u>: The traits of the player. The name of each trait is tagged with **[Name]**. Next to it, you can check the description of that trait.
+- <u>**Flaws**</u>: The flaws of the player. The name of each flaw is tagged with **[Name]**. Next to it, you can check the description of that flaw.
+- <u>**Inventory**</u>: The inventory of the player. The name of each item is tagged with **[Name]**. Next to it, you can check the description of that item.
+- <u>**Additional Notes**</u>: The additional notes for the player. This contains any specific behavior that the game manager should take when the PC does something. (e.g. Adding a flaw when a firey detaches its body part.)
 
 <br/>
 
