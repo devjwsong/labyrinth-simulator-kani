@@ -1,7 +1,7 @@
 TASK_INTRODUCTION = [
     "<p><strong><h2>Introduction</h2></strong><br>",
     "In this task, you will see the part of the gameplay data of a text adventure game called \"Jim Henson's Labyrinth: The Adventure Game\". ",
-    "For each target response, you should answer the question considering the starting game states, the past chat history, and the current queries. ",
+    "For each target response, you should answer the question considering the starting game states and the chat history during the game. ",
     "This survey has been designed assuming that you have fully understood the evaluation guideline posted along with this survey. ",
     "If you have any questions or issues, feel free to contact the survey designer, whose email address has been attached to the last page of the guideline. "
 ]
