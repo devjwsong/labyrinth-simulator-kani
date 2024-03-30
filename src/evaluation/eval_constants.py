@@ -1,5 +1,5 @@
-TASK_INSTRUCTION = [
-    "<p><strong><h2>Instructions</h2></strong><br>",
+TASK_INTRODUCTION = [
+    "<p><strong><h2>Introduction</h2></strong><br>",
     "In this task, you will see the part of the gameplay data of a text adventure game called \"Jim Henson's Labyrinth: The Adventure Game\". ",
     "For each target response, you should answer the question considering the starting game states, the past chat history, and the current queries. ",
     "This survey has been designed assuming that you have fully understood the evaluation guideline posted along with this survey. ",
@@ -106,11 +106,11 @@ FUNCTION_OPTIONS = [
 
 # Rubric setting.
 CONSISTENCY_RUBRIC = {
-    'question': "How consistent is the target response to the current game progress, including the dialogue and the game states?",
+    'question': "How consistent is the target response to the current game progress, including the chat history and the game states?",
     'specifications': {
-        "The target response is consistent with the interaction between the players and the manager so far. (Past chat history + Current queries)": [
+        "The target response is consistent with the chat history between the players and the manager so far.": [
             "The model remembers the past interactions.",
-            "The response is relevant to the player party's queries."
+            "The response is relevant to the player party's queries or requests."
         ],
         "The target response is consistent with the updates in the scene and players so far.": [
             "The model acknowledges the existing components in the current scene, such as NPCs, objects, and random table entries.",
@@ -121,9 +121,9 @@ CONSISTENCY_RUBRIC = {
         "If the model output assumes or fakes up any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
     ],
     'examples': [
-        "1=The model does not follow the state at all",
+        "1=The model does not follow the progress at all",
         "3=The model makes a narration that is plausible but misses some components in the scene or players",
-        "5=The model's response is correctly acknowledging the components in the states"
+        "5=The model's response correctly follows the chat history while acknowledging the existing components in the states well too"
     ],
     'max_score': 5,
     'min_score': 1

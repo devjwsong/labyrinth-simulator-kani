@@ -2,9 +2,14 @@ from eval_constants import (
     CONSISTENCY_RUBRIC,
     INTERESTINGNESS_RUBRIC,
     RELIABILITY_RUBRIC,
-    TASK_INSTRUCTION,
+    TASK_INTRODUCTION,
 )
-from eval_utils import convert_into_natural, convert_scene_to_html, convert_player_to_html
+from eval_utils import (
+    convert_into_natural,
+    convert_scene_to_html,
+    convert_player_to_html,
+    clean_history
+)
 
 import argparse
 import json
@@ -17,8 +22,8 @@ def generate_survey(data: list[dict]):
 
     initial_scene_state, initial_player_states = data[0]['scene'], data[0]['players']
     survey.append("[[Question:DB]]")
-    instruction = ''.join(TASK_INSTRUCTION)
-    survey.append(instruction)
+    introduction = ''.join(TASK_INTRODUCTION)
+    survey.append(introduction)
     survey.append("")
 
     def extract_target_response(data):
@@ -34,12 +39,16 @@ def generate_survey(data: list[dict]):
     # Processing the targets.
     for o, obj in enumerate(target_objs):
         past_history, current_queries, generated = obj['past_history'], obj['current_queries'], obj['generated']
-        survey.append(f"[[Block:Block{o+1}]]")
+        
+        # Combining the current queries into the past chat history.
+        chat_history = past_history + clean_history(current_queries)
 
+        # Converting the components.
         scene_state = convert_scene_to_html(initial_scene_state)
         player_states = [convert_player_to_html(player_state) for player_state in initial_player_states]
-        past_history = [convert_into_natural(hist) for hist in past_history]
-        current_queries = [convert_into_natural(query) for query in current_queries]
+        chat_history = [convert_into_natural(hist) for hist in chat_history]
+
+        survey.append(f"[[Block:Block{o+1}]]")
 
         # Showing the scene state.
         survey.append("[[Question:DB]]")
@@ -55,16 +64,10 @@ def generate_survey(data: list[dict]):
             survey.append(player_state)
             survey.append("")
 
-        # Showing the past history.
+        # Showing the chat history.
         survey.append("[[Question:DB]]")
-        survey.append("<strong><h2>Past chat history so far</h2></strong><br>")
-        survey.append('<br>'.join(past_history))
-        survey.append("")
-
-        # Showing the current queries.
-        survey.append("[[Question:DB]]")
-        survey.append("<strong><h2>Current queries</h2></strong><br>")
-        survey.append('<br>'.join(current_queries))
+        survey.append("<strong><h2>Chat history so far</h2></strong><br>")
+        survey.append('<br>'.join(chat_history))
         survey.append("")
 
         # Showing the target response.

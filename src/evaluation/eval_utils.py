@@ -310,3 +310,15 @@ def show_game_rules():
             r -= 1
         else:
             break
+
+
+# Removing function-related messages in the messages.
+def clean_history(messages: list[dict]) -> list[dict]:
+    chat_messages = []
+    for message in messages:
+        if message['role'] == 'user':
+            chat_messages.append(message)
+        if message['role'] == 'assistant' and message['content'] is not None:
+            message['name'] = "Goblin_King"
+            chat_messages.append(message)
+    return chat_messages
