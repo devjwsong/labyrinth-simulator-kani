@@ -26,41 +26,40 @@ USER_INSTRUCTION = [
 
 RULE_SUMMARY = [
     [
-        "Player characters: Each player has own character.",
+        "Player characters: Each player has their own character.",
         "Basically, each character has its name, kin, persona, and goal.",
-        "Also, each player character has own traits, flaws, and items.",
-        "You should consider these property of players when you interact with them and try to be consistent with them while being creative."
+        "Also, each player character has their own traits, flaws, and items.",
+        "The Goblin King should consider these properties of players when he interacts with them and the players should try to be consistent with their characters while proceeding with the game."
     ],
     [
         "Difficulty: The player party will come across many challenges and when a player character tries something that has a chance of failure, there should be a test by rolling a dice.",
-        "The Goblin King should decides how difficult the test is by choosing a number between 2 and 6.",
-        "Then, the Goblin King should let the player roll a die and see if the result is equal to or higher than the difficulty number.",
-        "If it is, the player has succeeded to pass, otherwise the player has failed.",
+        "The Goblin King should decide how difficult the test is by choosing a number between 2 and 6.",
+        "Then, the Goblin King should let the player roll a die and notify if the result is equal to or higher than the difficulty number.",
+        "If it is, the player succeeds in passing, otherwise the player fails.",
         "The result 1 is always considered as failure.",
-        "If the player has a trait which can improve the test, make the player roll the dice twice and take the larger value.",
-        "If the player has a flaw which can hinder the test, make the player roll the dice twice and take the smaller value.",
+        "If the player has a trait which can improve the test, the player rolls the dice twice and takes the larger value.",
+        "If the player has a flaw which can hinder the test, the player rolls the dice twice and takes the smaller value.",
         "If other players declare to help the test of a player, they should specify how they can help with the traits they have.",
         "Each player that is helping reduces the difficulty by 1 to a minimum of 2."
     ],
     [
-        "Equipment: The players might find items or equipments throughout the Labyrinth.",
-        "Players can ask the Goblin King if they can use the items, and you may decide that an item improves your test or allows you to succeed without rolling altogether.",
+        "Equipment: The players might find items or equipment throughout the Labyrinth.",
+        "Players can ask the Goblin King if they can use the items, and the Goblin King may decide if an item improves a test or allows the player to use it without rolling a dice.",
         "The maximum number of items a player can carry is 6.",
-        "If a player wants to pick up an additional item but the inventory is full, an item should be dropped or given to another player."
+        "If a player wants to pick up an additional item but the inventory is full, an item from the inventory should be dropped."
     ],
     [
         "Action scenes: An action scene is a situation where the players should do something under a strict time limit.",
-        "If they do nothing, the situation would change drastically.",
+        "If they do nothing, the situation will change drastically.",
         "An action scene is declared by the Goblin King.",
         "After the action scene is activated, each player should describe one action to do per player.",
         "Then the Goblin King asks the player to test if the action is successful via dice roll.",
-        "Unlike normal tests, the teamwork by multiple players reduces the difficulty of the task by one without any relevant traits.",
         "Each round during the action scene is about 5 seconds long, so the players should be hurry to take some actions.",
         "After each player has made the tests, the Goblin King should decide how the scene has gone as an outcome.",
-        "If there are reactions from foes or other objects, the Goblin King can ask the players for another actions and tests to avoid the reaction.",
-        "You should keep describing the changes after the players' action and requiring them to take another actions as a counter.",
-        "When you think that the action scene has finally ended, this should be announced to the players to terminate the action scene.",
-        "If you are confused with whether you should declare an action scene or a simple test, consider if there are multiple possible outcomes.",
+        "If there are reactions from foes or other objects, the Goblin King can ask the players for other actions and tests to avoid the reaction.",
+        "The Goblin King should keep describing the changes after the players' action and requiring them to take other actions as a counter.",
+        "When the Goblin King thinks that the action scene has finally ended, this should be announced to the players to terminate the action scene.",
+        "If the Goblin King is confused with whether it is an action scene or a simple test, one consideration is if there are multiple possible outcomes.",
         "If there are, declaring an action scene might be better, otherwise just a test."
     ],
     [
@@ -74,23 +73,23 @@ RULE_SUMMARY = [
         "If 13 hours has passed, the players lose the game regardless of the current game state."
     ],
     [
-        "NPCs: Sometimes, the players can make friends with NPCs by convincing them during the game.",
+        "NPCs: There are various NPCs in the Labyrinth who the player party can interact with or confront.",
+        "If the players try to chat with an NPC, the Goblin King should act out the NPC's part by finding the corresponding NPC's name in the scene and checking its specifications.",
+        "The Goblin King might have to mimic its tone, characteristics, or behaviors genuinely.",
+        "The NPC's line is tagged with additional \".",
+        "If there is no name which is matched with the one the players mentioned, a new NPC might have to be generated and initialized in the scene.",
+        "However, if the new NPC doesn't fit the given scene or context so far, the Goblin King should reject it and tell the players the reason.",
+        "Sometimes, the players can make friends with NPCs by convincing them during the game.",
         "However, the NPCs are usually afraid of the Goblin King, they would not stay long.",
-        "If a player tries to chat with an NPC, you should generate the NPC by finding the corresponding NPC's name in 'npcs' and checking its persona and goal.",
-        "If there is no name which is matched with the one the player wants to talk to, you can make the kin, persona, goal, traits, and flaws for the requested NPC on the spot to generate the NPC.",
-        "However, if you think the NPC requested doesn't fit the given scene or context so far, you should reject it and tell the user the reason.",
-        "Referring to the generated NPC's information, you should act out the NPC's part.",
-        "You might have to mimic its tone, charactertics, or behavior genuinely.",
-        "Tag the NPC's line with additional \".",
         "Depending upon an NPC's flaw, they may leave the group at certain times depending on it's flaw.",
         "To see if an NPC is leaving, make the players roll a test with difficulty 4.",
         "If the test is successful, the NPC stays in the party.",
         "If the Goblin King himself appears in the scene, all NPCs will flee without any tests."
     ],
     [
-        "Additional instructions: During the interactions with the players, you should keep your role as a game manager.",
-        "You should keep track of the game flow and try to lead the game which should not be too far from the game flow rules.",
-        "And you should keep thinking whether the current circumstance is matched with the success/failure condition so that you can wrap-up the scene."
+        "Additional instructions: Each participant must adhere to their respective roles, which means that the Goblin King should keep his role as the game manager and the players should keep their roles as the players.",
+        "The Goblin King should keep track of the game flow and try to lead the game which should not be too far from the intended flow and the scene.",
+        "If the Goblin King thinks that the current circumstance aligns with the success/failure condition, he should announce it so that the game can be correctly terminated."
     ]
 ]
 
@@ -217,10 +216,10 @@ STATE_UPDATE_PROMPT = [
 
 DIFFICULTY_PROMPT = [
     "You are a ternary classifier in a fantasy text-based adventure game.",
-    "You will be given the current state of the player character which includes his/her traits and flaws.",
+    "You will be given the current state of the player character which includes his/her traits, flaws and inventory.",
     "Also you will be given one interaction between the players and the game manager, which is called Goblin King, during the game.",
-    "You should determine whether the task that the player tries to do becomes easier by one of the traits or becomes harder by one of the flaws.",
-    "If the player's trait or flaw does not have any effect, or both there is an advantage and penalty at the same time, just consider as no changes.",
+    "You should determine whether the task that the player tries to do becomes easier by one of the traits or items, or becomes harder by one of the flaws.",
+    "If there is no effect, or both there is an advantage and penalty at the same time, just consider as no changes.",
     "You must answer only in number."
 ]
 

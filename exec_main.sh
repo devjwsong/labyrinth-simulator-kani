@@ -3,9 +3,10 @@ python src/main.py \
     --model_idx=MODEL_IDX \
     --rule_injection=full \
     --scene_path=SCENE_PATH \
-    --players_path=PLAYER_PATH \
+    --players_path=PLAYERS_PATH \
     --export_data \
-    --num_ai_players=0 \
+    --num_ai_players=4 \
+    --result_dir=results \
     --concat_policy=simple \
     --include_functions \
     --include_rules \
@@ -13,5 +14,5 @@ python src/main.py \
     --include_player_states \
     --frequency_penalty=0.5 \
     --presence_penalty=0.5 \
-    --temperature=1.0 \
-    --top_p=0.8
+    --temperature=0.5 \
+    --top_p=1.0

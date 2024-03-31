@@ -542,7 +542,7 @@ class GameManager(Kani):
                         return await self.handle_function_call_exception(tc.function, e, retry, tool_call_id=tc.id)
 
                 # If this is a tool call, run the functions and gather the results.
-                context['function_calls'] = []
+                context['function_results'] = []
                 is_model_turn = False
                 should_retry_call = False
                 n_errs = 0
@@ -560,7 +560,7 @@ class GameManager(Kani):
                         self.current_queries.append(result.message)
 
                         # Recording the function execution specifications.
-                        context['function_calls'].append({
+                        context['function_results'].append({
                             'result': convert_into_dict(result.message),
                             'arguments': deepcopy(arguments),
                             'intermediate_results': deepcopy(intermediate_res)
@@ -749,7 +749,7 @@ class GameManager(Kani):
             'frequency_penalty': 0,
         }
 
-        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player traits or flaws?\n\n{options_str}", **generation_params)
+        res = await kani.chat_round_str(f"Would the test become easier, harder, or none of them depending on the player trait, flaw or item?\n\n{options_str}", **generation_params)
         res = convert_into_class_idx(res, options)
 
         intermediate_res = {f"Improvement/Hinderance of the test due to the player traits/flaws": options[res]}
@@ -760,7 +760,7 @@ class GameManager(Kani):
             dice_result = random.randint(1, 6)
 
         elif res == 0:  # The test is improved.
-            print_system_log("A TRAIT IN THE PLAYER MAKES THE TEST EASIER. YOU ROLL TWO DICES AND TAKE THE LARGER ONE.")
+            print_system_log("A TRAIT OR AN ITEM IN THE PLAYER MAKES THE TEST EASIER. YOU ROLL TWO DICES AND TAKE THE LARGER ONE.")
             if not isinstance(player, PlayerKani):
                 _ = input(f"THE TEST DIFFICULTY: {final_difficulty}: PRESS ANY KEY TO ROLL TWO DICES.")
             result1, result2 = random.randint(1, 6), random.randint(1, 6)
