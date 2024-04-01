@@ -1,8 +1,8 @@
 ONE_MINIUTE = 60
 ONE_HOUR = 60 * ONE_MINIUTE
 PER_PLAYER_TIME = 10
-GAME_TIME_LIMIT = 5 * ONE_MINIUTE  # Originally, the total time limit is 13 hours.
-SYSTEM_TIME_LIMIT = GAME_TIME_LIMIT + 30  # This is a time limit for when the game cannot be stopped due to the technical problem.
+GAME_TIME_LIMIT = 20 * ONE_MINIUTE  # Originally, the total time limit is 13 hours.
+SYSTEM_TIME_LIMIT = GAME_TIME_LIMIT + 2 * ONE_MINIUTE  # This is a time limit for when the game cannot be stopped due to the technical problem.
 
 SEP = '||'
 
@@ -200,6 +200,16 @@ SUMMARIZE_PROMPT = [
     "You are a dialogue summarizer in a fantasy text-based adventure game.",
     "You will be given the chat history between the users (players) and an assistant (game manager).",
     "You should generate the summarization of the given conversation to include the essential information."
+]
+
+STATE_DETECT_PROMPT = [
+    "You are a state change detecter in a fantasy text-based adventure game.",
+    "You will be given the current state of the game scene or a player.",
+    "Also you will be given one interaction between the players and the game manager, which is called Goblin King, during the game.",
+    "You should determine whether the given state has been updated based on the given interaction.",
+    "The properties you have to focus on in the scene state include 'npcs', 'environment', 'random_tables' and 'random_tables'.",
+    "The properties you have to focus on in the player state include 'traits', 'flaws', and 'inventory'.",
+    "You must answer only in number."
 ]
 
 STATE_UPDATE_PROMPT = [

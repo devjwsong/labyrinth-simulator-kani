@@ -245,8 +245,9 @@ if __name__=='__main__':
     # Creating the engine.
     random.seed(args.seed)
     api_key = input("Enter the API key for OpenAI API: ")
+    os.environ['OPENAI_API_KEY'] = api_key
     log_break()
-    engine = OpenAIEngine(api_key, model=args.model_idx)
+    engine = OpenAIEngine(model=args.model_idx)
 
     # Initializing the game manager.
     print_system_log("LOADING THE SCENE...")

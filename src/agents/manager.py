@@ -3,11 +3,13 @@ from kani.models import ChatMessage, ChatRole, FunctionCall, ToolCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult, ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
+from kani.engines.openai import OpenAIEngine
 from kani.engines.base import BaseCompletion
 from agents.player import Player, PlayerKani
 from constants import (
     SEP,
     RULE_SUMMARY,
+    STATE_DETECT_PROMPT,
     STATE_UPDATE_PROMPT,
     VALIDATE_SUCCESS_PROMPT, 
     VALIDATE_FAILURE_PROMPT,
@@ -41,6 +43,7 @@ import random
 import numpy as np
 import torch
 import asyncio
+import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
@@ -661,6 +664,47 @@ class GameManager(Kani):
 
     # Updating the game state after every generation.
     async def update_states(self, current_queries: list[ChatMessage]):
+        system_prompt = ' '.join(STATE_DETECT_PROMPT)
+        rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
+        system_prompt = f"{system_prompt}\n\nGame Rules: {rule_content}"
+        
+        options = ["Yes", "No"]
+        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
+        kani = Kani(self.engine, chat_history=current_queries, system_prompt=system_prompt)
+        generation_params = {
+            'temperature': 0.2,
+            'top_p': 1,
+            'presence_penalty': 0,
+            'frequency_penalty': 0,
+        }
+        
+        update_detected = {
+            'scene': False,
+            'players': [False] * len(self.players)
+        }
+
+        # Scene state updated?
+        prev_scene = self.make_scene_prompt()
+        res = await kani.chat_round_str(
+            f"Should the scene state be updated based on the dialogue?\n\nPrevious Scene State:{prev_scene.content}\n\n{options_str}", 
+            **generation_params
+        )
+        res = convert_into_class_idx(res, options)
+        if res == 0:
+            update_detected['scene'] = True
+
+        # Player states updated?
+        for p, player in enumerate(self.players):
+            prev_player = self.make_player_prompt(player)
+            res = await kani.chat_round_str(
+                f"Should the player state be updated based on the dialogue?\n\nPrevious Player State:{prev_player.content}\n\n{options_str}", 
+                **generation_params
+            )
+            res = convert_into_class_idx(res, options)
+            if res == 0:
+                update_detected['players'][p] = True
+
+        # Updating the states.
         system_prompt = ' '.join(STATE_UPDATE_PROMPT)
         rule_content = '\n'.join([' '.join(part) for part in RULE_SUMMARY])
         system_prompt = f"{system_prompt}\n\nGame Rules: {rule_content}"
@@ -670,45 +714,44 @@ class GameManager(Kani):
             'temperature': 0,
             'top_p': 1,
             'presence_penalty': 0,
-            'frequency_penalty': 0,
+            'frequency_penalty': 0
         }
 
-        # Updating the scene.
-        prev_scene = self.make_scene_prompt()
-        scene_res = await kani.chat_round_str(
-            f"Generate the updated scene state from the previous scene state considering the given interaction.\n\nPrevious Scene State: {prev_scene.content}",
-            **generation_params
-        )
-
-        try:
-            new_scene_state = json.loads(scene_res)
-            self.npcs = new_scene_state['npcs']
-            self.environment = new_scene_state['environment']
-            self.random_tables = new_scene_state['random_tables']
-            self.is_action_scene = new_scene_state['is_action_scene']
-
-        except json.decoder.JSONDecodeError as e:
-            log.debug(scene_res)
-            log.error(f"{e}: The output format cannot be converted into dict.")
-            raise Exception()
-
-        # Updating the players.
-        for player in self.players:
-            prev_state = self.make_player_prompt(player)
-            player_res = await kani.chat_round_str(
-                f"Generate the updated player state from the previous player state considering the given interaction.\n\nPrevious Player State: {prev_state.content}",
+        if update_detected['scene']:
+            scene_res = await kani.chat_round_str(
+                f"Generate the updated scene state from the previous scene state considering the given interaction.\n\nPrevious Scene State: {prev_scene.content}",
                 **generation_params
             )
 
             try:
-                new_player_state = json.loads(player_res)
-                player.traits = new_player_state['traits']
-                player.flaws = new_player_state['flaws']
-                player.inventory = new_player_state['inventory']
+                new_scene_state = json.loads(scene_res)
+                self.npcs = new_scene_state['npcs']
+                self.environment = new_scene_state['environment']
+                self.random_tables = new_scene_state['random_tables']
+                self.is_action_scene = new_scene_state['is_action_scene']
+
             except json.decoder.JSONDecodeError as e:
                 log.debug(scene_res)
                 log.error(f"{e}: The output format cannot be converted into dict.")
                 raise Exception()
+
+        for p, player in enumerate(self.players):
+            if update_detected['players'][p]:
+                prev_state = self.make_player_prompt(player)
+                player_res = await kani.chat_round_str(
+                    f"Generate the updated player state from the previous player state considering the given interaction.\n\nPrevious Player State: {prev_state.content}",
+                    **generation_params
+                )
+
+                try:
+                    new_player_state = json.loads(player_res)
+                    player.traits = new_player_state['traits']
+                    player.flaws = new_player_state['flaws']
+                    player.inventory = new_player_state['inventory']
+                except json.decoder.JSONDecodeError as e:
+                    log.debug(player_res)
+                    log.error(f"{e}: The output format cannot be converted into dict.")
+                    raise Exception()
 
         await kani.engine.close()         
 
