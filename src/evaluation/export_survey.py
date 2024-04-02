@@ -95,6 +95,9 @@ def generate_survey(data: list[dict]):
             cur += 1
             survey.append(f"{cur}")
         survey.append("")
+        survey.append("[[Question:TE]]")
+        survey.append("Give us a comment that explains why you gave that score.")
+        survey.append("")
 
         # 2. Resposne reliability.
         survey.append("[[Question:MC:SingleAnswer:Horizontal]]")
@@ -115,6 +118,9 @@ def generate_survey(data: list[dict]):
             cur += 1
             survey.append(f"{cur}")
         survey.append("")
+        survey.append("[[Question:TE]]")
+        survey.append("Give us a comment that explains why you gave that score.")
+        survey.append("")
 
         # 3. Resposne interestingness.
         survey.append("[[Question:MC:SingleAnswer:Horizontal]]")
@@ -134,6 +140,9 @@ def generate_survey(data: list[dict]):
         for i in range(4):
             cur += 1
             survey.append(f"{cur}")
+        survey.append("")
+        survey.append("[[Question:TE]]")
+        survey.append("Give us a comment that explains why you gave that score.")
         survey.append("")
 
         # Next page for next target.
