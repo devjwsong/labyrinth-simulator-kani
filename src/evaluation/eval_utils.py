@@ -142,7 +142,7 @@ def convert_scene_to_html(scene_state: dict):
 
     random_table_blocks = []
     for name, entries in random_tables.items():
-        random_table_blocks.append(f"[{name}] {get_table(entries)}")
+        random_table_blocks.append(f"[{name}]<br>{get_table(entries)}")
     res.append(f"<strong><u>Random Tables</u><strong>: <br>{'<br>'.join(random_table_blocks)}")
 
     res.append(f"<strong><u>Consequences</u><strong>: {consequences}")
