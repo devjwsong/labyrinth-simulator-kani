@@ -1,5 +1,6 @@
 from inputimeout import inputimeout
 from typing import Any, List
+from kani.models import ChatMessage, ChatRole
 from eval_constants import RULE_SUMMARY
 
 import logging
@@ -23,6 +24,13 @@ def print_system_log(msg: str, after_break: bool=False):
     print(f"[SYSTEM] {msg}")
     if after_break:
         log_break()
+
+
+def print_manager_log(msg: str, after_break: bool=False):
+    print(f"[GAME MANAGER] Goblin King: {msg}")
+    if after_break:
+        log_break()
+
 
 def get_player_input(name: str=None, per_player_time: int=None, after_break: bool=False):
     if name is None:
@@ -99,6 +107,30 @@ def convert_into_natural(message: dict):
             name = f"[SYSTEM] {name}:"
     
     return f"{name} {content}"
+
+
+# Converting a dictionary into ChatMessage.
+def convert_into_message(obj: dict):
+    if obj['role'] == 'user':
+        return ChatMessage.user(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'assistant':
+        return ChatMessage.assistant(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'function':
+        return ChatMessage.function(name=obj['name'], content=obj['content'])
+    if obj['role'] == 'system':
+        return ChatMessage.system(name=obj['name'], content=obj['content'])
+
+
+# Converting ChatMessage into a dictionary.
+def convert_into_dict(message: ChatMessage):
+    res = {
+        'role': message.role.value,
+        'name': message.name,
+        'content': message.content,
+    }
+    if message.role == ChatRole.ASSISTANT:
+        res['function_call'] = True if message.tool_calls else False
+    return res
 
 
 # Converting the scene state into a natural HTML form.

@@ -105,19 +105,36 @@ Note that these are only used for the actual interaction during the game. Other 
 | `--max_tokens`        | `int`   | The maximum number of tokens to generate.                    | -       |
 | `--frequency_penalty` | `float` | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`   |
 | `--presence_penalty`  | `float` | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`   |
-| `--temperature`       | `float` | A higher value makes the output more random. (0.0 - 2.0)     | `1.0`   |
-| `--top_p`             | `float` | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `0.8`   |
+| `--temperature`       | `float` | A higher value makes the output more random. (0.0 - 2.0)     | `0.5`   |
+| `--top_p`             | `float` | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `1.0`   |
 
 <br/>
 
-**Arguments for the human evaluation**
+**Arguments for the unit tests**
 
-These are for using the main evaluation of the gameplay record, which is done by a human evaluator.
+These are the arguments which are used for the unit tests, which validate the correctness of the state updates during the game using the hand-crafted unit tests. (The unit test file is needed!) Most of the arguments are the same as those for the gameplay.
 
-| Argument       | Type  | Description                                                  | Default                |
-| -------------- | ----- | ------------------------------------------------------------ | ---------------------- |
-| `--game_file`  | `str` | The path of the gameplay record file to evaluate.            | *YOU SHOULD SPECIFY.*  |
-| `--eval_focus` | `str` | The evaluation focus. The available options include: 1) `response`: The human evaluator evaluates the response quality of the game manager, except for the function result. 2) `function`: The human evaluator evaluates how well each function works. | *YOU SHOULD SPECIFCY.* |
+| Argument                  | Type           | Description                                                  | Default               |
+| ------------------------- | -------------- | ------------------------------------------------------------ | --------------------- |
+| `--model_idx`             | `str`          | The index of the model. Since only `openai` engine is supported for leveraging the function calling feature, the model should be the one from OpenAI API. Check kani's doc (https://kani.readthedocs.io/en/latest/engine_reference.html#)[https://kani.readthedocs.io/en/latest/engine_reference.html#] to see the available models for this argument. | *YOU SHOULD SPECIFY.* |
+| `--rule_injection`        | `str`          | The rule injection policy. The available options include: 1) `full` - The summarized game rules are always included in the system prompt. The summarization is stored in `src/constants.py`. 2)`retrieval` - The system fetches the relevant rule segments every time the model generates a response. | `full`                |
+| `--tests_path`            | `str`          | The path of the JSON file which has the unit tests.          | *YOU SHOULD SPECIFY.* |
+| `--result_dir`            | `str`          | The parent directory of the exported result.                 | `unit_test_results`   |
+| `--concat_policy`         | `str`          | The concatenation policy for including the previous chat logs. The available options include: 1) `simple` - The manager simply concatenates the most recent turns. 2) `retrieval` - The manager retrieves the most relevant utterances from the history using sentence embedding and cosine similarity. Note that the current user inputs are always included. | `simple`              |
+| `--max_num_msgs`          | `int`          | The maximum number of messages to be included in the prompt as chat history. If it is not specified, the model includes as many messages as possible. Note that without this argument, the retrieval method for concatenation will work identically to the simple concatenation. | -                     |
+| `--summarization`         | `'store_true'` | Setting whether to include the summarization or not. The system will summarize the chat logs when a certain number of turns has reached(`--summ_period`), and add the output to the chat history. The summarized logs are also considered as the chat logs and fetched according to `--concat_policy` and `--max_turns`. | -                     |
+| `--summ_period`           | `int`          | The summarization period in terms of the number of turns. If a value $p$ is set for this argument, the system will summarize the last $p$ turns when the number of logs becomes a multiple of $p$. Note that if this is not specified but only `--summarization` is set, the system will ignore `--concat_policy` and `--max_turns` and summarize as many logs as possible to make a prompt only with the summarization and current queries. (This is definitely different from setting `--summ_period=1`!) | -                     |
+| `--clear_raw_logs`        | `store_true`   | Setting whether to remove the raw chat logs after the summarization. That is, except for the turns which have not been summarized yet, the rest of the logs included are all summarized logs. | -                     |
+| `--include_functions`     | `store_true`   | Setting whether to use function calls or not.                | *Set by default*      |
+| `--include_rules`         | `store_true`   | Setting whether to include the game rules in the prompt.     | *Set by default*      |
+| `--include_scene_state`   | `store_true`   | Setting whether to include the state of the current scene.   | *Set by default*      |
+| `--include_players_state` | `store_true`   | Setting whether to include the states of the players.        | *Set by default*      |
+| `--generate_states`       | `store_true`   | Setting whether to use a model to directly generate the scene/player states. | -                     |
+| `--max_tokens`            | `int`          | The maximum number of tokens to generate.                    | -                     |
+| `--frequency_penalty`     | `float`        | A positive value penalizes the repetitive new tokens. (-2.0 - 2.0) | `0.5`                 |
+| `--presence_penalty`      | `float`        | A positive value penalizes the new tokens based on whether they appear in the text so far. (-2.0 - 2.0) | `0.5`                 |
+| `--temperature`           | `float`        | A higher value makes the output more random. (0.0 - 2.0)     | `0.5`                 |
+| `--top_p`                 | `float`        | The probability mass which will be considered for the nucleus sampling. (0.0 - 1.0) | `1.0`                 |
 
 <br/>
 
@@ -181,6 +198,14 @@ These are for using the separate evaluation script to test each individual model
    ```shell
    sh exec_main.sh
    ```
+
+<br/>
+
+For running the unit tests, run the command below after modifying the arguments in `exec_unit_tests.sh` after preparing for the unit test file.
+
+```shell
+sh exec_unit_tests.sh
+```
 
 <br/>
 

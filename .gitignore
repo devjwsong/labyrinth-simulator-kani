@@ -166,6 +166,6 @@ playground*
 scenes/
 players/
 results/
-evaluated*/
+unit_test_results/
 data/
 surveys/
