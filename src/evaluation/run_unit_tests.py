@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, "/home/devjwsong/labyrinth-simulator-kani/src")
 
 from kani.engines.openai import OpenAIEngine
-from kani.utils.message_formatters import assistant_message_contents_thinking
+from kani.exceptions import NoSuchFunction
 from argparse import Namespace
 from datetime import datetime
 from copy import deepcopy
@@ -158,24 +158,35 @@ async def test(args: Namespace, engine: OpenAIEngine, unit_test: dict):
 
     # Let the states updated.
     gen_count = 0
-    async for response in manager.full_round(
-        [convert_into_message(message) for message in dialogue],
-        max_tokens=args.max_tokens,
-        include_functions=args.include_functions,
-        include_rules=args.include_rules,
-        include_scene_state=args.include_scene_state,
-        include_player_states=args.include_player_states,
-        generate_states=args.generate_states,
-        frequency_penalty=args.frequency_penalty,
-        presence_penalty=args.presence_penalty,
-        temperature=args.temperature,
-        top_p=args.top_p
-    ):        
-        print(convert_into_natural(convert_into_dict(response)))
+    try:
+        async for response in manager.full_round(
+            [convert_into_message(message) for message in dialogue],
+            max_tokens=args.max_tokens,
+            include_functions=args.include_functions,
+            include_rules=args.include_rules,
+            include_scene_state=args.include_scene_state,
+            include_player_states=args.include_player_states,
+            generate_states=args.generate_states,
+            frequency_penalty=args.frequency_penalty,
+            presence_penalty=args.presence_penalty,
+            temperature=args.temperature,
+            top_p=args.top_p
+        ):        
+            print(convert_into_natural(convert_into_dict(response)))
 
-        gen_count += 1
-        if gen_count == 10:
-            break
+            gen_count += 1
+            if gen_count == 10:
+                break
+    except:
+        updated_dialogue = deepcopy(manager.current_queries)
+        return {
+            'score': 0,
+            'input': unit_test['input'],
+            'output': unit_test['output'],
+            'predicted': None,
+            'dialogue': [convert_into_dict(message) for message in updated_dialogue],
+            'updated': updated
+        }
     
     updated_dialogue = deepcopy(manager.current_queries)
     pred_states = manager.make_context()
