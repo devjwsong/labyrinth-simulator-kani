@@ -11,7 +11,9 @@ The game system is chat-based via the terminal, where the players interact with 
 
 The users can have an experience on their terminal that is almost identical to actual gameplay. Note that however, this is a research-purpose project so it cannot replace the complete in-person user experience.
 
-For the details on the game rules of Labyrinth, you can refer to [the game book](https://www.riverhorsegames.com/products/rh_lab_005). Although this repository includes the player character data, the summarized game rules, and the metadata of each game scene, it does not cover all details and contents of the tutorial book.
+For the details on the game rules of Labyrinth, you can refer to [the game book](https://www.riverhorsegames.com/products/rh_lab_005). 
+
+*Although this repo has the manually summarized game rules, it does not have any character or scene data. (This cannot be shared due to copyright.) However, we generated a few sample scenes and players for research purposes by manually parsing the game book. If you want to start with the initialized scenes and player characters, contact the author.*
 
 <br/>
 
@@ -38,24 +40,6 @@ There are a few technical details of the system, which can help you understand h
 ---
 
 ### Arguments
-
-**Arguments for the scene initialization**
-
-| Argument      | Type  | Description                                                  | Default               |
-| ------------- | ----- | ------------------------------------------------------------ | --------------------- |
-| `--seed`      | `int` | The random seed.                                             | *YOU SHOULD SPECIFY.* |
-| `--model_idx` | `str` | The index of the model.                                      | *YOU SHOULD SPECIFY.* |
-| `--scene_idx` | `int` | The index of the scene to play. Note that you should specify the correct index of the scene list, which is stored in`data/scenes.json`. | *YOU SHOULD SPECIFY.* |
-
-<br/>
-
-**Arguments for the player creation**
-
-| Argument        | Type  | Description                                | Default |
-| --------------- | ----- | ------------------------------------------ | ------- |
-| `--num_players` | `int` | The number of player characters to create. | `1`     |
-
-<br/>
 
 **Arguments for the gameplay**
 
@@ -165,35 +149,15 @@ These are for using the separate evaluation script to test each individual model
 
    <br/>
 
-2. First, you should initialize the scene you want to play. Set the arguments in `exec_init_scene.sh` to run the initialization.
+2. Prepare the scene and player character files which have been created beforehand.
+
+   - Again, this repository does not provide any game manual book data! If you want to run a game, contact the author so that we can discuss how we can share the pre-generated scenes and player characters.
+
+3. Then modify the arguments in `exec_main.sh` to run a game scene with your preferences. Make sure to set `--scene_path` with your initialized scene generated in the previous step.
 
    <br/>
 
-3. Run `exec_init_scene.sh`. After initialization, the scene will be stored at: `scenes/scene={SCENE_IDX}/model={MODEL_IDX}/{USERNAME}-time={EXECUTION_TIME}.json`.
-
-   ```shell
-   sh exec_init_scene.sh
-   ```
-
-   <br/>
-
-4. Second, you should create the player characters which can work as human players or AI teammates. Set the arguments in `exec_create_players.sh` to run the creation.
-
-   <br/>
-
-5. Run `exec_create_players.sh`. After initialization, the player characters will be stored at: `players/num_players={NUM_PLAYERS}/{USERNAME}-time={EXECUTION_TIME}.json`.
-
-   ```shell
-   sh exec_create_players.sh
-   ```
-
-   <br/>
-
-6. Then modify the arguments in `exec_main.sh` to run a game scene with your preferences. Make sure to set `--scene_path` with your initialized scene generated in the previous step.
-
-   <br/>
-
-7. Enjoy the game! After finishing the scene or terminated by any reason, the gameplay log will be stored at: `{RESULT_DIR}/model={MODEL_IDX}/scene={SCENE_IDX}/{USERNAME}-seed={SEED}-time={EXECUTION_TIME}.json`.
+4. Enjoy the game! After finishing the scene or terminated by any reason, the gameplay log will be stored at: `{RESULT_DIR}/model={MODEL_IDX}/scene={SCENE_IDX}/{USERNAME}-seed={SEED}-time={EXECUTION_TIME}.json`.
 
    ```shell
    sh exec_main.sh
