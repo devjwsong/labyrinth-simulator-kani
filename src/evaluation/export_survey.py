@@ -1,19 +1,25 @@
-from eval_constants import (
+import os
+import sys
+
+cur_dir = os.path.dirname(__file__)
+src_path = os.path.abspath(os.path.join(cur_dir, '..'))
+sys.path.insert(0, src_path)
+
+from constants import (
     CONSISTENCY_RUBRIC,
     INTERESTINGNESS_RUBRIC,
     RELIABILITY_RUBRIC,
     TASK_INTRODUCTION,
 )
-from eval_utils import (
+from utils import (
     convert_into_natural,
     convert_scene_to_html,
     convert_player_to_html,
-    clean_history
+    clean_logs
 )
 
 import argparse
 import json
-import os
 
 
 # Generating .txt file to import the Qualtrics survey.
@@ -41,7 +47,7 @@ def generate_survey(data: list[dict]):
         past_history, current_queries, generated = obj['past_history'], obj['current_queries'], obj['generated']
         
         # Combining the current queries into the past chat history.
-        chat_history = past_history + clean_history(current_queries)
+        chat_history = past_history + clean_logs(current_queries)
 
         # Converting the components.
         scene_state = convert_scene_to_html(initial_scene_state)

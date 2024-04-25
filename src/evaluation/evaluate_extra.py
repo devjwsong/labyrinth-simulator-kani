@@ -1,8 +1,15 @@
+import os
+import sys
+
+cur_dir = os.path.dirname(__file__)
+src_path = os.path.abspath(os.path.join(cur_dir, '..'))
+sys.path.insert(0, src_path)
+
 from kani import Kani
 from kani.engines.openai import OpenAIEngine
 from agents.manager import GameManager
 from agents.evaluator import Evaluator
-from utils import convert_into_class_idx, print_question_start, print_system_log, convert_into_message
+from utils import convert_into_class_idx, print_question_start, print_system_log
 from constants import ASSISTANT_INSTRUCTION
 from utils import log_break, get_player_input
 from sentence_transformers import SentenceTransformer
@@ -17,10 +24,10 @@ import logging
 import torch
 import numpy as np
 import random
-import os
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")
+
 
 SCENE_INIT_EVALUATOR_INSTRUCTION = [
     "You are an evaluator in the text-based adventure game, Jim Henson's Labyrinth.",

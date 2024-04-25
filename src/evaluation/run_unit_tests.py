@@ -1,19 +1,21 @@
+import os
 import sys
-sys.path.insert(0, "/home/devjwsong/labyrinth-simulator-kani/src")
+
+cur_dir = os.path.dirname(__file__)
+src_path = os.path.abspath(os.path.join(cur_dir, '..'))
+sys.path.insert(0, src_path)
 
 from kani.engines.openai import OpenAIEngine
-from kani.exceptions import NoSuchFunction
 from argparse import Namespace
 from datetime import datetime
 from copy import deepcopy
 from pytz import timezone
-from eval_utils import print_system_log, print_manager_log, log_break, convert_into_message, convert_into_dict, convert_into_natural
-from eval_constants import ASSISTANT_INSTRUCTION
+from utils import print_system_log, log_break, convert_into_message, convert_into_dict, convert_into_natural
+from constants import ASSISTANT_INSTRUCTION
 from agents.manager import GameManager
 from agents.player import Player
 
 import argparse
-import os
 import json
 import asyncio
 import torch
