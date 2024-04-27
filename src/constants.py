@@ -32,6 +32,19 @@ USER_INSTRUCTION = [
     "Your output should not be more than 2 sentences, so make sure to be as simple as possible."
 ]
 
+EVALUATOR_INSTRUCTION = [
+    "You are a participant in the evaluation task of the text game script.",
+    "You are going to inspect the interaction between the players and the Goblin King, who works as the game manager, to score the quality of each target response from the game manager.",
+    "You will be given the initial state of a game scene, the initial states of the players, the chat history so far, and the target response that should be evaluated.",
+    "You will also have the summarized rule of this game.",
+    "You must carefully understand the context of the current game progress and answer the following questions.",
+    "The scene/player states are the initial states, not the up-to-date states according to the game progress.",
+    "Therefore, you should keep track of the changes in the scene/player states which might have happened during the game, but are not included in the states explicitly.",
+    "The game manager might not explicitly state whether the game state has been updated, but you should assume that it has actually updated.",
+    "Also, you do not have to think about the time limit since it has not been implemented.",
+    "You must be as strict and harsh as possible and focus on the specifictions when evaluating."
+]
+
 RULE_SUMMARY = [
     [
         "Player characters: Each player has their own character.",
@@ -304,7 +317,7 @@ CONSISTENCY_RUBRIC = {
         ]
     },
     'notes': [
-        "If the model output assumes or fakes up any non-existing components, ignore it for this question. This will be penalized in the reliability check question."
+        "Any assumption of non-existing components or violation of the rule is allowed for this metric. This will be penalized later."
     ],
     'examples': [
         "1=The model does not follow the progress at all",
@@ -320,17 +333,21 @@ RELIABILITY_RUBRIC = {
     'specifications': {
         "The game manager fully understands the game and performs its task as a manager correctly.": [
             "The model keeps the general game rules in Labyrinth.",
-            "The model understands the scene-specific rules, instructions, and specifications of the current scene and guides the players to proceed with the game as intended."
+            "The model understands the scene-specific rules, instructions, and specifications of the current scene and guides the players well."
         ],
         "When a player tries to do something invalid, the game manager rejects it robustly.": [
-            "The model rejects it when the player attempts to do something which cannot be performed by a player character or which is not the player's task.",
+            "The model rejects it when the player does something that cannot be performed by a player or which is not the player's task, such as describing the scene or playing as an NPC.",
             "The model rejects it when the player tries to use a trait, flaw, or item which does not exist in the player.",
             "The model rejects it when the player tries to leverage or get access to non-existing objects, NPCs, or random tables."
         ],
-        "Any unexpected behavior which might hurt the players' gameplay experience or make the game flow far from intended should be penalized.": []
+        "The game manager does not let the game state fall into a bad state.": [
+            "The model notifies the outcome of the player's dice roll or action as fast as possible so that an undesired loop can be terminated.",
+            "The model fixes the completely irrelevant situation into the original game scene to make the game flow as intended."
+        ]
     },
     'notes': [
-        "Note that this metric does not evaluate the quality of the response. Even if the response looks perfect, it can contain an invalid content or the model might just let the player do an unallowed trial."
+        "Even if the response looks perfect, the response should be penalized if it lets any invalid content or unallowed trial.",
+        "The response should be severely penalized if it falls into any repetition or undesired loop."
     ],
     'examples': [
         "1=The model blatantly ignores the rules or is completely generous with the players' invalid moves, which makes the game go into a bad state",
@@ -347,7 +364,9 @@ INTERESTINGNESS_RUBRIC = {
         "The response describes the scene funny, entertaining and specific.": [],
         "The response makes the user engaged and immersed in the game.": []
     },
-    'notes': [],
+    'notes': [
+        "This is irrelevant to the consistency or rule compliance, so just focus on the interest of the response."
+    ],
     'examples': [
         "1=The response is too bland, simple, or half-hearted",
         "3=The response is not highly entertaining, but at least it is not boring",
