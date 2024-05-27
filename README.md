@@ -17,8 +17,6 @@ For the details on the game rules of Labyrinth, you can refer to [the game book]
 
 <br/>
 
-This project was carried out while working as a Research Assistant at University of Pennsylvania, under the supervision of Prof. Chris Callison-Burch.
-
 Any feedback or opinion is welcomed. Enjoy the game!
 
 <br/>
