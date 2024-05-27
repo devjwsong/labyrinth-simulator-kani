@@ -169,3 +169,5 @@ results/
 unit_test_results/
 data/
 surveys/
+evaluated_by*/
+evaluations/
