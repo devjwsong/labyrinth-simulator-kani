@@ -81,20 +81,6 @@ def select_random_options(options: List[Any]):
     selected = random.choice(idxs)
     return selected
 
-
-# Removing unnecessary punctuations from the object name.
-def remove_punctuation(word: str):
-    puncs = list(string.punctuation)
-    cut_idx = len(word)
-    for i in range(len(word)-1, -1, -1):
-        if word[i] in puncs:
-            cut_idx = i
-        else:
-            break
-    word = word[:cut_idx]
-    return word
-
-
 # Removing function-related messages in the messages.
 def clean_history(messages: list[ChatMessage]) -> list[ChatMessage]:
     chat_messages = []

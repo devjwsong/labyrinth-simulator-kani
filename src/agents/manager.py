@@ -1,10 +1,8 @@
-from ast import arguments
 from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole, FunctionCall, ToolCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
 from kani.internal import FunctionCallResult, ExceptionHandleResult
 from kani.utils.message_formatters import assistant_message_contents
-from kani.engines.openai import OpenAIEngine
 from kani.engines.base import BaseCompletion
 from agents.player import Player, PlayerKani
 from constants import (
@@ -16,16 +14,12 @@ from constants import (
     VALIDATE_FAILURE_PROMPT,
     DIFFICULTY_PROMPT,
     CREATE_NPC_PROMPT,
-    OBTAINABLE_CHECK_PROMPT,
     TABLE_PROCESSING_PROMPT,
     EXPENDABLE_CHECK_PROMPT, 
     SUMMARIZE_PROMPT
 )
 from utils import (
     print_system_log, 
-    remove_punctuation, 
-    select_options, 
-    select_random_options, 
     clean_history,
     convert_into_dict,
     convert_into_natural, 
@@ -44,7 +38,6 @@ import random
 import numpy as np
 import torch
 import asyncio
-import time
 
 log = logging.getLogger("kani")
 message_log = logging.getLogger("kani.messages")

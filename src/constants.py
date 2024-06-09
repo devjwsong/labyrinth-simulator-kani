@@ -274,13 +274,6 @@ EXPENDABLE_CHECK_PROMPT = [
     "You must answer only in number."
 ]
 
-OBTAINABLE_CHECK_PROMPT = [
-    "You are a binary classifier in a fantasy text-based adventure game.",
-    "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
-    "You should determine whether an object is obtainable so that a player character can have it in the inventory.",
-    "You must answer only in number."
-]
-
 TABLE_PROCESSING_PROMPT = [
     "You are a multi-task assistant in a fantasy text-based adventure game.",
     "You will be given the current state of the scene which includes the overall description of it, existing NPCs and environmental objects, etc.",
