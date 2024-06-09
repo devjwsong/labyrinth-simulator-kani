@@ -1,3 +1,4 @@
+from ast import arguments
 from kani import Kani, ai_function, AIParam
 from kani.models import ChatMessage, ChatRole, FunctionCall, ToolCall
 from kani.exceptions import FunctionCallException, MessageTooLong, NoSuchFunction, WrappedCallException
@@ -463,11 +464,7 @@ class GameManager(Kani):
         else:
             completion = await self.engine.predict(messages=messages, **kwargs)
 
-        # cache its length (if the completion isn't saved to state, this weakrefs and gc's later)
-        message = completion.message
-        self._message_tokens[message] = completion.completion_tokens or self.message_token_len(message)
-        # and log it too
-        message_log.debug(f"<<< {message}")
+        message_log.debug(f"<<< {completion.message}")
         return completion, messages
 
     # Overriding full_round.
@@ -765,13 +762,24 @@ class GameManager(Kani):
         """
         Activate a test if a player is trying to do something challenging with a certain difficulty. 
         Determine the original difficulty of the task first and then set the final difficulty after reducing it depending on the teamwork from other players. 
-        If the samples returned from `use_random_table` function are related to a dice roll testing, call this function after sampling.
         """
         arguments = {'player_name': player_name, 'initial_difficulty': initial_difficulty, 'final_difficulty': final_difficulty}
 
         # Wrong argument: player_name does not exist.
         if player_name not in self.name_to_idx:
             msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
+        # Wrong argument: initial_difficulty or final_difficulty is not in the range between 2 and 6.
+        if initial_difficulty < 2 or initial_difficulty > 6 or final_difficulty < 2 or final_difficulty > 6:
+            msg = f"THE DIFFICULTY VALUE SHOULD BE BETWEEN 2 AND 6."
+            print_system_log(msg, after_break=True)
+            return msg, arguments, None
+
+        # Wrong argument: final_difficulty should be equal to or less than initial_difficulty.
+        if final_difficulty > initial_difficulty:
+            msg = f"THE FINAL DIFFICULTY SHOULD NOT BE LARGER THAN INITIAL DIFFICULTY."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
@@ -833,7 +841,6 @@ class GameManager(Kani):
     def activate_action_scene(self):
         """
         Activate an action scene if this is a circumstance that players should take action within a tight time limit. 
-        If the samples returned from `use_random_table` function are related to starting a new action scene, call this function after sampling. 
         Do not call this function if action_scene is set to True already.
         """
         arguments, intermediate_res = None, None
@@ -848,7 +855,6 @@ class GameManager(Kani):
     def terminate_action_scene(self):
         """
         Terminate the current ongoing action scene if the urgent circumstance has been finished. 
-        If the samples returned from `use_random_table` function are related to ending an ongoing action scene, call this function after sampling. 
         Do not call this function if action_scene is set to False already.
         """
         arguments, intermediate_res = None, None
@@ -867,7 +873,6 @@ class GameManager(Kani):
         """
         Create an NPC if the player party encounters or requests to interact with an NPC which has not been initialized in the scene yet. 
         If there is a description of the NPC which should be included, pass it as a function parameter too. 
-        If the samples returned from `use_random_table` function are related to setting a new NPC into the scene, call this function after sampling. 
         Do not call this function if the NPC already exists in the scene.
         """ 
         arguments = {'npc_name': npc_name, 'npc_desc': npc_desc}
@@ -929,9 +934,6 @@ class GameManager(Kani):
     ):
         """
         Add a new trait as a player property if any circumstance necessitates it. 
-        Pass the description of the trait as a parameter too if it exists. 
-        If it does not exist, generate a brief description in one or two sentences. 
-        If the samples returned from `use_random_table` function are related to adding a new trait to a player, call this function after sampling.
         Do not call this function if the trait already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name, 'trait_desc': trait_desc}
@@ -967,9 +969,6 @@ class GameManager(Kani):
     ):
         """
         Add a new flaw as a player property if any circumstance necessitates it. 
-        Pass the description of the flaw as a parameter too if it exists. 
-        If it does not exist, generate a brief description in one or two sentences. 
-        If the samples returned from `use_random_table` function are related to adding a new flaw to a player, call this function after sampling.
         Do not call this function if the flaw already exists in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name, 'flaw_desc': flaw_desc}
@@ -1005,9 +1004,6 @@ class GameManager(Kani):
     ):
         """
         Add a new item to a player inventory if any circumstance necessitates it. 
-        Pass the description of the item as a parameter too if it exists. 
-        If it does not exist, generate a brief description in one or two sentences. 
-        If the samples returned from `use_random_table` function are related to adding a new item to a player, call this function after sampling.
         Do not call this function if the item already exists in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name, 'item_desc': item_desc}
@@ -1026,56 +1022,13 @@ class GameManager(Kani):
             print_system_log(msg, after_break=True)
             return msg, arguments, None
 
-        obtain_msg = self.put_item(player, item_name, item_desc)
+        player.add_item(item_name, item_desc)
 
-        intermediate_res = {}
-
-        if item_name in player.inventory:
-            intermediate_res[f"The item '{item_name}' added"] = True
-        else:
-            intermediate_res[f"The item '{item_name}' added"] = False
-        msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
+        msg = f"THE ITEM {item_name} HAS BEEN ADDED TO THE PLAYER {player_name}. THE NUMBER OF ITEMS IN THE INVENTORY IS {len(player.inventory)}."
+        updated_res = '\n'.join(player.get_inventory(with_number=True))
+        print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
         print_system_log(msg, after_break=True)
-
-        return msg, arguments, intermediate_res
-
-    # Logic for putting an item into the player's inventory. (Not an AI function!)
-    def put_item(self, player: Player, item_name: str, item_desc: str):
-        # A sub logic that adds the item.
-        def sub_logic(player, item_name, item_desc):
-            player.add_item(item_name, item_desc)
-            msg = f"THE ITEM {item_name} HAS BEEN ADDED TO THE INVENTORY OF THE PLAYER {player.name}."
-            updated_res = '\n'.join(player.get_inventory(with_number=True))
-            print_system_log(f"PLAYER INVENTORY UPDATED:\n{updated_res}", after_break=True)
-            return msg
-
-        if len(player.inventory) >= 6:  # The player inventory is already full.
-            print_system_log("YOUR INVENTORY IS ALREADY FULL. CHOOSE ONE ITEM TO DISCARD FROM THE INVENTORY OR DECIDE NOT TO TAKE THE CURRENT ITEM.")
-            options = [
-                "Discarding one item from the inventory.",
-                "Not taking the found item."
-            ]
-            selected = select_random_options(options) if isinstance(player, PlayerKani) else select_options(options)
-            if selected == 0:  # Discarding any item from the inventory.
-                print_system_log("WHICH ITEM ARE YOU GOING TO DISCARD?")
-                selected = select_random_options(player.get_inventory()) if isinstance(player, PlayerKani) else select_options(player.get_inventory())
-                removal_target = list(player.inventory.keys())[selected]
-                remove_msg = self.remove_item(player.name, removal_target)
-
-                msg = sub_logic(player, item_name, item_desc)
-                msg = f"{remove_msg}\n{msg}"
-
-                return msg
-            
-            # Not taking the found item.
-            msg = f"THE PLAYER {player.name} DECIDED NOT TO TAKE THE ITEM {item_name}."
-
-            return msg
-
-        # Taking the item since there is still a room in the inventory.
-        msg = sub_logic(player, item_name, item_desc)
-
-        return msg
+        return msg, arguments, None
 
     # Kani's function call for removing a trait from the player.
     @ai_function
@@ -1085,7 +1038,6 @@ class GameManager(Kani):
     ):
         """
         Remove a trait from a player if any circumstance necessitates it. 
-        If the samples returned from `use_random_table` function are related to removing a trait from a player, call this function after sampling.
         Do not call this function if the trait does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'trait_name': trait_name}
@@ -1122,7 +1074,6 @@ class GameManager(Kani):
     ):
         """
         Remove a flaw from a player if any circumstance necessitates it. 
-        If the samples returned from `use_random_table` function are related to removing a flaw from a player, call this function after sampling.
         Do not call this function if the flaw does not exist in the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'flaw_name': flaw_name}
@@ -1159,7 +1110,6 @@ class GameManager(Kani):
     ):
         """
         Remove an item from a player's inventory if any circumstance necessitates it. 
-        If the samples returned from `use_random_table` function are related to removing an item from a player, call this function after sampling. 
         Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
@@ -1179,11 +1129,7 @@ class GameManager(Kani):
             return msg, arguments, None
 
         # Removing the item from the inventory.
-        desc = player.inventory[item_name]
         player.remove_item(item_name)
-
-        # Discarded item is placed in the environment.
-        self.environment[item_name] = desc
 
         msg = f"THE ITEM {item_name} HAS BEEN REMOVED FROM THE INVENTORY OF THE PLAYER {player_name}."
         updated_res = '\n'.join(player.get_inventory(with_number=True))
@@ -1200,7 +1146,6 @@ class GameManager(Kani):
     ):
         """
         Let the player use an item if the player wants to use it from the inventory. 
-        If the samples returned from `use_random_table` function are related to using an item by a player, call this function after sampling. 
         Do not call this function if the item does not exist in the inventory of the player who triggered this function.
         """
         arguments = {'player_name': player_name, 'item_name': item_name}
@@ -1240,14 +1185,11 @@ class GameManager(Kani):
 
         intermediate_res = {f"The item '{item_name}' expendable": True if res == 0 else False}
 
-        if res == 0:  # The item is expendable.
-            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. IT HAS BEEN REMOVED FROM THE INVENTORY SINCE IT IS AN EXPENDABLE ITEM."
-            print_system_log(msg, after_break=True)
-            player.remove_item(item_name)
-            return msg, arguments, intermediate_res
-
         # The item is permanent.
         msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}."
+        if res == 0: 
+            msg = f"THE PLAYER {player_name} USED THE ITEM {item_name}. SINCE THE ITEM IS AN EXPENDABLE ONE, IT IS NOT AVAILABLE ANYMORE."
+            player.inventory[item_name] += " (No longer available)"
         print_system_log(msg, after_break=True)
         return msg, arguments, intermediate_res
 
@@ -1259,9 +1201,6 @@ class GameManager(Kani):
     ):
         """
         Add a new object to the environment in the scene if any circumstance necessitates it. 
-        Pass the description of the object as a parameter too if it exists. 
-        If it does not exist, generate a brief description in one or two sentences. 
-        If the samples returned from `use_random_table` function are related to setting a new object to the environment, call this function after sampling. 
         Do not call this function if the object already exists in the environment.
         """
         arguments = {'object_name': object_name, 'object_desc': object_desc}
@@ -1278,89 +1217,29 @@ class GameManager(Kani):
         print_system_log(msg, after_break=True)
         return msg, arguments, None
 
-    # Kani's function call for getting access to an object in the environment.
+    # Kani's function call for removing an object into the environment.
     @ai_function
-    async def use_environment(self, 
-        player_name: Annotated[str, AIParam(desc="The name of the player charater who tries to reach out to an object in the environment.")], 
-        object_name: Annotated[str, AIParam(desc="The name of the object in the environment to be accessed.")]
+    def remove_object(self,
+        object_name: Annotated[str, AIParam(desc="The name of the object which should be removed from the environment.")]
     ):
         """
-        Let the player get access to an object or a location in the environment if the player tries to reach out to it anytime during the game. 
-        If the samples returned from `use_random_table` function are related to interacting with an existing object in the environment, call this function after sampling. 
-        Do not call this function if the object does not exist in the current environment.
+        Remove an object from the scene environment if any circumstance necessitates it.
+        Do not call this function if the object does not exist in the environment.
         """
 
-        arguments = {'player_name': player_name, 'object_name': object_name}
-
-        # Wrong argument: The player does not exist.
-        if player_name not in self.name_to_idx:
-            msg = f"THE PLAYER NAME {player_name} CANNOT BE FOUND."
-            print_system_log(msg, after_break=True)
-            return msg, arguments, None
-
-        player = self.players[self.name_to_idx[player_name]]
+        arguments = {'object_name': object_name}
 
         # Wrong activation/argument: The object does not exist.
         if object_name not in self.environment:
-            msg = f"THE OBJECT {object_name} CANNOT BE FOUND IN THE ENVIRONMENT."
+            msg = f"THE OBJECT {object_name} DOES NOT EXIST IN THE ENVIRONMENT."
             print_system_log(msg, after_break=True)
             return msg, arguments, None
-        
-        object_desc = self.environment[object_name]
 
-        # The default system prompt consists of the instruction to check if the object is obtainable.
-        system_prompt = ' '.join(OBTAINABLE_CHECK_PROMPT)
-        scene_prompt = self.make_scene_prompt()
-        system_prompt = f"{system_prompt}\n\nScene State: {scene_prompt.content}"
-        
-        options = ['Obtainable', 'Not obtainable']
-        options_str = '\n'.join([f"{o}: {option}" for o, option in enumerate(options)])
-        kani = Kani(self.engine, system_prompt=system_prompt)
-        generation_params = {
-            'temperature': 0.2,
-            'top_p': 1,
-            'presence_penalty': 0,
-            'frequency_penalty': 0,
-        }
+        self.environment.pop(object_name)
 
-        res = await kani.chat_round_str(f"Is this object obtainable which can be stored in the player inventory?\n\n{object_name}: {object_desc}\n\n{options_str}", **generation_params)
-        res = convert_into_class_idx(res, options)
-
-        intermediate_res = {
-            f"The object '{object_name}' obtainable": True if res == 0 else False,
-            f"The item '{object_name}' added": False
-        }
-
-        if res == 0:  # The item is obtainble.
-            # Removing unnecessary punctuations from the object name.
-            item_name = remove_punctuation(object_name)
-
-            print_system_log(f"{item_name}: {object_desc}")
-            print_system_log("ARE YOU GOING TO TAKE THIS ITEM?")
-            selected = select_random_options(['Yes', 'No']) if isinstance(player, PlayerKani) else select_options(['Yes', 'No'])
-
-            if selected == 0:
-                obtain_msg = self.put_item(player, item_name, object_desc)
-
-                # Checking if the player took the item to update the environment.
-                if item_name in player.inventory:
-                    self.environment.pop(object_name)
-
-                intermediate_res[f"The item '{object_name}' added"] = True
-                msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}.\n{obtain_msg}"
-                print_system_log(msg, after_break=True)
-
-                return msg, arguments, intermediate_res
-            
-            msg = f"THE PLAYER {player_name} FOUND THE ITEM {item_name}, BUT DECIDED NOT TO TAKE IT."
-            print_system_log(msg, after_break=True)
-
-            return msg, arguments, intermediate_res
-
-        msg = f"THE PLAYER {player_name} FOUND {object_name}. IT SEEMS NOT OBTAINABLE."
+        msg = f"THE OBJECT {object_name} HAS BEEN REMOVED FROM THE ENVIRONMENT IN THE CURRENT SCENE."
         print_system_log(msg, after_break=True)
-
-        return msg, arguments, intermediate_res
+        return msg, arguments, None
 
     # Kani's function call for getting access to the random table.
     @ai_function
@@ -1370,7 +1249,6 @@ class GameManager(Kani):
         """
         Sample some entries from a random table when it should be referred to anytime during the game. 
         Do not call this function if the name of the required table does not exist in the random table dictionary. 
-        Note that this function can be called flexibly when there should be a random encounter or the current scene should be updated with a new NPC or object during the game.
         """
 
         arguments = {'table_name': table_name}
